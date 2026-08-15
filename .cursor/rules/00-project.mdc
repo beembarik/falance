@@ -1,0 +1,28 @@
+---
+description: Core Falancé project context
+alwaysApply: true
+---
+
+# Falancé Project Context
+
+Falancé is a Telegram-based family finance assistant.
+
+Read `AGENTS.md` for the project-wide rules.
+
+For task-specific context, consult the relevant documentation:
+
+- Architecture → `docs/architecture.md`
+- Database → `docs/database.md`
+- Telegram → `docs/telegram.md`
+- Milestones → `docs/milestones.md`
+- Decisions → `docs/decisions.md`
+
+Do not implement features outside the requested milestone.
+
+Before modifying existing functionality:
+1. Inspect the relevant code.
+2. Understand existing behavior.
+3. Make the smallest reasonable change.
+4. Verify the result.
+
+Prefer simple, maintainable TypeScript and Next.js patterns.

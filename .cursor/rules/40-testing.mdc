@@ -1,0 +1,24 @@
+---
+description: Testing and verification rules
+alwaysApply: true
+---
+
+# Verification
+
+After meaningful implementation:
+
+1. Run lint.
+2. Run build.
+3. Test the affected behavior.
+4. Report any failures honestly.
+
+Do not silently ignore:
+- TypeScript errors
+- lint errors
+- build errors
+- failed API calls
+- failed tests
+
+When fixing an error, identify the root cause rather than repeatedly patching symptoms.
+
+Do not rewrite unrelated working code to fix a localized problem.

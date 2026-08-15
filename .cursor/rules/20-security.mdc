@@ -1,0 +1,39 @@
+---
+description: Security and authorization rules for Falancé
+alwaysApply: true
+---
+
+# Security Rules
+
+Security is non-negotiable.
+
+Never:
+- hardcode API keys
+- hardcode Telegram bot tokens
+- commit secrets
+- expose server secrets to client code
+- trust client-provided authorization
+- allow one family to access another family's data
+- log sensitive credentials
+
+Telegram identity must be validated server-side.
+
+Every family-scoped operation must verify:
+1. authenticated Telegram user
+2. membership
+3. family_id
+4. required role/permission
+
+AI-generated financial data must be treated as untrusted input.
+
+Validate:
+- amount
+- currency
+- transaction type
+- category
+- date
+- family ownership
+
+before persistence.
+
+Never bypass authorization merely because an operation originates from the Telegram bot or Mini App.

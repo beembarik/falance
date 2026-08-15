@@ -1,0 +1,34 @@
+---
+description: Falancé architecture rules
+alwaysApply: true
+---
+
+# Architecture Rules
+
+Falancé consists of:
+
+- Telegram Bot
+- Telegram Mini App
+- Next.js backend
+- AI provider layer
+- Finance repository layer
+- Google Sheets storage for v0.1
+- Supabase as a future storage implementation
+
+Use this conceptual architecture:
+
+Interface
+→ Application Logic
+→ Domain/Services
+→ Repository
+→ Infrastructure
+
+Do not put Google Sheets API calls directly inside Telegram handlers.
+
+Do not put business rules directly inside UI components.
+
+Do not make AI providers part of the domain model.
+
+The repository abstraction must allow Google Sheets to be replaced by Supabase later.
+
+Avoid premature abstractions when they do not support an actual requirement.

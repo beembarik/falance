@@ -1,0 +1,30 @@
+---
+description: Falancé coding conventions
+alwaysApply: true
+---
+
+# Coding Style
+
+Use:
+- TypeScript
+- Next.js App Router
+- server-side logic where appropriate
+- small focused modules
+- explicit types for important domain objects
+
+Prefer:
+- readable code
+- simple functions
+- clear naming
+- early validation
+- error handling
+
+Avoid:
+- unnecessary dependencies
+- giant route handlers
+- duplicated business logic
+- magic values
+- unnecessary abstractions
+- speculative features
+
+Keep infrastructure code separate from domain logic.
