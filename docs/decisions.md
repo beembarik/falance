@@ -79,3 +79,32 @@ Every family-owned record is scoped by family_id.
 No user may access another family's data.
 
 Authorization is enforced server-side.
+
+---
+
+## ADR-007 — One Google Spreadsheet per Family
+
+Status: Accepted
+
+Each family receives a dedicated Google Spreadsheet. A separate central registry maps the
+stable application `family_id` to the storage-specific `spreadsheet_id`, along with family,
+membership, and invitation metadata.
+
+Reason:
+- natural family-level isolation
+- simpler storage administration
+- avoids a large shared financial spreadsheet
+- preserves a stable family identifier for future Supabase migration
+
+Google-specific code is isolated behind the family repository interface. Application
+authorization uses the registry membership index before resolving a spreadsheet.
+
+---
+
+## ADR-008 — Subscription-ready, No Billing in MVP
+
+Status: Accepted
+
+Families store a non-enforcing `plan` value so future entitlements can be introduced without
+changing the family model. Billing, payment providers, invoices, and paywalls are explicitly
+out of scope for the MVP. All current families have access to implemented functionality.

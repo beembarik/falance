@@ -3,13 +3,21 @@ import {
   TelegramConfigurationError,
   sendTelegramMessage,
 } from "@/lib/telegram/client";
-import { getTextMessageResponse } from "@/lib/telegram/message-response";
+import { GoogleSheetsFamilyRepository } from "@/lib/family/google-sheets-repository";
+import { FamilyService } from "@/lib/family/service";
+import { handleTelegramTextMessage } from "@/lib/telegram/command-handler";
 
 interface TelegramUpdate {
   update_id: number;
   message?: {
     chat?: {
       id?: number;
+    };
+    from?: {
+      id?: number;
+      first_name?: string;
+      last_name?: string;
+      username?: string;
     };
     text?: string;
   };
@@ -34,15 +42,25 @@ export async function POST(request: Request): Promise<Response> {
 
   const chatId = payload.message?.chat?.id;
   const text = payload.message?.text;
+  const from = payload.message?.from;
 
-  if (typeof chatId !== "number" || typeof text !== "string") {
+  if (typeof chatId !== "number" || typeof text !== "string" || !from || typeof from.id !== "number") {
     return Response.json({ ok: true, ignored: true });
   }
 
   try {
+    const responseText = await handleTelegramTextMessage(
+      new FamilyService(new GoogleSheetsFamilyRepository()),
+      {
+        telegramUserId: String(from.id),
+        name: [from.first_name, from.last_name].filter(Boolean).join(" ") || "Pengguna Telegram",
+        username: typeof from.username === "string" ? from.username : null,
+      },
+      text,
+    );
     await sendTelegramMessage({
       chatId,
-      text: getTextMessageResponse(text),
+      text: responseText,
     });
 
     return Response.json({ ok: true });

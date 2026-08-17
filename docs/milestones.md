@@ -18,7 +18,7 @@ Status: IN PROGRESS
 
 ## Milestone 1 — Telegram Webhook
 
-Status: NEXT
+Status: COMPLETE
 
 Goals:
 
@@ -33,14 +33,16 @@ Goals:
 
 ## Milestone 2 — Family & Authorization
 
-- [ ] Telegram user identity
-- [ ] Family entity
-- [ ] Member entity
-- [ ] Owner
-- [ ] Admin
-- [ ] Member
-- [ ] Invitation system
-- [ ] Family isolation
+Status: COMPLETE (manual Google/Vercel setup required)
+
+- [x] Telegram user identity
+- [x] Family entity
+- [x] Member entity
+- [x] Owner
+- [x] Admin
+- [x] Member
+- [x] Invitation system
+- [x] Family isolation
 
 ---
 
