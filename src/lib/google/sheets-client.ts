@@ -31,15 +31,19 @@ export class GoogleSheetsClient {
           })),
         }),
       },
+      "createSpreadsheet",
     );
 
     if (!response.spreadsheetId) {
       throw new GoogleApiError("Spreadsheet creation did not return an ID.");
     }
 
-    await this.appendRows(response.spreadsheetId, "Settings", [
-      ["family_id", familyId],
-    ]);
+    await this.appendRows(
+      response.spreadsheetId,
+      "Settings",
+      [["family_id", familyId]],
+      "initializeFamilySettings",
+    );
     return response.spreadsheetId;
   }
 
@@ -81,10 +85,16 @@ export class GoogleSheetsClient {
     return data.values ?? [];
   }
 
-  async appendRows(spreadsheetId: string, sheetName: string, values: string[][]): Promise<void> {
+  async appendRows(
+    spreadsheetId: string,
+    sheetName: string,
+    values: string[][],
+    operation?: GoogleOperation,
+  ): Promise<void> {
     await this.request(
       `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
       { method: "POST", body: JSON.stringify({ values }) },
+      operation,
     );
   }
 
@@ -102,8 +112,9 @@ export class GoogleSheetsClient {
   private async request<T = Record<string, never>>(
     url: string,
     init: RequestInit = {},
+    operation?: GoogleOperation,
   ): Promise<T> {
-    const token = await this.getAccessToken();
+    const token = await this.getAccessToken(operation);
     let response: Response;
     try {
       response = await fetch(url, {
@@ -114,16 +125,19 @@ export class GoogleSheetsClient {
           ...init.headers,
         },
       });
-    } catch {
+    } catch (error) {
+      logGoogleFailure(operation, url, init.method, undefined, error);
       throw new GoogleApiError("Google API request failed.");
     }
     if (!response.ok) {
+      const errorBody: unknown = await response.json().catch(() => null);
+      logGoogleFailure(operation, url, init.method, response.status, errorBody);
       throw new GoogleApiError("Google API returned an error response.");
     }
     return (await response.json()) as T;
   }
 
-  private async getAccessToken(): Promise<string> {
+  private async getAccessToken(operation?: GoogleOperation): Promise<string> {
     if (this.accessToken && Date.now() < this.accessTokenExpiresAt) {
       return this.accessToken;
     }
@@ -144,7 +158,8 @@ export class GoogleSheetsClient {
           assertion,
         }),
       });
-    } catch {
+    } catch (error) {
+      logGoogleFailure(operation, "https://oauth2.googleapis.com/token", "POST", undefined, error);
       throw new GoogleApiError("Google authentication request failed.");
     }
     const data = (await response.json().catch(() => null)) as {
@@ -152,12 +167,58 @@ export class GoogleSheetsClient {
       expires_in?: number;
     } | null;
     if (!response.ok || !data?.access_token || !data.expires_in) {
+      logGoogleFailure(operation, "https://oauth2.googleapis.com/token", "POST", response.status, data);
       throw new GoogleApiError("Google authentication failed.");
     }
     this.accessToken = data.access_token;
     this.accessTokenExpiresAt = Date.now() + (data.expires_in - 60) * 1000;
     return this.accessToken;
   }
+}
+
+type GoogleOperation = "createSpreadsheet" | "initializeFamilySettings";
+
+function logGoogleFailure(
+  operation: GoogleOperation | undefined,
+  url: string,
+  method: string | undefined,
+  status: number | undefined,
+  error: unknown,
+): void {
+  if (!operation) return;
+
+  const details = getSafeGoogleErrorDetails(error);
+  console.error(`[Google] ${operation} failed`, {
+    method: method ?? "GET",
+    path: new URL(url).pathname,
+    status,
+    ...details,
+  });
+}
+
+function getSafeGoogleErrorDetails(error: unknown): Record<string, string | number | undefined> {
+  if (error instanceof Error) {
+    return { message: error.message };
+  }
+  if (typeof error !== "object" || error === null || !("error" in error)) {
+    return {};
+  }
+
+  const googleError = error.error;
+  if (typeof googleError !== "object" || googleError === null) return {};
+
+  const details = googleError as {
+    code?: unknown;
+    message?: unknown;
+    status?: unknown;
+    errors?: Array<{ reason?: unknown }>;
+  };
+  return {
+    code: typeof details.code === "number" ? details.code : undefined,
+    reason: typeof details.errors?.[0]?.reason === "string" ? details.errors[0].reason : undefined,
+    statusText: typeof details.status === "string" ? details.status : undefined,
+    message: typeof details.message === "string" ? details.message : undefined,
+  };
 }
 
 async function createServiceAccountAssertion(email: string, privateKey: string): Promise<string> {
