@@ -22,11 +22,11 @@ Status: NEXT
 
 Goals:
 
-- [ ] Telegram webhook endpoint
-- [ ] /start command
-- [ ] Basic text response
-- [ ] Environment variables
-- [ ] Error handling
+- [x] Telegram webhook endpoint
+- [x] /start command
+- [x] Basic text response
+- [x] Environment variables
+- [x] Error handling
 - [ ] Local webhook testing
 
 ---
