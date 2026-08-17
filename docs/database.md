@@ -17,6 +17,10 @@ The central registry is a dedicated Google Spreadsheet, configured with
 `Invitations`, and `Pending Family Creations` sheets. It is application metadata, not a
 family financial spreadsheet.
 
+Family spreadsheets are separate Google Drive files created in the dedicated folder
+configured by `GOOGLE_FALANCE_DRIVE_FOLDER_ID`. The service account needs access to both
+the registry and this folder.
+
 Families include `family_id`, `family_name`, `spreadsheet_id`, `status`, `created_at`,
 `created_by`, and `plan`. `family_id` is the stable application identifier; the Google
 `spreadsheet_id` is replaceable storage metadata.

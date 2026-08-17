@@ -9,42 +9,77 @@ export class GoogleSheetsClient {
   private accessTokenExpiresAt = 0;
 
   async createFamilySpreadsheet(familyName: string, familyId: string): Promise<string> {
-    const response = await this.request<{ spreadsheetId?: string }>(
-      "https://sheets.googleapis.com/v4/spreadsheets",
+    const folderId = getFalanceDriveFolderId();
+    const driveFile = await this.request<{ id?: string }>(
+      "https://www.googleapis.com/drive/v3/files?fields=id",
       {
         method: "POST",
         body: JSON.stringify({
-          properties: { title: `Falancé — ${familyName}` },
-          sheets: FAMILY_SHEETS.map((sheet) => ({
-            properties: { title: sheet.name },
-            data: [
-              {
-                rowData: [
-                  {
-                    values: sheet.headers.map((header) => ({
-                      userEnteredValue: { stringValue: header },
-                    })),
-                  },
-                ],
-              },
-            ],
-          })),
+          name: `Falancé — ${familyName}`,
+          mimeType: "application/vnd.google-apps.spreadsheet",
+          parents: [folderId],
         }),
       },
-      "createSpreadsheet",
+      "createDriveSpreadsheet",
     );
 
-    if (!response.spreadsheetId) {
-      throw new GoogleApiError("Spreadsheet creation did not return an ID.");
+    if (!driveFile.id) {
+      console.error("[Google] createDriveSpreadsheet failed", {
+        reason: "missing_spreadsheet_id",
+      });
+      throw new GoogleApiError("Drive spreadsheet creation did not return an ID.");
     }
 
+    await this.initializeFamilySpreadsheet(driveFile.id);
     await this.appendRows(
-      response.spreadsheetId,
+      driveFile.id,
       "Settings",
       [["family_id", familyId]],
       "initializeFamilySettings",
     );
-    return response.spreadsheetId;
+    return driveFile.id;
+  }
+
+  private async initializeFamilySpreadsheet(spreadsheetId: string): Promise<void> {
+    const metadata = await this.request<SpreadsheetMetadata>(
+      `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}?fields=sheets.properties`,
+      {},
+      "getNewSpreadsheetMetadata",
+    );
+    const initialSheetIds = metadata.sheets
+      ?.flatMap((sheet) => (typeof sheet.properties?.sheetId === "number" ? [sheet.properties.sheetId] : []))
+      ?? [];
+
+    await this.request(
+      `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          requests: [
+            ...FAMILY_SHEETS.map((sheet) => ({
+              addSheet: { properties: { title: sheet.name } },
+            })),
+            ...initialSheetIds.map((sheetId) => ({ deleteSheet: { sheetId } })),
+          ],
+        }),
+      },
+      "initializeFamilySheets",
+    );
+
+    await this.request(
+      `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values:batchUpdate`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          valueInputOption: "RAW",
+          data: FAMILY_SHEETS.map((sheet) => ({
+            range: `${sheet.name}!A1`,
+            values: [sheet.headers],
+          })),
+        }),
+      },
+      "initializeFamilyHeaders",
+    );
   }
 
   async ensureRegistry(spreadsheetId: string): Promise<void> {
@@ -176,7 +211,12 @@ export class GoogleSheetsClient {
   }
 }
 
-type GoogleOperation = "createSpreadsheet" | "initializeFamilySettings";
+type GoogleOperation =
+  | "createDriveSpreadsheet"
+  | "getNewSpreadsheetMetadata"
+  | "initializeFamilySheets"
+  | "initializeFamilyHeaders"
+  | "initializeFamilySettings";
 
 function logGoogleFailure(
   operation: GoogleOperation | undefined,
@@ -249,6 +289,14 @@ async function createServiceAccountAssertion(email: string, privateKey: string):
   return `${signingInput}.${base64Url(signature)}`;
 }
 
+function getFalanceDriveFolderId(): string {
+  const folderId = process.env.GOOGLE_FALANCE_DRIVE_FOLDER_ID;
+  if (!folderId) {
+    throw new GoogleConfigurationError("Falancé Drive folder is not configured.");
+  }
+  return folderId;
+}
+
 function base64Url(value: string | ArrayBuffer): string {
   const bytes = typeof value === "string" ? new TextEncoder().encode(value) : new Uint8Array(value);
   let binary = "";
@@ -271,6 +319,14 @@ const FAMILY_SHEETS = [
   { name: "Monthly Summary", headers: ["summary_id", "family_id", "month", "income", "expense", "balance", "updated_at"] },
   { name: "AI Insights", headers: ["insight_id", "family_id", "period", "content", "created_at"] },
 ] as const;
+
+interface SpreadsheetMetadata {
+  sheets?: Array<{
+    properties?: {
+      sheetId?: number;
+    };
+  }>;
+}
 
 const REGISTRY_SHEETS = [
   { name: "Families", headers: ["family_id", "family_name", "spreadsheet_id", "status", "created_at", "created_by", "plan"] },

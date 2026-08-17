@@ -99,6 +99,10 @@ Reason:
 Google-specific code is isolated behind the family repository interface. Application
 authorization uses the registry membership index before resolving a spreadsheet.
 
+Family spreadsheets are provisioned with Google Drive `files.create` inside a dedicated
+Falancé Drive folder, then initialized through the Sheets API. This avoids relying on the
+service account's default Drive storage while preserving one-family-one-spreadsheet.
+
 ---
 
 ## ADR-008 — Subscription-ready, No Billing in MVP

@@ -33,6 +33,8 @@ Next.js Backend
 
 Version 0.1:
 Google Sheets and Google Drive. Falancé has one Google Spreadsheet per family.
+Family spreadsheets are created as Google Drive files inside the dedicated folder configured
+by `GOOGLE_FALANCE_DRIVE_FOLDER_ID`, then initialized through the Google Sheets API.
 
 A central Falancé registry spreadsheet stores application metadata: family records,
 membership index, invitations, and pending family-creation requests. The registry maps

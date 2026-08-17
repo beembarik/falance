@@ -43,6 +43,7 @@ Status: COMPLETE (manual Google/Vercel setup required)
 - [x] Member
 - [x] Invitation system
 - [x] Family isolation
+- [x] Family Drive-folder provisioning
 
 ---
 
