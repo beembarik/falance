@@ -37,14 +37,16 @@ Pesan dan error yang dikirim bot kepada pengguna menggunakan Bahasa Indonesia.
 | `/revokeinvite <code>` | `OWNER`, `ADMIN` | Mengubah invitation `PENDING` milik keluarga actor menjadi `REVOKED`. Invitation yang sudah digunakan, kedaluwarsa, atau berasal dari keluarga lain ditolak. |
 | `/changerole <member_id_atau_username> <ADMIN\|MEMBER>` | `OWNER` | Mengubah role anggota aktif antara `MEMBER` dan `ADMIN`. Target dapat dipilih menggunakan `Member ID` dari `/members` atau username Telegram. Role `OWNER` tidak dapat diubah. |
 | `/deactivate <member_id_atau_username> CONFIRM` | `OWNER` | Mengubah status anggota aktif non-OWNER menjadi `SUSPENDED` tanpa hard deletion. Target dipilih dari keluarga actor dan token `CONFIRM` wajib diberikan. |
-| `/reactivate <member_id> CONFIRM` | `OWNER` | Mengubah membership `SUSPENDED` menjadi `ACTIVE` menggunakan row dan `Member ID` yang sama. Target harus berasal dari keluarga actor dan token `CONFIRM` wajib diberikan. |
+| `/reactivate <member_id_atau_username> CONFIRM` | `OWNER` | Mengubah membership `SUSPENDED` menjadi `ACTIVE` menggunakan row dan `Member ID` yang sama. Target dapat dipilih melalui `Member ID` atau username Telegram, harus berasal dari keluarga actor, dan token `CONFIRM` wajib diberikan. |
 
-Contoh penggunaan role management:
+Contoh penggunaan role management dan member lifecycle:
 
 ```text
 /members
 /changerole mem_abc123 ADMIN
 /changerole @nama_pengguna MEMBER
+/deactivate mem_abc123 CONFIRM
+/reactivate @nama_pengguna CONFIRM
 ```
 
 `Member ID` adalah identifier internal opaque yang digunakan untuk memilih anggota tanpa menampilkan Telegram user ID. Untuk anggota yang tidak memiliki username Telegram, gunakan `Member ID` yang ditampilkan oleh `/members`.

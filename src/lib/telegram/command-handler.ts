@@ -68,7 +68,7 @@ export async function handleTelegramTextMessage(
     }
     if (command.startsWith("/reactivate")) {
       const args = command.slice("/reactivate".length).trim().split(/\s+/).filter(Boolean);
-      if (args.length !== 2) return "Format tidak valid. Gunakan: /reactivate <member_id> CONFIRM";
+      if (args.length !== 2) return "Format tidak valid. Gunakan: /reactivate <member_id_atau_username> CONFIRM";
 
       const member = await service.reactivateMember(user, args[0], args[1]);
       return `✅ Anggota ${member.name} berhasil diaktifkan kembali dengan Member ID yang sama: ${member.memberId}.`;

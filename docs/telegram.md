@@ -23,9 +23,9 @@ Telegram credentials remain server-only. The bot token must not be exposed to br
 | `/revokeinvite <code>` | Revokes a `PENDING` invitation belonging to the requester’s family. Available only to `OWNER` and `ADMIN`. |
 | `/changerole <member_id_or_username> <ADMIN|MEMBER>` | Changes an active member’s role between `MEMBER` and `ADMIN`. Available only to the family `OWNER`; the target is resolved from the OWNER’s server-resolved family. `OWNER` cannot be changed. |
 | `/deactivate <member_id_or_username> CONFIRM` | Soft-deactivates an active non-OWNER member by changing status to `SUSPENDED`. Available only to `OWNER`; explicit `CONFIRM` is required and the target must belong to the OWNER’s server-resolved family. |
-| `/reactivate <member_id> CONFIRM` | Reactivates a `SUSPENDED` membership by changing its status to `ACTIVE` without creating a new row or member ID. Available only to `OWNER`; explicit `CONFIRM` is required and the target must belong to the OWNER’s server-resolved family. |
+| `/reactivate <member_id_or_username> CONFIRM` | Reactivates a `SUSPENDED` membership by changing its status to `ACTIVE` without creating a new row or member ID. Available only to `OWNER`; explicit `CONFIRM` is required and the target must belong to the OWNER’s server-resolved family. |
 
-The command list is updated only after the handler and authorization tests are implemented. Future administrative commands must preserve the same server-side family boundary. Role changes accept a member ID shown by `/members` or a Telegram username, but never a client-supplied `family_id`.
+The command list is updated only after the handler and authorization tests are implemented. Future administrative commands must preserve the same server-side family boundary. Role and member-lifecycle commands accept a member ID shown by `/members` or a Telegram username where supported, but never a client-supplied `family_id`.
 
 ## Identity and authorization
 

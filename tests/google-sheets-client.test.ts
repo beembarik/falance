@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { GoogleSheetsFamilyRepository } from "../src/lib/family/google-sheets-repository";
 import { GoogleSheetsClient } from "../src/lib/google/sheets-client";
 
 test("logs a redacted operation label when a Google Sheets write fails", async () => {
@@ -122,6 +123,42 @@ test("initializes the single central registry without Drive or spreadsheet creat
     globalThis.fetch = originalFetch;
     restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_EMAIL", originalEnvironment.email);
     restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY", originalEnvironment.privateKey);
+  }
+});
+
+test("updates a suspended Members row to ACTIVE without creating a new member row", async () => {
+  const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
+  process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";
+  const updates: Array<{
+    spreadsheetId: string;
+    range: string;
+    values: readonly (readonly string[])[];
+    operation: string | undefined;
+  }> = [];
+  const client = {
+    ensureRegistry: async () => {},
+    getValues: async () => [
+      ["member_id", "family_id", "telegram_user_id", "name", "username", "role", "status", "joined_at"],
+      ["mem_200", "fam_1", "200", "Member", "suspended-member", "MEMBER", "SUSPENDED", "2026-01-01T00:00:00.000Z"],
+    ],
+    updateValues: async (
+      spreadsheetId: string,
+      range: string,
+      values: readonly (readonly string[])[],
+      operation?: string,
+    ) => updates.push({ spreadsheetId, range, values, operation }),
+  } as unknown as GoogleSheetsClient;
+
+  try {
+    await new GoogleSheetsFamilyRepository(client).updateMemberStatus("mem_200", "ACTIVE");
+    assert.deepEqual(updates, [{
+      spreadsheetId: "central-registry-id",
+      range: "Members!A2",
+      values: [["mem_200", "fam_1", "200", "Member", "suspended-member", "MEMBER", "ACTIVE", "2026-01-01T00:00:00.000Z"]],
+      operation: "updateMemberStatus",
+    }]);
+  } finally {
+    restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
   }
 });
 

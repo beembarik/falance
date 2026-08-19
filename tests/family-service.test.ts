@@ -232,21 +232,22 @@ test("rejects unsafe member deactivation targets and missing confirmation", asyn
   assert.equal(repository.members.find((value) => value.memberId === "mem_400")?.status, "ACTIVE");
 });
 
-test("OWNER can reactivate a SUSPENDED member without changing the member ID", async () => {
+test("OWNER can reactivate a SUSPENDED member by username without changing the member ID", async () => {
+  const suspendedMember: TelegramUser = { telegramUserId: "200", name: "Member", username: "suspended-member" };
   const repository = new FakeFamilyRepository();
   repository.families.push(family("fam_1"));
   repository.members.push(
     activeMember("fam_1", owner, "OWNER"),
-    { ...activeMember("fam_1", member, "MEMBER"), status: "SUSPENDED" },
+    { ...activeMember("fam_1", suspendedMember, "MEMBER"), status: "SUSPENDED" },
   );
   const service = new FamilyService(repository);
 
-  const reactivated = await service.reactivateMember(owner, "mem_200", "confirm");
+  const reactivated = await service.reactivateMember(owner, "@suspended-member", "confirm");
 
   assert.equal(reactivated.memberId, "mem_200");
   assert.equal(reactivated.status, "ACTIVE");
   assert.equal(repository.members.find((value) => value.memberId === "mem_200")?.status, "ACTIVE");
-  assert.equal((await service.getActiveMembership(member.telegramUserId))?.memberId, "mem_200");
+  assert.equal((await service.getActiveMembership(suspendedMember.telegramUserId))?.memberId, "mem_200");
 });
 
 test("rejects unsafe member reactivation targets and duplicate active membership", async () => {

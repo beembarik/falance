@@ -235,7 +235,7 @@ export class FamilyService {
 
   async reactivateMember(
     actor: TelegramUser,
-    targetMemberId: string,
+    targetIdentifier: string,
     confirmation: string,
   ): Promise<FamilyMember> {
     const actorMember = await this.requireActiveMember(actor.telegramUserId);
@@ -251,8 +251,12 @@ export class FamilyService {
       throw new UnauthorizedError("Family is unavailable.");
     }
 
+    const normalizedIdentifier = targetIdentifier.replace(/^@/, "").toLowerCase();
     const target = (await this.repository.findMembersByFamilyId(actorMember.familyId)).find(
-      (candidate) => candidate.memberId === targetMemberId && candidate.status === "SUSPENDED",
+      (candidate) =>
+        candidate.status === "SUSPENDED" &&
+        (candidate.memberId === targetIdentifier ||
+          (candidate.username !== null && candidate.username.toLowerCase() === normalizedIdentifier)),
     );
     if (!target) {
       throw new MemberManagementError("Suspended member is not found in the active family.");

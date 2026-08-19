@@ -2,9 +2,9 @@ import {
   GoogleConfigurationError,
   GoogleSheetsClient,
   type GoogleOperation,
-} from "@/lib/google/sheets-client";
-import type { FamilyRepository } from "@/lib/family/repository";
-import type { Family, FamilyMember, Invitation, PendingFamilyCreation } from "@/lib/family/types";
+} from "../google/sheets-client";
+import type { FamilyRepository } from "./repository";
+import type { Family, FamilyMember, Invitation, PendingFamilyCreation } from "./types";
 
 /**
  * Repository backed by the single Falancé database spreadsheet configured for
@@ -12,7 +12,11 @@ import type { Family, FamilyMember, Invitation, PendingFamilyCreation } from "@/
  * server-resolved family_id; Telegram input never selects a spreadsheet.
  */
 export class GoogleSheetsFamilyRepository implements FamilyRepository {
-  constructor(private readonly client = new GoogleSheetsClient()) {}
+  private readonly client: GoogleSheetsClient;
+
+  constructor(client = new GoogleSheetsClient()) {
+    this.client = client;
+  }
 
   async createFamily(family: Family): Promise<void> {
     const existing = await this.findFamilyById(family.familyId);
@@ -73,7 +77,7 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     const index = rows.findIndex((row) => row[0] === memberId);
     if (index < 0) throw new GoogleConfigurationError("Member registry record is missing.");
     const row = rows[index];
-    if (row[6] !== "ACTIVE") return;
+    if (row[6] === newStatus) return;
     await this.client.updateValues(this.registryId(), `Members!A${index + 2}`, [[
       ...row.slice(0, 6), newStatus, ...row.slice(7),
     ]], "updateMemberStatus");
