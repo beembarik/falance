@@ -60,6 +60,8 @@ Hard deletion remains deferred until retention, backup, recovery, and ownership-
 
 **Status:** Planned for Milestone 8.
 
-The central Google Spreadsheet remains a private backend and is never shared directly with family members. Reports are delivered through three controlled channels: Telegram summaries, authenticated Mini App views, and per-request CSV, print, or PDF exports. Every channel must authorize the requester server-side and resolve the family from membership rather than client input.
+The central Google Spreadsheet remains a private backend and is never shared directly with family members. Reports are delivered through three controlled channels: Telegram summaries, authenticated Mini App views, and per-request CSV, print, or PDF exports. All active members may view authorized reports through Telegram or the Mini App, but only `OWNER` and `ADMIN` may request export artifacts. Every channel must authorize the requester server-side and resolve the family from membership rather than client input.
+
+The export role check occurs before report generation and artifact creation. A MEMBER request must be rejected even if it bypasses the normal interface and calls an export endpoint directly.
 
 PDF password protection is optional and selected before export. When selected, the server encrypts the generated PDF, uses the password only for that export operation, and never stores or logs the password. Download URLs are short-lived and contain no family identifiers, spreadsheet identifiers, report content, or password. Hard deletion of generated artifacts follows expiry and cleanup rules.

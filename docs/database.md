@@ -85,7 +85,9 @@ Hard deletion of a family or irreversible deletion of its financial history is n
 
 ## Reporting and export boundary
 
-Reports are derived, family-scoped read models and must not expose the central spreadsheet or its identifiers. Telegram summaries, authenticated Mini App report views, CSV files, print-friendly pages, and PDFs must all be generated only after server-side membership authorization resolves the requester’s `family_id`.
+Reports are derived, family-scoped read models and must not expose the central spreadsheet or its identifiers. Telegram summaries and authenticated Mini App report views are available to authorized active members. CSV files, print-friendly pages, and PDFs are export artifacts restricted to `OWNER` and `ADMIN`. Every report or export request must resolve the requester’s `family_id` server-side before reading or generating data.
+
+The export role check must occur before report generation and before an artifact is created. A `MEMBER` request for CSV, print, or PDF must be rejected even if the request comes from a trusted Mini App session or a direct API call.
 
 Export artifacts should be short-lived and cleaned up after delivery or expiry. A PDF may be exported without a password or with an optional password chosen immediately before export. When enabled, the password is used only during server-side PDF generation/encryption; it is not stored in Sheets, report metadata, logs, analytics, URLs, or persistent download records.
 

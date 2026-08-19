@@ -40,6 +40,8 @@ Future family-owned tables, such as `Transactions`, must include `family_id` in 
 
 Users must never receive direct access to the central Google Spreadsheet. Reports are derived views produced by authorized server-side queries and may be delivered through Telegram, the authenticated Mini App, or per-request export/print responses. Every channel must resolve the requester’s active membership and `family_id` on the server before reading report data.
 
+`OWNER` and `ADMIN` may request CSV, print-friendly, or PDF exports. `MEMBER` may view authorized reports through Telegram and the authenticated Mini App but must be denied export requests before report generation or artifact creation. This is a role authorization rule, not a client-interface rule; the backend must enforce it on every export endpoint.
+
 CSV, print-friendly HTML, and PDF exports are family-scoped artifacts, not spreadsheet links. Download URLs must be short-lived and must not contain `family_id`, spreadsheet IDs, report contents, or PDF passwords. A PDF password is optional and selected before export; when enabled, the backend encrypts the PDF, keeps the password ephemeral, and excludes it from logs, analytics, persistent Sheets data, and the download URL.
 
 ## Family creation

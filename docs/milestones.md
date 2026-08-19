@@ -79,6 +79,8 @@ Status: PLANNED
 
 Reports must never expose the central Google Spreadsheet directly. Every report request resolves the user’s active membership and `family_id` server-side, then returns only data belonging to that family.
 
+Report access follows this role boundary: `OWNER` and `ADMIN` may view reports and request CSV, print, or PDF exports; `MEMBER` may view reports through Telegram and the authenticated Mini App but may not request or receive export artifacts.
+
 - [ ] Monthly and category summaries
 - [ ] Income, expense, balance, and family overview
 - [ ] Date filtering and authorized AI insights
@@ -91,9 +93,9 @@ Reports must never expose the central Google Spreadsheet directly. Every report 
 - [ ] Password supplied through a secure request body or form, never a URL or log
 - [ ] Password held ephemerally and never persisted in Sheets, logs, analytics, or download URLs
 - [ ] Encrypted PDF validation, download expiry, and safe artifact cleanup
-- [ ] Tests proving Telegram, Mini App, CSV, print, and PDF outputs cannot cross family boundaries
+- [ ] Tests proving Telegram and Mini App views are available to authorized members, exports are restricted to OWNER and ADMIN, and no output can cross family boundaries
 
-When password protection is selected, the backend must encrypt the PDF before delivery. The password must not be returned in the same download URL, stored with the report, or automatically echoed back to the user. The default unprotected PDF option remains available only after the user explicitly chooses it.
+When password protection is selected, the backend must encrypt the PDF before delivery. The password must not be returned in the same download URL, stored with the report, or automatically echoed back to the user. The default unprotected PDF option remains available only after the user explicitly chooses it. The export authorization check must occur before report generation and before any artifact is created.
 
 ## Milestone 9 — Telegram Mini App Expansion
 
