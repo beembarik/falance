@@ -36,6 +36,12 @@ Google API failures are logged server-side with a labeled operation, HTTP method
 
 Future family-owned tables, such as `Transactions`, must include `family_id` in their schema. A table that stores family-owned data without this key is not valid under this architecture.
 
+## Report privacy and export boundary
+
+Users must never receive direct access to the central Google Spreadsheet. Reports are derived views produced by authorized server-side queries and may be delivered through Telegram, the authenticated Mini App, or per-request export/print responses. Every channel must resolve the requester’s active membership and `family_id` on the server before reading report data.
+
+CSV, print-friendly HTML, and PDF exports are family-scoped artifacts, not spreadsheet links. Download URLs must be short-lived and must not contain `family_id`, spreadsheet IDs, report contents, or PDF passwords. A PDF password is optional and selected before export; when enabled, the backend encrypts the PDF, keeps the password ephemeral, and excludes it from logs, analytics, persistent Sheets data, and the download URL.
+
 ## Family creation
 
 The `/createfamily` flow checks the Telegram identity and active membership, replaces the user’s bounded pending request, and waits for a family name. On submission, the server validates the pending request and expiry, rechecks membership, generates a `family_id`, and writes the `Families` and OWNER `Members` rows to the central spreadsheet. Pending state is marked `COMPLETED` only after those writes succeed.
@@ -45,6 +51,8 @@ No Drive API call, spreadsheet creation request, spreadsheet ID generation, or p
 ## Authorization
 
 The system preserves the three roles `OWNER`, `ADMIN`, and `MEMBER`. Owners and admins can create invitations. Members cannot create invitations. Joining resolves the family only from the invitation record, verifies that the invitation is pending and unexpired, rejects an already-active member, creates membership using the invitation’s `family_id`, and marks the code used.
+
+Milestone 2 does not yet provide member listing, role changes, member removal, invitation revocation, family renaming, or family archival. Those lifecycle and administrative operations are grouped into Milestone 3, where each operation must preserve the same server-side `family_id` and role boundaries.
 
 ## Google authentication and scopes
 

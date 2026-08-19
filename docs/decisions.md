@@ -47,3 +47,19 @@ Supabase is the planned future storage implementation. Milestone 2 deliberately 
 The central registry must not be reinitialized on every repository operation. `GoogleSheetsClient` caches the in-flight and completed initialization promise per spreadsheet ID for the lifetime of a client instance. Failed initialization is removed from the cache so a later request can retry. This reduces repeated metadata and worksheet-header reads while preserving correct initialization on serverless cold starts.
 
 The decision responds to a production `429 RESOURCE_EXHAUSTED` failure caused by repeated Google Sheets read requests. The repository keeps the existing one-spreadsheet architecture and does not add a second data store or bypass authorization. Google failures use labeled, redacted server-side diagnostics containing only the operation, method, redacted path, status, and safe error details; request bodies and credentials are never logged.
+
+## ADR-008: Family Management and Administration as a separate milestone
+
+**Status:** Planned.
+
+Family creation, invitation, and join behavior provide the Milestone 2 foundation, but member lifecycle and family administration are a distinct capability. Member listing, role promotion or demotion, member removal, invitation revocation, family renaming, and family archival require additional authorization rules, confirmation flows, and recovery/audit semantics. They are therefore scheduled as Milestone 3 before transaction features rather than being treated as incidental additions to the transaction milestone.
+
+Hard deletion remains deferred until retention, backup, recovery, and ownership-transfer rules are defined.
+
+## ADR-009: Private multi-channel reporting and optional PDF protection
+
+**Status:** Planned for Milestone 8.
+
+The central Google Spreadsheet remains a private backend and is never shared directly with family members. Reports are delivered through three controlled channels: Telegram summaries, authenticated Mini App views, and per-request CSV, print, or PDF exports. Every channel must authorize the requester server-side and resolve the family from membership rather than client input.
+
+PDF password protection is optional and selected before export. When selected, the server encrypts the generated PDF, uses the password only for that export operation, and never stores or logs the password. Download URLs are short-lived and contain no family identifiers, spreadsheet identifiers, report content, or password. Hard deletion of generated artifacts follows expiry and cleanup rules.

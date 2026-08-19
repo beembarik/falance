@@ -31,10 +31,16 @@ The Google Sheets client caches registry initialization per spreadsheet ID for t
 
 Diagnostic failures are logged server-side using an operation label such as `createMember` or `completePendingFamilyCreation`, an HTTP status, and a redacted API path. Logs must not contain Telegram identifiers, family names, row values, spreadsheet IDs, bearer tokens, or private keys.
 
+## Planned report access
+
+Milestone 8 will add authorized Telegram summaries as one of three report channels, alongside authenticated Mini App views and CSV, print, or PDF export. The exact report commands are not implemented in the current milestone. Any future report command must resolve the requester’s active membership and `family_id` server-side and must never expose the Google Spreadsheet directly.
+
+If a user requests a password-protected PDF, the password must be collected through a secure interaction, used only during server-side export, and excluded from Telegram logs, URLs, and persistent storage. The bot must not echo the password in a confirmation message.
+
 ## Roles
 
 `OWNER` and `ADMIN` may create invitations. `MEMBER` may use normal family features but cannot create invitations. These checks are enforced in the family service rather than trusted to Telegram message wording or a future client interface.
 
 ## Out of scope
 
-Financial transactions, receipt OCR, AI categorization and summaries, budgets, dashboards, the Telegram Mini App, payments, subscriptions, and Supabase are not implemented in Milestone 2.
+Financial transactions, receipt OCR, AI categorization and summaries, budgets, dashboards, the Telegram Mini App, payments, subscriptions, and Supabase are not implemented in Milestone 2. Member listing, role changes, member removal, invitation revocation, family renaming, and family archival are also outside Milestone 2 and are planned for Milestone 3.

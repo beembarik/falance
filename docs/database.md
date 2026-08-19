@@ -77,6 +77,18 @@ There is deliberately no `spreadsheet_id` column. The central spreadsheet ID bel
 
 Every future family-owned table must include `family_id` as a mandatory partition key. For example, a future transaction table must begin with `transaction_id` and `family_id`. The application must obtain this value from a server-side membership or validated invitation lookup, never from untrusted Telegram request data.
 
+## Family-management boundary
+
+Milestone 2 stores the membership and invitation records needed for authorization and joining. It does not yet define the complete lifecycle behavior for member removal, role changes, invitation revocation, family renaming, or family archival. Those operations are planned for Milestone 3 and must use server-side membership authorization, preserve `family_id`, and record enough state to support recovery and auditing.
+
+Hard deletion of a family or irreversible deletion of its financial history is not part of the current schema contract. A future implementation should prefer explicit lifecycle statuses and retention rules until backup, recovery, ownership transfer, and audit requirements are settled.
+
+## Reporting and export boundary
+
+Reports are derived, family-scoped read models and must not expose the central spreadsheet or its identifiers. Telegram summaries, authenticated Mini App report views, CSV files, print-friendly pages, and PDFs must all be generated only after server-side membership authorization resolves the requester’s `family_id`.
+
+Export artifacts should be short-lived and cleaned up after delivery or expiry. A PDF may be exported without a password or with an optional password chosen immediately before export. When enabled, the password is used only during server-side PDF generation/encryption; it is not stored in Sheets, report metadata, logs, analytics, URLs, or persistent download records.
+
 ## Future boundaries
 
-Transactions, categories, accounts, audit events, receipt parsing, AI analysis, budgets, dashboards, Mini App features, Supabase storage, payments, and subscriptions are outside Milestone 2. Their eventual schemas must preserve the `family_id` rule.
+Transactions, categories, accounts, audit events, receipt parsing, AI analysis, budgets, dashboards, Supabase storage, payments, and subscriptions are outside Milestone 2. Reports and exports are planned for Milestone 8, while the first authenticated Mini App report views are also delivered there; their eventual schemas and read models must preserve the `family_id` rule.
