@@ -202,6 +202,37 @@ export class FamilyService {
     await this.repository.updateMemberRole(target.memberId, newRole);
   }
 
+  async deactivateMember(
+    actor: TelegramUser,
+    targetMemberId: string,
+    confirmation: string,
+  ): Promise<void> {
+    const actorMember = await this.requireActiveMember(actor.telegramUserId);
+    if (actorMember.role !== "OWNER") {
+      throw new UnauthorizedError("Only the owner can deactivate members.");
+    }
+    if (confirmation.trim().toUpperCase() !== "CONFIRM") {
+      throw new MemberManagementError("Explicit confirmation is required.");
+    }
+
+    const family = await this.repository.findFamilyById(actorMember.familyId);
+    if (!family || family.status !== "ACTIVE") {
+      throw new UnauthorizedError("Family is unavailable.");
+    }
+
+    const target = (await this.repository.findMembersByFamilyId(actorMember.familyId)).find(
+      (candidate) => candidate.memberId === targetMemberId && candidate.status === "ACTIVE",
+    );
+    if (!target) {
+      throw new MemberManagementError("Member is not found in the active family.");
+    }
+    if (target.role === "OWNER") {
+      throw new MemberManagementError("The OWNER role cannot be deactivated.");
+    }
+
+    await this.repository.updateMemberStatus(target.memberId, "SUSPENDED");
+  }
+
   async joinFamily(user: TelegramUser, code: string): Promise<Family> {
     if (await this.getActiveMembership(user.telegramUserId)) {
       throw new AlreadyRegisteredError("User already belongs to a family.");

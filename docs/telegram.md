@@ -22,6 +22,7 @@ Telegram credentials remain server-only. The bot token must not be exposed to br
 | `/members` | Lists active members of the requester’s server-resolved family, including each opaque `member_id` needed for administrative targeting, without exposing the central spreadsheet or Telegram user IDs. Available to active OWNER, ADMIN, and MEMBER users. |
 | `/revokeinvite <code>` | Revokes a `PENDING` invitation belonging to the requester’s family. Available only to `OWNER` and `ADMIN`. |
 | `/changerole <member_id_or_username> <ADMIN|MEMBER>` | Changes an active member’s role between `MEMBER` and `ADMIN`. Available only to the family `OWNER`; the target is resolved from the OWNER’s server-resolved family. `OWNER` cannot be changed. |
+| `/deactivate <member_id_or_username> CONFIRM` | Soft-deactivates an active non-OWNER member by changing status to `SUSPENDED`. Available only to `OWNER`; explicit `CONFIRM` is required and the target must belong to the OWNER’s server-resolved family. |
 
 The command list is updated only after the handler and authorization tests are implemented. Future administrative commands must preserve the same server-side family boundary. Role changes accept a member ID shown by `/members` or a Telegram username, but never a client-supplied `family_id`.
 
@@ -49,7 +50,7 @@ If a user requests a password-protected PDF, the password must be collected thro
 
 ## Roles
 
-`OWNER` and `ADMIN` may create or revoke invitations. Only `OWNER` may change an active member between `MEMBER` and `ADMIN`; the `OWNER` role is immutable through role management. `MEMBER` may use normal family features but cannot create invitations or change roles. These checks are enforced in the family service rather than trusted to Telegram message wording or a future client interface.
+`OWNER` and `ADMIN` may create or revoke invitations. Only `OWNER` may change an active member between `MEMBER` and `ADMIN`; the `OWNER` role is immutable through role management. Only `OWNER` may deactivate an active non-OWNER member, and the operation requires explicit `CONFIRM`; deactivation writes soft-state `SUSPENDED` rather than deleting the row. `MEMBER` may use normal family features but cannot create invitations, change roles, or deactivate members. These checks are enforced in the family service rather than trusted to Telegram message wording or a future client interface.
 
 ## Out of scope
 

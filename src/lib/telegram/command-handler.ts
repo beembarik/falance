@@ -56,6 +56,16 @@ export async function handleTelegramTextMessage(
       await service.changeMemberRole(user, target.memberId, newRole as MemberRole);
       return `✅ Role ${target.name} berhasil diubah menjadi ${newRole}.`;
     }
+    if (command.startsWith("/deactivate")) {
+      const args = command.slice("/deactivate".length).trim().split(/\s+/).filter(Boolean);
+      if (args.length !== 2) return "Format tidak valid. Gunakan: /deactivate <member_id_atau_username> CONFIRM";
+
+      const target = await findRoleChangeTarget(service, user, args[0]);
+      if (!target) return "Anggota tidak ditemukan dalam keluarga aktif kamu.";
+
+      await service.deactivateMember(user, target.memberId, args[1]);
+      return `✅ Anggota ${target.name} berhasil dinonaktifkan.`;
+    }
     if (command.startsWith("/join")) {
       const code = command.slice("/join".length).trim();
       if (!code) return "Format tidak valid. Gunakan: /join FAL-XXXXXX";
@@ -98,7 +108,7 @@ function messageForError(error: unknown): string {
   if (error instanceof AlreadyRegisteredError) return "Kamu sudah terdaftar dalam keluarga aktif.";
   if (error instanceof UnauthorizedError) return "Kamu tidak memiliki izin untuk menjalankan perintah ini.";
   if (error instanceof InvitationError) return "Invitation tidak valid, sudah digunakan, dicabut, atau kedaluwarsa.";
-  if (error instanceof MemberManagementError) return "Role anggota tidak dapat diubah. Pastikan target adalah MEMBER atau ADMIN aktif.";
+  if (error instanceof MemberManagementError) return "Perubahan anggota tidak dapat diproses. Pastikan target aktif dan gunakan konfirmasi CONFIRM.";
   if (error instanceof FamilyServiceError) return "Permintaan tidak dapat diproses. Gunakan /createfamily untuk memulai kembali.";
   return "Terjadi gangguan saat memproses permintaan. Silakan coba lagi.";
 }

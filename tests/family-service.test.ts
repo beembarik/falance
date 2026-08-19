@@ -182,6 +182,56 @@ test("protects OWNER role and rejects non-OWNER and cross-family role changes", 
   assert.equal(repository.members.find((value) => value.memberId === "mem_400")?.role, "MEMBER");
 });
 
+test("OWNER can deactivate an active non-OWNER member using explicit confirmation", async () => {
+  const repository = new FakeFamilyRepository();
+  repository.families.push(family("fam_1"));
+  repository.members.push(
+    activeMember("fam_1", owner, "OWNER"),
+    activeMember("fam_1", member, "MEMBER"),
+  );
+  const service = new FamilyService(repository);
+
+  await service.deactivateMember(owner, "mem_200", "confirm");
+
+  assert.equal(repository.members.find((value) => value.memberId === "mem_200")?.status, "SUSPENDED");
+  assert.equal(await service.getActiveMembership(member.telegramUserId), null);
+  assert.deepEqual((await service.listFamilyMembers(owner.telegramUserId)).map((value) => value.memberId), ["mem_100"]);
+});
+
+test("rejects unsafe member deactivation targets and missing confirmation", async () => {
+  const familyBOwner: TelegramUser = { telegramUserId: "300", name: "Family B Owner", username: "family-b-owner" };
+  const familyBMember: TelegramUser = { telegramUserId: "400", name: "Family B Member", username: "family-b-member" };
+  const repository = new FakeFamilyRepository();
+  repository.families.push(family("fam_1"), { ...family("fam_2"), createdBy: familyBOwner.telegramUserId });
+  repository.members.push(
+    activeMember("fam_1", owner, "OWNER"),
+    activeMember("fam_1", member, "MEMBER"),
+    activeMember("fam_2", familyBOwner, "OWNER"),
+    activeMember("fam_2", familyBMember, "MEMBER"),
+  );
+  const service = new FamilyService(repository);
+
+  await assert.rejects(
+    service.deactivateMember(owner, "mem_200", "REMOVE"),
+    MemberManagementError,
+  );
+  await assert.rejects(
+    service.deactivateMember(owner, "mem_100", "CONFIRM"),
+    MemberManagementError,
+  );
+  await assert.rejects(
+    service.deactivateMember(member, "mem_200", "CONFIRM"),
+    UnauthorizedError,
+  );
+  await assert.rejects(
+    service.deactivateMember(owner, "mem_400", "CONFIRM"),
+    MemberManagementError,
+  );
+
+  assert.equal(repository.members.find((value) => value.memberId === "mem_200")?.status, "ACTIVE");
+  assert.equal(repository.members.find((value) => value.memberId === "mem_400")?.status, "ACTIVE");
+});
+
 test("rejects revoking a foreign or already-consumed invitation", async () => {
   const repository = setupMember("OWNER");
   repository.families.push({ ...family("fam_2"), createdBy: "300" });
@@ -304,6 +354,10 @@ class FakeFamilyRepository implements FamilyRepository {
   async updateMemberRole(memberId: string, newRole: FamilyMember["role"]) {
     const value = this.members.find((memberValue) => memberValue.memberId === memberId);
     if (value) value.role = newRole;
+  }
+  async updateMemberStatus(memberId: string, newStatus: FamilyMember["status"]) {
+    const value = this.members.find((memberValue) => memberValue.memberId === memberId);
+    if (value) value.status = newStatus;
   }
   async createInvitation(value: Invitation) { this.invitations.push(value); }
   async findInvitationByCode(code: string) { return this.invitations.find((value) => value.code === code) ?? null; }

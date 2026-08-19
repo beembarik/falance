@@ -32,7 +32,7 @@ This milestone turns the Milestone 2 membership and invitation foundation into a
 
 - [x] Authorized `/members` command or equivalent member-listing flow
 - [x] Owner-controlled promotion and demotion between `MEMBER` and `ADMIN`
-- [ ] Safe member removal or deactivation with server-side family authorization
+- [x] Safe member removal or deactivation with server-side family authorization
 - [x] Owner/admin revocation of pending invitations
 - [ ] Owner-controlled family-name update
 - [ ] Safe family archival or deactivation rather than irreversible hard deletion
@@ -41,7 +41,7 @@ This milestone turns the Milestone 2 membership and invitation foundation into a
 - [ ] Audit fields or an audit-log boundary for administrative changes
 - [ ] Tests for role permissions, member lifecycle, invitation revocation, family lifecycle, and cross-family rejection
 
-Role management is implemented through `/changerole <member_id_or_username> <ADMIN|MEMBER>`. The service resolves the actor’s active family server-side, permits only the OWNER to change roles, limits transitions to MEMBER↔ADMIN, and rejects OWNER or cross-family targets. Member removal, family renaming, archival, destructive-operation confirmation, and administrative audit fields remain outstanding.
+Role management is implemented through `/changerole <member_id_or_username> <ADMIN|MEMBER>`. Safe member deactivation is implemented through `/deactivate <member_id_or_username> CONFIRM`, which changes an active non-OWNER member to `SUSPENDED` without hard deletion. The service resolves the actor’s active family server-side, permits only the OWNER to change roles or deactivate members, rejects OWNER and cross-family targets, and requires explicit confirmation for deactivation. Family renaming, archival, broader destructive-operation confirmation, and administrative audit fields remain outstanding.
 
 Permanent hard deletion of a family and irreversible deletion of financial history are intentionally excluded until retention, backup, recovery, and ownership-transfer rules are defined. Those operations may require a later production-hardening decision.
 

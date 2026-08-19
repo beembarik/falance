@@ -3,6 +3,7 @@ import type {
   FamilyMember,
   Invitation,
   MemberRole,
+  MemberStatus,
   PendingFamilyCreation,
 } from "./types";
 
@@ -16,6 +17,7 @@ export interface FamilyRepository {
   ): Promise<FamilyMember | null>;
   findMembersByFamilyId(familyId: string): Promise<FamilyMember[]>;
   updateMemberRole(memberId: string, newRole: MemberRole): Promise<void>;
+  updateMemberStatus(memberId: string, newStatus: MemberStatus): Promise<void>;
   createInvitation(invitation: Invitation): Promise<void>;
   findInvitationByCode(code: string): Promise<Invitation | null>;
   markInvitationUsed(
