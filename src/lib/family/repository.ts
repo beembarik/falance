@@ -2,6 +2,7 @@ import type {
   Family,
   FamilyMember,
   Invitation,
+  MemberRole,
   PendingFamilyCreation,
 } from "./types";
 
@@ -14,6 +15,7 @@ export interface FamilyRepository {
     telegramUserId: string,
   ): Promise<FamilyMember | null>;
   findMembersByFamilyId(familyId: string): Promise<FamilyMember[]>;
+  updateMemberRole(memberId: string, newRole: MemberRole): Promise<void>;
   createInvitation(invitation: Invitation): Promise<void>;
   findInvitationByCode(code: string): Promise<Invitation | null>;
   markInvitationUsed(

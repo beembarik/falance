@@ -57,6 +57,17 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
       .map(memberFromRow);
   }
 
+  async updateMemberRole(memberId: string, newRole: FamilyMember["role"]): Promise<void> {
+    const rows = await this.rows("Members", "updateMemberRole");
+    const index = rows.findIndex((row) => row[0] === memberId);
+    if (index < 0) throw new GoogleConfigurationError("Member registry record is missing.");
+    const row = rows[index];
+    if (row[6] !== "ACTIVE") return;
+    await this.client.updateValues(this.registryId(), `Members!A${index + 2}`, [[
+      ...row.slice(0, 5), newRole, ...row.slice(6),
+    ]], "updateMemberRole");
+  }
+
   async createInvitation(invitation: Invitation): Promise<void> {
     const existing = await this.findInvitationByCode(invitation.code);
     if (existing) return;

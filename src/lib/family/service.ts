@@ -17,6 +17,7 @@ export class FamilyServiceError extends Error {}
 export class AlreadyRegisteredError extends FamilyServiceError {}
 export class UnauthorizedError extends FamilyServiceError {}
 export class InvitationError extends FamilyServiceError {}
+export class MemberManagementError extends FamilyServiceError {}
 
 export class FamilyService {
   private readonly repository: FamilyRepository;
@@ -164,6 +165,41 @@ export class FamilyService {
     }
 
     await this.repository.revokeInvitation(invitation.invitationId);
+  }
+
+  async changeMemberRole(
+    actor: TelegramUser,
+    targetMemberId: string,
+    newRole: MemberRole,
+  ): Promise<void> {
+    const actorMember = await this.requireActiveMember(actor.telegramUserId);
+    if (actorMember.role !== "OWNER") {
+      throw new UnauthorizedError("Only the owner can change member roles.");
+    }
+
+    const family = await this.repository.findFamilyById(actorMember.familyId);
+    if (!family || family.status !== "ACTIVE") {
+      throw new UnauthorizedError("Family is unavailable.");
+    }
+
+    if (newRole !== "ADMIN" && newRole !== "MEMBER") {
+      throw new MemberManagementError("Only MEMBER and ADMIN roles can be assigned.");
+    }
+
+    const target = (await this.repository.findMembersByFamilyId(actorMember.familyId)).find(
+      (candidate) => candidate.memberId === targetMemberId && candidate.status === "ACTIVE",
+    );
+    if (!target) {
+      throw new MemberManagementError("Member is not found in the active family.");
+    }
+    if (target.role === "OWNER") {
+      throw new MemberManagementError("The OWNER role cannot be changed.");
+    }
+    if (target.role === newRole) {
+      throw new MemberManagementError("Member already has this role.");
+    }
+
+    await this.repository.updateMemberRole(target.memberId, newRole);
   }
 
   async joinFamily(user: TelegramUser, code: string): Promise<Family> {

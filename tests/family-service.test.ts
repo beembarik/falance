@@ -6,6 +6,7 @@ import {
   AlreadyRegisteredError,
   FamilyService,
   InvitationError,
+  MemberManagementError,
   UnauthorizedError,
 } from "../src/lib/family/service";
 import type { Family, FamilyMember, Invitation, PendingFamilyCreation, TelegramUser } from "../src/lib/family/types";
@@ -133,6 +134,54 @@ test("OWNER and ADMIN can revoke only pending invitations in their own family", 
   assert.equal(memberRepository.invitations[0].status, "PENDING");
 });
 
+test("OWNER can promote MEMBER to ADMIN and demote ADMIN to MEMBER", async () => {
+  const familyAdmin: TelegramUser = { telegramUserId: "300", name: "Family Admin", username: "family-admin" };
+  const repository = new FakeFamilyRepository();
+  repository.families.push(family("fam_1"));
+  repository.members.push(
+    activeMember("fam_1", owner, "OWNER"),
+    activeMember("fam_1", member, "MEMBER"),
+    activeMember("fam_1", familyAdmin, "ADMIN"),
+  );
+  const service = new FamilyService(repository);
+
+  await service.changeMemberRole(owner, "mem_200", "ADMIN");
+  await service.changeMemberRole(owner, "mem_300", "MEMBER");
+
+  assert.equal(repository.members.find((value) => value.memberId === "mem_200")?.role, "ADMIN");
+  assert.equal(repository.members.find((value) => value.memberId === "mem_300")?.role, "MEMBER");
+});
+
+test("protects OWNER role and rejects non-OWNER and cross-family role changes", async () => {
+  const familyBOwner: TelegramUser = { telegramUserId: "300", name: "Family B Owner", username: "family-b-owner" };
+  const familyBMember: TelegramUser = { telegramUserId: "400", name: "Family B Member", username: "family-b-member" };
+  const repository = new FakeFamilyRepository();
+  repository.families.push(family("fam_1"), { ...family("fam_2"), createdBy: familyBOwner.telegramUserId });
+  repository.members.push(
+    activeMember("fam_1", owner, "OWNER"),
+    activeMember("fam_1", member, "MEMBER"),
+    activeMember("fam_2", familyBOwner, "OWNER"),
+    activeMember("fam_2", familyBMember, "MEMBER"),
+  );
+  const service = new FamilyService(repository);
+
+  await assert.rejects(
+    service.changeMemberRole(owner, "mem_100", "MEMBER"),
+    MemberManagementError,
+  );
+  await assert.rejects(
+    service.changeMemberRole(member, "mem_200", "ADMIN"),
+    UnauthorizedError,
+  );
+  await assert.rejects(
+    service.changeMemberRole(owner, "mem_400", "ADMIN"),
+    MemberManagementError,
+  );
+
+  assert.equal(repository.members.find((value) => value.memberId === "mem_100")?.role, "OWNER");
+  assert.equal(repository.members.find((value) => value.memberId === "mem_400")?.role, "MEMBER");
+});
+
 test("rejects revoking a foreign or already-consumed invitation", async () => {
   const repository = setupMember("OWNER");
   repository.families.push({ ...family("fam_2"), createdBy: "300" });
@@ -252,6 +301,10 @@ class FakeFamilyRepository implements FamilyRepository {
   }
   async findActiveMemberByTelegramUserId(id: string) { return this.members.find((value) => value.telegramUserId === id && value.status === "ACTIVE") ?? null; }
   async findMembersByFamilyId(id: string) { return this.members.filter((value) => value.familyId === id); }
+  async updateMemberRole(memberId: string, newRole: FamilyMember["role"]) {
+    const value = this.members.find((memberValue) => memberValue.memberId === memberId);
+    if (value) value.role = newRole;
+  }
   async createInvitation(value: Invitation) { this.invitations.push(value); }
   async findInvitationByCode(code: string) { return this.invitations.find((value) => value.code === code) ?? null; }
   async markInvitationUsed(id: string, userId: string, usedAt: string) {

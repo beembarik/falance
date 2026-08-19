@@ -226,6 +226,7 @@ export type GoogleOperation =
   | "readPendingFamilyCreations"
   | "createFamily"
   | "createMember"
+  | "updateMemberRole"
   | "createInvitation"
   | "revokeInvitation"
   | "createPendingFamilyCreation"

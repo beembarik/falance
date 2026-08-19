@@ -3,9 +3,10 @@ import {
   FamilyService,
   FamilyServiceError,
   InvitationError,
+  MemberManagementError,
   UnauthorizedError,
 } from "@/lib/family/service";
-import type { FamilyMember, TelegramUser } from "@/lib/family/types";
+import type { FamilyMember, MemberRole, TelegramUser } from "@/lib/family/types";
 
 const UNREGISTERED_START = `👋 Halo! Selamat datang di Falancé.
 
@@ -39,6 +40,20 @@ export async function handleTelegramTextMessage(
       if (!code) return "Format tidak valid. Gunakan: /revokeinvite FAL-XXXXXX";
       await service.revokeInvitation(user, code);
       return "✅ Invitation berhasil dicabut.";
+    }
+    if (command.startsWith("/changerole")) {
+      const args = command.slice("/changerole".length).trim().split(/\s+/).filter(Boolean);
+      if (args.length !== 2) return "Format tidak valid. Gunakan: /changerole <member_id_atau_username> <ADMIN|MEMBER>";
+
+      const target = await findRoleChangeTarget(service, user, args[0]);
+      if (!target) return "Anggota tidak ditemukan dalam keluarga aktif kamu.";
+
+      const newRole = args[1].toUpperCase();
+      if (newRole !== "ADMIN" && newRole !== "MEMBER") {
+        return "Role tidak valid. Gunakan ADMIN atau MEMBER.";
+      }
+      await service.changeMemberRole(user, target.memberId, newRole as MemberRole);
+      return `✅ Role ${target.name} berhasil diubah menjadi ${newRole}.`;
     }
     if (command.startsWith("/join")) {
       const code = command.slice("/join".length).trim();
@@ -76,10 +91,25 @@ function startMessage(member: { role: string } | null): string {
     : UNREGISTERED_START;
 }
 
+async function findRoleChangeTarget(
+  service: FamilyService,
+  user: TelegramUser,
+  identifier: string,
+): Promise<FamilyMember | null> {
+  const normalizedIdentifier = identifier.replace(/^@/, "").toLowerCase();
+  const members = await service.listFamilyMembers(user.telegramUserId);
+  return members.find(
+    (member) =>
+      member.memberId === identifier ||
+      (member.username !== null && member.username.toLowerCase() === normalizedIdentifier),
+  ) ?? null;
+}
+
 function messageForError(error: unknown): string {
   if (error instanceof AlreadyRegisteredError) return "Kamu sudah terdaftar dalam keluarga aktif.";
   if (error instanceof UnauthorizedError) return "Kamu tidak memiliki izin untuk menjalankan perintah ini.";
   if (error instanceof InvitationError) return "Invitation tidak valid, sudah digunakan, dicabut, atau kedaluwarsa.";
+  if (error instanceof MemberManagementError) return "Role anggota tidak dapat diubah. Pastikan target adalah MEMBER atau ADMIN aktif.";
   if (error instanceof FamilyServiceError) return "Permintaan tidak dapat diproses. Gunakan /createfamily untuk memulai kembali.";
   return "Terjadi gangguan saat memproses permintaan. Silakan coba lagi.";
 }
