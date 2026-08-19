@@ -59,9 +59,9 @@ Structured transaction commands are introduced in the Milestone 5 section below.
 | --- | --- |
 | `/addincome <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Creates an `INCOME` transaction for the requester’s server-resolved family. The amount may use plain digits or unambiguous three-digit separators such as `150.000`; currency defaults to `IDR`. |
 | `/addexpense <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Creates an `EXPENSE` transaction for the requester’s server-resolved family using the same validation rules. |
-| `/transactions` | Lists up to the 50 most recent `ACTIVE` transactions belonging to the requester’s server-resolved family, including opaque transaction IDs for future management flows. |
+| `/transactions` | Shows a readable balance summary grouped by currency, then lists up to the 50 most recent `ACTIVE` transactions belonging to the requester’s server-resolved family, including opaque transaction IDs for future management flows. `VOID` transactions are excluded from both the summary and list. |
 
-The command layer never accepts `family_id`; `FamilyService` resolves both `family_id` and `created_by_member_id` from the active membership. Invalid amount, date, currency, or description input is rejected in Indonesian. The service records successful creation in the append-only `Audit Log`.
+The command layer never accepts `family_id`; `FamilyService` resolves both `family_id` and `created_by_member_id` from the active membership. Invalid amount, date, currency, or description input is rejected in Indonesian. The service records successful creation in the append-only `Audit Log`. The balance summary is cumulative across all active transactions, does not reset monthly, excludes `VOID`, and never converts or mixes different currencies.
 
 Natural-language transaction input, editing, soft cancellation with interactive Y/N confirmation, and other transaction management commands remain planned work in Milestone 5. No hard deletion is permitted.
 

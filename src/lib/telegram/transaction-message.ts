@@ -13,11 +13,13 @@ export function formatTransactionCreatedMessage(transaction: Transaction): strin
 }
 
 export function formatTransactionsMessage(family: Family, transactions: Transaction[]): string {
-  if (transactions.length === 0) {
-    return `📒 Transaksi aktif keluarga ${family.familyName}\n\nBelum ada transaksi.`;
+  const activeTransactions = transactions.filter((transaction) => transaction.status === "ACTIVE");
+  const header = `📒 TRANSAKSI AKTIF — ${family.familyName}`;
+  if (activeTransactions.length === 0) {
+    return [header, "", "📊 RINGKASAN SALDO", "Belum ada transaksi aktif."].join("\n");
   }
 
-  const rows = transactions
+  const rows = activeTransactions
     .slice()
     .sort((left, right) => right.transactionDate.localeCompare(left.transactionDate) || right.createdAt.localeCompare(left.createdAt))
     .slice(0, 50)
@@ -30,11 +32,43 @@ export function formatTransactionsMessage(family: Family, transactions: Transact
       ].join("\n");
     });
 
-  return [`📒 Transaksi aktif keluarga ${family.familyName}`, "", ...rows].join("\n");
+  return [
+    header,
+    "",
+    formatBalanceSummary(activeTransactions),
+    "",
+    "🧾 DAFTAR TRANSAKSI",
+    ...rows,
+  ].join("\n");
 }
 
-function formatAmount(amountMinor: number, currency: string): string {
-  return `${currency} ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(amountMinor)}`;
+function formatBalanceSummary(transactions: Transaction[]): string {
+  const balances = new Map<string, { income: bigint; expense: bigint }>();
+  for (const transaction of transactions) {
+    const current = balances.get(transaction.currency) ?? { income: BigInt(0), expense: BigInt(0) };
+    if (transaction.transactionType === "INCOME") {
+      current.income += BigInt(transaction.amountMinor);
+    } else {
+      current.expense += BigInt(transaction.amountMinor);
+    }
+    balances.set(transaction.currency, current);
+  }
+
+  const sections = [...balances.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([currency, balance]) => {
+    const net = balance.income - balance.expense;
+    return [
+      currency,
+      `  Pemasukan  : ${formatAmount(balance.income, currency)}`,
+      `  Pengeluaran: ${formatAmount(balance.expense, currency)}`,
+      `  Saldo      : ${formatAmount(net, currency)}`,
+    ].join("\n");
+  });
+
+  return ["📊 RINGKASAN SALDO", ...sections].join("\n");
+}
+
+function formatAmount(amount: number | bigint, currency: string): string {
+  return `${currency} ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(amount)}`;
 }
 
 function formatDate(value: string): string {

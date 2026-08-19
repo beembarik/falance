@@ -69,9 +69,10 @@ Status: IN PROGRESS
 - [ ] Natural Telegram text commands
 - [x] Structured `/addincome` and `/addexpense` input
 - [x] Family-scoped `/transactions` listing
+- [x] Cumulative multi-currency balance summary in `/transactions`
 - [ ] Add, edit, delete, cancel, and confirmation flows
 
-The first vertical slice accepts structured amount, optional currency, `YYYY-MM-DD` date, and description input through Telegram. `family_id` and `created_by_member_id` continue to be resolved server-side by `FamilyService`; the command layer never accepts a family identifier. Transaction editing, soft cancellation with Y/N confirmation, and broader natural-language parsing remain planned work in this milestone.
+The first vertical slice accepts structured amount, optional currency, `YYYY-MM-DD` date, and description input through Telegram, and `/transactions` shows a cumulative balance grouped by currency from active transactions. `family_id` and `created_by_member_id` continue to be resolved server-side by `FamilyService`; the command layer never accepts a family identifier. Transaction editing, soft cancellation with Y/N confirmation, and broader natural-language parsing remain planned work in this milestone.
 
 ## Milestone 6 — AI Text Parser
 
