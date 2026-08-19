@@ -140,7 +140,7 @@ Falancé menerapkan batas keamanan berikut:
 - `family_id` selalu di-resolve di server dan tidak boleh berasal dari input client.
 - Invitation selalu family-bound, memiliki expiry, dan hanya dapat digunakan satu kali.
 - Role check dilakukan di `FamilyService`, bukan hanya pada command handler.
-- `OWNER` tidak dapat diubah melalui role-management flow.
+- `OWNER` tidak dapat diubah melalui role-management flow, dan operasi apa pun yang dapat menghilangkan OWNER terakhir ditolak oleh service invariant.
 - Target perubahan role atau deactivation harus merupakan anggota aktif dari keluarga actor.
 - Deactivation menggunakan soft-state `SUSPENDED`, bukan hard deletion, dan membutuhkan konfirmasi interaktif `Y`/`N`.
 - Revokasi invitation dan archival keluarga juga menggunakan pending confirmation interaktif `Y`/`N` dengan masa berlaku lima menit.

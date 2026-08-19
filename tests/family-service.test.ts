@@ -10,6 +10,7 @@ import {
   FamilyService,
   InvitationError,
   MemberManagementError,
+  OwnerInvariantError,
   UnauthorizedError,
 } from "../src/lib/family/service";
 import type { Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, TelegramUser } from "../src/lib/family/types";
@@ -219,6 +220,22 @@ test("OWNER can promote MEMBER to ADMIN and demote ADMIN to MEMBER", async () =>
   assert.equal(repository.members.find((value) => value.memberId === "mem_300")?.role, "MEMBER");
 });
 
+test("protects the last OWNER from deactivation and role changes", async () => {
+  const repository = setupMember("OWNER");
+  const service = new FamilyService(repository);
+
+  await assert.rejects(
+    service.changeMemberRole(owner, "mem_100", "MEMBER"),
+    OwnerInvariantError,
+  );
+  await assert.rejects(
+    service.requestMemberDeactivation(owner, "mem_100"),
+    OwnerInvariantError,
+  );
+  assert.equal(repository.members.find((value) => value.memberId === "mem_100")?.status, "ACTIVE");
+  assert.equal(repository.members.find((value) => value.memberId === "mem_100")?.role, "OWNER");
+});
+
 test("protects OWNER role and rejects non-OWNER and cross-family role changes", async () => {
   const familyBOwner: TelegramUser = { telegramUserId: "300", name: "Family B Owner", username: "family-b-owner" };
   const familyBMember: TelegramUser = { telegramUserId: "400", name: "Family B Member", username: "family-b-member" };
@@ -234,7 +251,7 @@ test("protects OWNER role and rejects non-OWNER and cross-family role changes", 
 
   await assert.rejects(
     service.changeMemberRole(owner, "mem_100", "MEMBER"),
-    MemberManagementError,
+    OwnerInvariantError,
   );
   await assert.rejects(
     service.changeMemberRole(member, "mem_200", "ADMIN"),
@@ -298,7 +315,7 @@ test("rejects unsafe member deactivation targets and missing confirmation", asyn
   assert.equal(repository.members.find((value) => value.memberId === "mem_200")?.status, "ACTIVE");
   await assert.rejects(
     service.requestMemberDeactivation(owner, "mem_100"),
-    MemberManagementError,
+    OwnerInvariantError,
   );
   await assert.rejects(
     service.requestMemberDeactivation(member, "mem_200"),

@@ -23,6 +23,7 @@ export class MemberManagementError extends FamilyServiceError {}
 export class FamilyNameError extends FamilyServiceError {}
 export class ConfirmationError extends FamilyServiceError {}
 export class FamilyLifecycleError extends FamilyServiceError {}
+export class OwnerInvariantError extends FamilyServiceError {}
 
 export interface ConfirmationResult {
   action: ConfirmationAction;
@@ -274,12 +275,14 @@ export class FamilyService {
       throw new MemberManagementError("Only MEMBER and ADMIN roles can be assigned.");
     }
 
-    const target = (await this.repository.findMembersByFamilyId(actorMember.familyId)).find(
+    const familyMembers = await this.repository.findMembersByFamilyId(actorMember.familyId);
+    const target = familyMembers.find(
       (candidate) => candidate.memberId === targetMemberId && candidate.status === "ACTIVE",
     );
     if (!target) {
       throw new MemberManagementError("Member is not found in the active family.");
     }
+    assertOwnerInvariant(familyMembers, target, "changed");
     if (target.role === "OWNER") {
       throw new MemberManagementError("The OWNER role cannot be changed.");
     }
@@ -296,10 +299,12 @@ export class FamilyService {
       throw new UnauthorizedError("Only the owner can deactivate members.");
     }
     const family = await this.requireActiveFamily(actorMember.familyId);
-    const target = (await this.repository.findMembersByFamilyId(family.familyId)).find(
+    const familyMembers = await this.repository.findMembersByFamilyId(family.familyId);
+    const target = familyMembers.find(
       (candidate) => candidate.memberId === targetMemberId && candidate.status === "ACTIVE",
     );
     if (!target) throw new MemberManagementError("Member is not found in the active family.");
+    assertOwnerInvariant(familyMembers, target, "deactivated");
     if (target.role === "OWNER") throw new MemberManagementError("The OWNER role cannot be deactivated.");
     return this.createPendingConfirmation(actor, family.familyId, "DEACTIVATE_MEMBER", target.memberId);
   }
@@ -308,10 +313,12 @@ export class FamilyService {
     const actorMember = await this.requireActiveMember(actor.telegramUserId);
     if (actorMember.role !== "OWNER") throw new UnauthorizedError("Only the owner can deactivate members.");
     const family = await this.requireActiveFamily(actorMember.familyId);
-    const target = (await this.repository.findMembersByFamilyId(family.familyId)).find(
+    const familyMembers = await this.repository.findMembersByFamilyId(family.familyId);
+    const target = familyMembers.find(
       (candidate) => candidate.memberId === targetMemberId && candidate.status === "ACTIVE",
     );
     if (!target) throw new MemberManagementError("Member is not found in the active family.");
+    assertOwnerInvariant(familyMembers, target, "deactivated");
     if (target.role === "OWNER") throw new MemberManagementError("The OWNER role cannot be deactivated.");
     await this.repository.updateMemberStatus(target.memberId, "SUSPENDED");
     return target;
@@ -496,6 +503,19 @@ function createInvitationCode(): string {
   return `FAL-${randomUUID().replaceAll("-", "").slice(0, 6).toUpperCase()}`;
 }
 
+
+function assertOwnerInvariant(
+  members: FamilyMember[],
+  target: FamilyMember,
+  action: "changed" | "deactivated",
+): void {
+  const activeOwnerCount = members.filter(
+    (member) => member.status === "ACTIVE" && member.role === "OWNER",
+  ).length;
+  if (target.role === "OWNER" && activeOwnerCount <= 1) {
+    throw new OwnerInvariantError(`The last OWNER cannot be ${action}.`);
+  }
+}
 
 function normalizeFamilyName(value: string): string {
   const name = value.trim().replaceAll(/\s+/g, " ");

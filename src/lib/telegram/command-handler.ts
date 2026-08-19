@@ -8,6 +8,7 @@ import {
   FamilyServiceError,
   InvitationError,
   MemberManagementError,
+  OwnerInvariantError,
   UnauthorizedError,
 } from "../family/service";
 import type { FamilyMember, MemberRole, TelegramUser } from "../family/types";
@@ -158,6 +159,7 @@ function messageForError(error: unknown): string {
   if (error instanceof FamilyNameError) return "Nama keluarga tidak valid. Gunakan nama 1–80 karakter.";
   if (error instanceof ConfirmationError) return "Tidak ada konfirmasi pending yang dapat diproses, atau konfirmasi sudah kedaluwarsa.";
   if (error instanceof FamilyLifecycleError) return "Status keluarga tidak memungkinkan operasi ini.";
+  if (error instanceof OwnerInvariantError) return "Operasi ditolak karena keluarga harus selalu memiliki setidaknya satu OWNER aktif.";
   if (error instanceof MemberManagementError) return "Perubahan anggota tidak dapat diproses. Pastikan target memiliki status yang sesuai dan gunakan konfirmasi CONFIRM.";
   if (error instanceof FamilyServiceError) return "Permintaan tidak dapat diproses. Gunakan /createfamily untuk memulai kembali.";
   return "Terjadi gangguan saat memproses permintaan. Silakan coba lagi.";
