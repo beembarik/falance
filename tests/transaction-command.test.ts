@@ -48,3 +48,12 @@ test("rejects ambiguous decimal amount and incomplete commands", () => {
   assert.throws(() => parseAmountMinor("1.5"), TransactionCommandError);
   assert.throws(() => parseManualTransactionCommand("/addexpense 1000", "/addexpense"), TransactionCommandError);
 });
+
+test("shows the complete edit syntax when the description is missing", () => {
+  assert.throws(
+    () => parseEditTransactionCommand("/edittransaction txn_1 income 3000000 IDR 2026-08-02"),
+    (error: unknown) => error instanceof TransactionCommandError && error.message.includes(
+      "/edittransaction <transaction_id> <INCOME|EXPENSE> <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>",
+    ),
+  );
+});
