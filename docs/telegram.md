@@ -15,6 +15,14 @@ Telegram credentials remain server-only. The bot token must not be exposed to br
 | `/invite` | Requires an active `OWNER` or `ADMIN` membership. The generated code is bound to that member’s server-resolved `family_id`. |
 | `/join <code>` | Resolves the invitation by code, validates status and expiry, rejects an already-active member, creates membership for the invitation’s family, and consumes the code. |
 
+## Milestone 3 commands
+
+| Command | Behavior |
+| --- | --- |
+| `/members` | Lists active members of the requester’s server-resolved family without exposing the central spreadsheet or full Telegram user IDs. Available to active OWNER, ADMIN, and MEMBER users. |
+
+The command list is updated only after the handler and authorization tests are implemented. Future administrative commands must preserve the same server-side family boundary.
+
 ## Identity and authorization
 
 The backend uses the Telegram user ID from the verified update as the identity key. It looks up active membership in the central `Members` sheet and obtains the authorized `family_id` from that row.

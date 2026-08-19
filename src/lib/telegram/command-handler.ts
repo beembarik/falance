@@ -5,7 +5,7 @@ import {
   InvitationError,
   UnauthorizedError,
 } from "@/lib/family/service";
-import type { TelegramUser } from "@/lib/family/types";
+import type { FamilyMember, TelegramUser } from "@/lib/family/types";
 
 const UNREGISTERED_START = `👋 Halo! Selamat datang di Falancé.
 
@@ -31,6 +31,9 @@ export async function handleTelegramTextMessage(
       const invitation = await service.createInvitation(user);
       return `✅ Invitation berhasil dibuat.\n\nKode: ${invitation.code}\nBerlaku sampai: ${new Date(invitation.expiresAt).toLocaleString("id-ID")}`;
     }
+    if (command === "/members") {
+      return membersMessage(await service.listFamilyMembers(user.telegramUserId));
+    }
     if (command.startsWith("/join")) {
       const code = command.slice("/join".length).trim();
       if (!code) return "Format tidak valid. Gunakan: /join FAL-XXXXXX";
@@ -47,6 +50,18 @@ export async function handleTelegramTextMessage(
   } catch (error) {
     return messageForError(error);
   }
+}
+
+function membersMessage(members: FamilyMember[]): string {
+  if (members.length === 0) return "Belum ada anggota aktif dalam keluarga.";
+
+  const lines = members.map((member, index) => {
+    const username = member.username ? `@${member.username}` : "tanpa username";
+    const joinedAt = new Date(member.joinedAt).toLocaleDateString("id-ID");
+    return `${index + 1}. ${member.name} (${username})\n   Role: ${member.role}\n   Status: ${member.status}\n   Bergabung: ${joinedAt}`;
+  });
+
+  return `👥 Anggota keluarga:\n\n${lines.join("\n\n")}`;
 }
 
 function startMessage(member: { role: string } | null): string {

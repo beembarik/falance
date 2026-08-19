@@ -44,6 +44,32 @@ test("OWNER and ADMIN can create invitations but MEMBER cannot", async () => {
   await assert.rejects(new FamilyService(setupMember("MEMBER")).createInvitation(owner), UnauthorizedError);
 });
 
+test("lists only active members from the requester’s server-resolved family", async () => {
+  const familyBOwner: TelegramUser = { telegramUserId: "300", name: "Family B Owner", username: "family-b-owner" };
+  const leftMember: TelegramUser = { telegramUserId: "400", name: "Former Member", username: null };
+  const repository = new FakeFamilyRepository();
+  repository.families.push(family("fam_1"), { ...family("fam_2"), createdBy: familyBOwner.telegramUserId });
+  repository.members.push(
+    activeMember("fam_1", owner, "OWNER"),
+    activeMember("fam_1", member, "MEMBER"),
+    activeMember("fam_2", familyBOwner, "OWNER"),
+    { ...activeMember("fam_1", leftMember, "MEMBER"), status: "LEFT" },
+  );
+
+  const listed = await new FamilyService(repository).listFamilyMembers(member.telegramUserId);
+
+  assert.deepEqual(listed.map((value) => value.telegramUserId), [owner.telegramUserId, member.telegramUserId]);
+  assert.equal(listed.every((value) => value.familyId === "fam_1"), true);
+  assert.equal(listed.some((value) => value.telegramUserId === familyBOwner.telegramUserId), false);
+});
+
+test("rejects member listing for a user without active membership", async () => {
+  await assert.rejects(
+    new FamilyService(new FakeFamilyRepository()).listFamilyMembers("999"),
+    UnauthorizedError,
+  );
+});
+
 test("resolves invitation family ownership from server-side membership, not client input", async () => {
   const repository = setupMember("OWNER");
   repository.families.push({ ...family("fam_2"), createdBy: "999" });
@@ -191,6 +217,7 @@ class FakeFamilyRepository implements FamilyRepository {
     if (!this.members.some((memberValue) => memberValue.memberId === value.memberId)) this.members.push(value);
   }
   async findActiveMemberByTelegramUserId(id: string) { return this.members.find((value) => value.telegramUserId === id && value.status === "ACTIVE") ?? null; }
+  async findMembersByFamilyId(id: string) { return this.members.filter((value) => value.familyId === id); }
   async createInvitation(value: Invitation) { this.invitations.push(value); }
   async findInvitationByCode(code: string) { return this.invitations.find((value) => value.code === code) ?? null; }
   async markInvitationUsed(id: string, userId: string, usedAt: string) {

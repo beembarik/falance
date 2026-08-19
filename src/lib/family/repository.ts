@@ -13,6 +13,7 @@ export interface FamilyRepository {
   findActiveMemberByTelegramUserId(
     telegramUserId: string,
   ): Promise<FamilyMember | null>;
+  findMembersByFamilyId(familyId: string): Promise<FamilyMember[]>;
   createInvitation(invitation: Invitation): Promise<void>;
   findInvitationByCode(code: string): Promise<Invitation | null>;
   markInvitationUsed(

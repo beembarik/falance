@@ -96,6 +96,13 @@ export class FamilyService {
     return family;
   }
 
+  async listFamilyMembers(telegramUserId: string): Promise<FamilyMember[]> {
+    const member = await this.requireActiveMember(telegramUserId);
+    return (await this.repository.findMembersByFamilyId(member.familyId)).filter(
+      (familyMember) => familyMember.status === "ACTIVE",
+    );
+  }
+
   async requireAuthorizedFamily(
     telegramUserId: string,
     requestedFamilyId: string,

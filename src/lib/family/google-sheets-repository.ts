@@ -48,11 +48,13 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     const row = (await this.rows("Members", "readMembers")).find(
       (value) => value[2] === telegramUserId && value[6] === "ACTIVE",
     );
-    return row ? {
-      memberId: row[0], familyId: row[1], telegramUserId: row[2], name: row[3],
-      username: row[4] || null, role: row[5] as FamilyMember["role"],
-      status: "ACTIVE", joinedAt: row[7],
-    } : null;
+    return row ? memberFromRow(row) : null;
+  }
+
+  async findMembersByFamilyId(familyId: string): Promise<FamilyMember[]> {
+    return (await this.rows("Members", "readMembers"))
+      .filter((row) => row[1] === familyId)
+      .map(memberFromRow);
   }
 
   async createInvitation(invitation: Invitation): Promise<void> {
@@ -124,6 +126,14 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     if (!registryId) throw new GoogleConfigurationError("Google family registry is not configured.");
     return registryId;
   }
+}
+
+function memberFromRow(row: string[]): FamilyMember {
+  return {
+    memberId: row[0], familyId: row[1], telegramUserId: row[2], name: row[3],
+    username: row[4] || null, role: row[5] as FamilyMember["role"],
+    status: row[6] as FamilyMember["status"], joinedAt: row[7],
+  };
 }
 
 function familyFromRow(row: string[]): Family {
