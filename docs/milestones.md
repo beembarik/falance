@@ -34,15 +34,15 @@ This milestone turns the Milestone 2 membership and invitation foundation into a
 - [x] Owner-controlled promotion and demotion between `MEMBER` and `ADMIN`
 - [x] Safe member removal or deactivation with server-side family authorization
 - [x] Owner/admin revocation of pending invitations
-- [ ] Owner-controlled family-name update
+- [x] Owner-controlled family-name update
 - [ ] Safe family archival or deactivation rather than irreversible hard deletion
 - [ ] Explicit confirmation for destructive or privilege-changing operations
 - [ ] Invariants preventing removal of the last OWNER or unauthorized cross-family changes
 - [ ] Audit fields or an audit-log boundary for administrative changes
 - [ ] Tests for role permissions, member lifecycle, invitation revocation, family lifecycle, and cross-family rejection
 
-Role management is implemented through `/changerole <member_id_or_username> <ADMIN|MEMBER>`. Safe member deactivation is implemented through `/deactivate <member_id_or_username> CONFIRM`, which changes an active non-OWNER member to `SUSPENDED` without hard deletion. Reactivation is implemented through `/reactivate <member_id_or_username> CONFIRM`, which restores the existing `SUSPENDED` row to `ACTIVE` without generating a new `member_id`.
- The service resolves the actor’s active family server-side, permits only the OWNER to change roles, deactivate, or reactivate members, rejects OWNER and cross-family targets, prevents duplicate active membership, and requires explicit confirmation for deactivation and reactivation. Family renaming, archival, broader destructive-operation confirmation, and administrative audit fields remain outstanding.
+Role management is implemented through `/changerole <member_id_or_username> <ADMIN|MEMBER>`. Safe member deactivation is implemented through `/deactivate <member_id_or_username> CONFIRM`, which changes an active non-OWNER member to `SUSPENDED` without hard deletion. Reactivation is implemented through `/reactivate <member_id_or_username> CONFIRM`, which restores the existing `SUSPENDED` row to `ACTIVE` without generating a new `member_id`. Family-name updates are implemented through `/renamefamily <nama_baru>`, available only to OWNER with service-side normalization and validation. The service resolves the actor’s active family server-side, permits only the OWNER to change roles, deactivate, reactivate, or rename the family, rejects OWNER and cross-family targets, prevents duplicate active membership, and requires explicit confirmation for deactivation and reactivation. Archival, broader destructive-operation confirmation, and administrative audit fields remain outstanding.
+
 
 Permanent hard deletion of a family and irreversible deletion of financial history are intentionally excluded until retention, backup, recovery, and ownership-transfer rules are defined. Those operations may require a later production-hardening decision.
 

@@ -1,6 +1,7 @@
 import {
   AlreadyRegisteredError,
   FamilyService,
+  FamilyNameError,
   FamilyServiceError,
   InvitationError,
   MemberManagementError,
@@ -73,6 +74,13 @@ export async function handleTelegramTextMessage(
       const member = await service.reactivateMember(user, args[0], args[1]);
       return `✅ Anggota ${member.name} berhasil diaktifkan kembali dengan Member ID yang sama: ${member.memberId}.`;
     }
+    if (command.startsWith("/renamefamily")) {
+      const familyName = command.slice("/renamefamily".length).trim();
+      if (!familyName) return "Format tidak valid. Gunakan: /renamefamily <nama_baru>";
+
+      const family = await service.updateFamilyName(user, familyName);
+      return `✅ Nama keluarga berhasil diubah menjadi ${family.familyName}.`;
+    }
     if (command.startsWith("/join")) {
       const code = command.slice("/join".length).trim();
       if (!code) return "Format tidak valid. Gunakan: /join FAL-XXXXXX";
@@ -115,6 +123,7 @@ function messageForError(error: unknown): string {
   if (error instanceof AlreadyRegisteredError) return "Kamu sudah terdaftar dalam keluarga aktif.";
   if (error instanceof UnauthorizedError) return "Kamu tidak memiliki izin untuk menjalankan perintah ini.";
   if (error instanceof InvitationError) return "Invitation tidak valid, sudah digunakan, dicabut, atau kedaluwarsa.";
+  if (error instanceof FamilyNameError) return "Nama keluarga tidak valid. Gunakan nama 1–80 karakter.";
   if (error instanceof MemberManagementError) return "Perubahan anggota tidak dapat diproses. Pastikan target memiliki status yang sesuai dan gunakan konfirmasi CONFIRM.";
   if (error instanceof FamilyServiceError) return "Permintaan tidak dapat diproses. Gunakan /createfamily untuk memulai kembali.";
   return "Terjadi gangguan saat memproses permintaan. Silakan coba lagi.";

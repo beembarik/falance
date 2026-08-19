@@ -9,6 +9,7 @@ import type {
 
 export interface FamilyRepository {
   createFamily(family: Family): Promise<void>;
+  updateFamilyName(familyId: string, familyName: string): Promise<void>;
   findFamilyById(familyId: string): Promise<Family | null>;
   findFamilyByCreatedBy(telegramUserId: string): Promise<Family | null>;
   createMember(member: FamilyMember): Promise<void>;

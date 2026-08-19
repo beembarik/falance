@@ -4,6 +4,7 @@ import test from "node:test";
 import type { FamilyRepository } from "../src/lib/family/repository";
 import {
   AlreadyRegisteredError,
+  FamilyNameError,
   FamilyService,
   InvitationError,
   MemberManagementError,
@@ -33,6 +34,31 @@ test("rejects a duplicate family creation for an active member", async () => {
   const repository = new FakeFamilyRepository();
   repository.members.push(activeMember("fam_existing", owner, "OWNER"));
   await assert.rejects(new FamilyService(repository).beginFamilyCreation(owner), AlreadyRegisteredError);
+});
+
+test("OWNER can update and normalize the family name", async () => {
+  const repository = setupMember("OWNER");
+  const service = new FamilyService(repository);
+
+  const updated = await service.updateFamilyName(owner, "  Keluarga   Baru  ");
+
+  assert.equal(updated.familyName, "Keluarga Baru");
+  assert.equal(repository.families.find((value) => value.familyId === "fam_1")?.familyName, "Keluarga Baru");
+});
+
+test("rejects family-name updates by non-OWNER and invalid names", async () => {
+  await assert.rejects(
+    new FamilyService(setupMember("ADMIN")).updateFamilyName(owner, "Nama Baru"),
+    UnauthorizedError,
+  );
+  await assert.rejects(
+    new FamilyService(setupMember("OWNER")).updateFamilyName(owner, "   "),
+    FamilyNameError,
+  );
+  await assert.rejects(
+    new FamilyService(setupMember("OWNER")).updateFamilyName(owner, "x".repeat(81)),
+    FamilyNameError,
+  );
 });
 
 test("OWNER and ADMIN can create invitations but MEMBER cannot", async () => {
@@ -394,6 +420,10 @@ class FakeFamilyRepository implements FamilyRepository {
 
   async createFamily(value: Family) {
     if (!this.families.some((familyValue) => familyValue.familyId === value.familyId)) this.families.push(value);
+  }
+  async updateFamilyName(familyId: string, familyName: string) {
+    const value = this.families.find((familyValue) => familyValue.familyId === familyId);
+    if (value) value.familyName = familyName;
   }
   async findFamilyById(id: string) {
     this.familyLookupIds.push(id);

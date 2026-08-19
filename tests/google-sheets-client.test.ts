@@ -126,6 +126,42 @@ test("initializes the single central registry without Drive or spreadsheet creat
   }
 });
 
+test("updates a Families row name without creating a new family row", async () => {
+  const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
+  process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";
+  const updates: Array<{
+    spreadsheetId: string;
+    range: string;
+    values: readonly (readonly string[])[];
+    operation: string | undefined;
+  }> = [];
+  const client = {
+    ensureRegistry: async () => {},
+    getValues: async () => [
+      ["family_id", "family_name", "status", "created_at", "created_by", "plan"],
+      ["fam_1", "Keluarga Lama", "ACTIVE", "2026-01-01T00:00:00.000Z", "100", "MVP"],
+    ],
+    updateValues: async (
+      spreadsheetId: string,
+      range: string,
+      values: readonly (readonly string[])[],
+      operation?: string,
+    ) => updates.push({ spreadsheetId, range, values, operation }),
+  } as unknown as GoogleSheetsClient;
+
+  try {
+    await new GoogleSheetsFamilyRepository(client).updateFamilyName("fam_1", "Keluarga Baru");
+    assert.deepEqual(updates, [{
+      spreadsheetId: "central-registry-id",
+      range: "Families!A2",
+      values: [["fam_1", "Keluarga Baru", "ACTIVE", "2026-01-01T00:00:00.000Z", "100", "MVP"]],
+      operation: "updateFamilyName",
+    }]);
+  } finally {
+    restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
+  }
+});
+
 test("updates a suspended Members row to ACTIVE without creating a new member row", async () => {
   const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
   process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";

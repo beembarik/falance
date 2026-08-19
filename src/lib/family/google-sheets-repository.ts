@@ -27,6 +27,17 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     ], "createFamily");
   }
 
+  async updateFamilyName(familyId: string, familyName: string): Promise<void> {
+    const rows = await this.rows("Families", "updateFamilyName");
+    const index = rows.findIndex((row) => row[0] === familyId);
+    if (index < 0) throw new GoogleConfigurationError("Family registry record is missing.");
+    const row = rows[index];
+    if (row[1] === familyName) return;
+    await this.client.updateValues(this.registryId(), `Families!A${index + 2}`, [[
+      row[0], familyName, ...row.slice(2),
+    ]], "updateFamilyName");
+  }
+
   async findFamilyById(familyId: string): Promise<Family | null> {
     const row = (await this.rows("Families", "readFamilies")).find((value) => value[0] === familyId);
     return row ? familyFromRow(row) : null;

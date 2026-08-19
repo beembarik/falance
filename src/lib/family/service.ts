@@ -18,6 +18,7 @@ export class AlreadyRegisteredError extends FamilyServiceError {}
 export class UnauthorizedError extends FamilyServiceError {}
 export class InvitationError extends FamilyServiceError {}
 export class MemberManagementError extends FamilyServiceError {}
+export class FamilyNameError extends FamilyServiceError {}
 
 export class FamilyService {
   private readonly repository: FamilyRepository;
@@ -95,6 +96,22 @@ export class FamilyService {
     await this.repository.clearPendingFamilyCreation(user.telegramUserId);
 
     return family;
+  }
+
+  async updateFamilyName(actor: TelegramUser, familyName: string): Promise<Family> {
+    const actorMember = await this.requireActiveMember(actor.telegramUserId);
+    if (actorMember.role !== "OWNER") {
+      throw new UnauthorizedError("Only the owner can update the family name.");
+    }
+
+    const family = await this.repository.findFamilyById(actorMember.familyId);
+    if (!family || family.status !== "ACTIVE") {
+      throw new UnauthorizedError("Family is unavailable.");
+    }
+
+    const normalizedName = normalizeFamilyName(familyName);
+    await this.repository.updateFamilyName(actorMember.familyId, normalizedName);
+    return { ...family, familyName: normalizedName };
   }
 
   async listFamilyMembers(telegramUserId: string): Promise<FamilyMember[]> {
@@ -342,7 +359,7 @@ function createInvitationCode(): string {
 function normalizeFamilyName(value: string): string {
   const name = value.trim().replaceAll(/\s+/g, " ");
   if (!name || name.length > FAMILY_NAME_MAX_LENGTH) {
-    throw new FamilyServiceError("Family name is invalid.");
+    throw new FamilyNameError("Family name is invalid.");
   }
   return name;
 }
