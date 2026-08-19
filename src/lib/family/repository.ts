@@ -19,6 +19,7 @@ export interface FamilyRepository {
   updatePendingConfirmationStatus(confirmationId: string, status: PendingConfirmation["status"]): Promise<void>;
   createAuditLog(entry: AuditLogEntry): Promise<void>;
   createTransaction(transaction: Transaction): Promise<void>;
+  updateTransaction(transactionId: string, transaction: Transaction): Promise<void>;
   findTransactionsByFamilyId(familyId: string): Promise<Transaction[]>;
   findFamilyById(familyId: string): Promise<Family | null>;
   findFamilyByCreatedBy(telegramUserId: string): Promise<Family | null>;

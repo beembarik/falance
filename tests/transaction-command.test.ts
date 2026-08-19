@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { TransactionCommandError, parseAmountMinor, parseManualTransactionCommand } from "../src/lib/telegram/transaction-command";
+import { TransactionCommandError, parseAmountMinor, parseEditTransactionCommand, parseManualTransactionCommand } from "../src/lib/telegram/transaction-command";
 
 test("parses an expense with Indonesian thousand separators and default currency", () => {
   assert.deepEqual(parseManualTransactionCommand(
@@ -26,6 +26,21 @@ test("parses an income with explicit currency and preserves description words", 
     currency: "USD",
     transactionDate: "2026-08-19",
     description: "Honor freelance",
+  });
+});
+
+test("parses an edit command with an explicit transaction type", () => {
+  assert.deepEqual(parseEditTransactionCommand(
+    "/edittransaction txn_1 EXPENSE 200.000 IDR 2026-08-20 Belanja baru",
+  ), {
+    transactionId: "txn_1",
+    input: {
+      transactionType: "EXPENSE",
+      amountMinor: 200000,
+      currency: "IDR",
+      transactionDate: "2026-08-20",
+      description: "Belanja baru",
+    },
   });
 });
 

@@ -15,7 +15,7 @@ import {
 import type { FamilyMember, MemberRole, TelegramUser } from "../family/types";
 import { formatMembersMessage } from "./member-message";
 import { formatTransactionCreatedMessage, formatTransactionsMessage } from "./transaction-message";
-import { parseManualTransactionCommand, TransactionCommandError } from "./transaction-command";
+import { parseEditTransactionCommand, parseManualTransactionCommand, TransactionCommandError } from "./transaction-command";
 
 const UNREGISTERED_START = `👋 Halo! Selamat datang di Falancé.
 
@@ -69,6 +69,18 @@ export async function handleTelegramTextMessage(
     if (command === "/transactions") {
       const family = await service.getActiveFamily(user.telegramUserId);
       return formatTransactionsMessage(family, await service.listTransactions(user.telegramUserId));
+    }
+    if (command.startsWith("/edittransaction")) {
+      const { transactionId, input } = parseEditTransactionCommand(command);
+      const transaction = await service.updateTransaction(user, transactionId, input);
+      return `✅ Transaksi ${transaction.transactionId} berhasil diperbarui.`;
+    }
+    if (command.startsWith("/voidtransaction") || command.startsWith("/canceltransaction")) {
+      const prefix = command.startsWith("/voidtransaction") ? "/voidtransaction" : "/canceltransaction";
+      const transactionId = command.slice(prefix.length).trim();
+      if (!transactionId) return `Format tidak valid. Gunakan: ${prefix} <transaction_id>`;
+      await service.requestTransactionVoid(user, transactionId);
+      return `⚠️ Apakah kamu ingin membatalkan transaksi ${transactionId}?\n\nBalas Y untuk melanjutkan atau N untuk membatalkan. Konfirmasi berlaku 5 menit.`;
     }
     if (command.startsWith("/revokeinvite")) {
       const code = command.slice("/revokeinvite".length).trim();
@@ -170,7 +182,8 @@ async function findRoleChangeTarget(
 function confirmationResultMessage(result: ConfirmationResult): string {
   if (result.action === "REVOKE_INVITATION") return "✅ Invitation berhasil dicabut.";
   if (result.action === "DEACTIVATE_MEMBER") return `✅ Anggota ${result.targetName ?? "target"} berhasil dinonaktifkan.`;
-  return `✅ Keluarga ${result.familyName ?? "target"} berhasil diarsipkan sementara.`;
+  if (result.action === "ARCHIVE_FAMILY") return `✅ Keluarga ${result.familyName ?? "target"} berhasil diarsipkan sementara.`;
+  return `✅ Transaksi ${result.transactionDescription ?? "target"} berhasil dibatalkan secara soft-state.`;
 }
 
 function messageForError(error: unknown): string {

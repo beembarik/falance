@@ -510,6 +510,70 @@ test("rejects invalid transaction input and archived-family transaction access",
   assert.equal(repository.transactions.length, 0);
 });
 
+test("updates an active transaction in its server-resolved family and records an audit event", async () => {
+  const repository = setupMember("OWNER");
+  const service = new FamilyService(repository);
+  const created = await service.createTransaction(owner, {
+    transactionType: "EXPENSE",
+    amountMinor: 1000,
+    transactionDate: "2026-08-19",
+    description: "Lama",
+  });
+
+  const updated = await service.updateTransaction(owner, created.transactionId, {
+    transactionType: "INCOME",
+    amountMinor: 2500,
+    currency: "idr",
+    transactionDate: "2026-08-20",
+    description: "  Baru   dinormalisasi ",
+  });
+
+  assert.equal(updated.familyId, "fam_1");
+  assert.equal(updated.createdByMemberId, "mem_100");
+  assert.equal(updated.transactionType, "INCOME");
+  assert.equal(updated.amountMinor, 2500);
+  assert.equal(updated.currency, "IDR");
+  assert.equal(updated.description, "Baru dinormalisasi");
+  assert.equal(repository.transactions.length, 1);
+  assert.equal(repository.auditLogs.at(-1)?.action, "UPDATE_TRANSACTION");
+});
+
+test("rejects editing or voiding a transaction from another family", async () => {
+  const otherOwner: TelegramUser = { telegramUserId: "300", name: "Other Owner", username: "other" };
+  const repository = new FakeFamilyRepository();
+  repository.families.push(family("fam_1"), { ...family("fam_2"), createdBy: otherOwner.telegramUserId });
+  repository.members.push(activeMember("fam_1", owner, "OWNER"), activeMember("fam_2", otherOwner, "OWNER"));
+  repository.transactions.push(transaction("txn_foreign", "fam_2", "ACTIVE"));
+  const service = new FamilyService(repository);
+
+  await assert.rejects(service.updateTransaction(owner, "txn_foreign", {
+    transactionType: "EXPENSE",
+    amountMinor: 100,
+    transactionDate: "2026-08-19",
+    description: "Tidak boleh",
+  }), TransactionError);
+  await assert.rejects(service.requestTransactionVoid(owner, "txn_foreign"), TransactionError);
+  assert.equal(repository.confirmations.length, 0);
+  assert.equal(repository.transactions[0].status, "ACTIVE");
+});
+
+test("voids an active transaction only after confirmation and keeps the row", async () => {
+  const repository = setupMember("OWNER");
+  repository.transactions.push(transaction("txn_voidable", "fam_1", "ACTIVE"));
+  const service = new FamilyService(repository);
+
+  const pending = await service.requestTransactionVoid(owner, "txn_voidable");
+  assert.equal(pending.action, "VOID_TRANSACTION");
+  assert.equal(repository.transactions[0].status, "ACTIVE");
+
+  const result = await service.confirmPendingAction(owner);
+
+  assert.equal(result.action, "VOID_TRANSACTION");
+  assert.equal(repository.transactions.length, 1);
+  assert.equal(repository.transactions[0].status, "VOID");
+  assert.equal(repository.auditLogs.at(-1)?.action, "VOID_TRANSACTION");
+});
+
 test("joins a valid invitation once and marks it used", async () => {
   const repository = setupMember("OWNER");
   const service = new FamilyService(repository);
@@ -648,6 +712,10 @@ class FakeFamilyRepository implements FamilyRepository {
   }
   async createTransaction(value: Transaction) {
     if (!this.transactions.some((candidate) => candidate.transactionId === value.transactionId)) this.transactions.push(value);
+  }
+  async updateTransaction(transactionId: string, value: Transaction) {
+    const index = this.transactions.findIndex((candidate) => candidate.transactionId === transactionId);
+    if (index >= 0) this.transactions[index] = value;
   }
   async findTransactionsByFamilyId(familyId: string) {
     return this.transactions.filter((value) => value.familyId === familyId);

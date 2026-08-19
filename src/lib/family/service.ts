@@ -44,6 +44,7 @@ export interface ConfirmationResult {
   action: ConfirmationAction;
   targetName?: string;
   familyName?: string;
+  transactionDescription?: string;
 }
 
 export class FamilyService {
@@ -265,9 +266,12 @@ export class FamilyService {
     } else if (pending.action === "DEACTIVATE_MEMBER") {
       const target = await this.deactivateMemberDirect(user, pending.target);
       result = { action: pending.action, targetName: target.name };
-    } else {
+    } else if (pending.action === "ARCHIVE_FAMILY") {
       const family = await this.archiveFamilyDirect(user);
       result = { action: pending.action, familyName: family.familyName };
+    } else {
+      const transaction = await this.voidTransactionDirect(user, pending.target);
+      result = { action: pending.action, transactionDescription: transaction.description };
     }
 
     await this.repository.updatePendingConfirmationStatus(pending.confirmationId, "COMPLETED");
@@ -452,6 +456,55 @@ export class FamilyService {
     await this.requireActiveFamily(member.familyId);
     return (await this.repository.findTransactionsByFamilyId(member.familyId))
       .filter((transaction) => transaction.status === "ACTIVE");
+  }
+
+  async updateTransaction(
+    user: TelegramUser,
+    transactionId: string,
+    input: CreateTransactionInput,
+  ): Promise<Transaction> {
+    const member = await this.requireActiveMember(user.telegramUserId);
+    await this.requireActiveFamily(member.familyId);
+    validateTransactionInput(input);
+    const target = (await this.repository.findTransactionsByFamilyId(member.familyId)).find(
+      (transaction) => transaction.transactionId === transactionId && transaction.status === "ACTIVE",
+    );
+    if (!target) throw new TransactionError("Active transaction is not found in the family.");
+
+    const updated: Transaction = {
+      ...target,
+      transactionType: input.transactionType,
+      amountMinor: input.amountMinor,
+      currency: normalizeCurrency(input.currency),
+      transactionDate: input.transactionDate,
+      description: normalizeTransactionDescription(input.description),
+    };
+    await this.repository.updateTransaction(transactionId, updated);
+    await this.recordAudit(member, "UPDATE_TRANSACTION", "TRANSACTION", transactionId, "ACTIVE", "ACTIVE");
+    return updated;
+  }
+
+  async requestTransactionVoid(user: TelegramUser, transactionId: string): Promise<PendingConfirmation> {
+    const member = await this.requireActiveMember(user.telegramUserId);
+    await this.requireActiveFamily(member.familyId);
+    const target = (await this.repository.findTransactionsByFamilyId(member.familyId)).find(
+      (transaction) => transaction.transactionId === transactionId && transaction.status === "ACTIVE",
+    );
+    if (!target) throw new TransactionError("Active transaction is not found in the family.");
+    return this.createPendingConfirmation(user, member.familyId, "VOID_TRANSACTION", target.transactionId);
+  }
+
+  private async voidTransactionDirect(user: TelegramUser, transactionId: string): Promise<Transaction> {
+    const member = await this.requireActiveMember(user.telegramUserId);
+    await this.requireActiveFamily(member.familyId);
+    const target = (await this.repository.findTransactionsByFamilyId(member.familyId)).find(
+      (transaction) => transaction.transactionId === transactionId && transaction.status === "ACTIVE",
+    );
+    if (!target) throw new TransactionError("Active transaction is not found in the family.");
+    const updated: Transaction = { ...target, status: "VOID" };
+    await this.repository.updateTransaction(transactionId, updated);
+    await this.recordAudit(member, "VOID_TRANSACTION", "TRANSACTION", transactionId, "ACTIVE", "VOID");
+    return updated;
   }
 
   async joinFamily(user: TelegramUser, code: string): Promise<Family> {

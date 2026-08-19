@@ -10,7 +10,7 @@ export type FamilyStatus = (typeof FAMILY_STATUSES)[number];
 export const INVITATION_STATUSES = ["PENDING", "USED", "EXPIRED", "REVOKED"] as const;
 export type InvitationStatus = (typeof INVITATION_STATUSES)[number];
 
-export const CONFIRMATION_ACTIONS = ["REVOKE_INVITATION", "DEACTIVATE_MEMBER", "ARCHIVE_FAMILY"] as const;
+export const CONFIRMATION_ACTIONS = ["REVOKE_INVITATION", "DEACTIVATE_MEMBER", "ARCHIVE_FAMILY", "VOID_TRANSACTION"] as const;
 export type ConfirmationAction = (typeof CONFIRMATION_ACTIONS)[number];
 
 export const CONFIRMATION_STATUSES = ["PENDING", "COMPLETED", "CANCELLED", "EXPIRED"] as const;
@@ -26,6 +26,8 @@ export const AUDIT_ACTIONS = [
   "ARCHIVE_FAMILY",
   "REACTIVATE_FAMILY",
   "CREATE_TRANSACTION",
+  "UPDATE_TRANSACTION",
+  "VOID_TRANSACTION",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 export type AuditTargetType = "INVITATION" | "MEMBER" | "FAMILY" | "TRANSACTION";

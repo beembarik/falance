@@ -9,6 +9,39 @@ export function parseManualTransactionCommand(
 ): CreateTransactionInput {
   const transactionType: TransactionType = prefix === "/addincome" ? "INCOME" : "EXPENSE";
   const args = command.slice(prefix.length).trim().split(/\s+/).filter(Boolean);
+  return parseTransactionArguments(args, transactionType, prefix);
+}
+
+export function parseEditTransactionCommand(command: string): {
+  transactionId: string;
+  input: CreateTransactionInput;
+} {
+  const args = command.slice("/edittransaction".length).trim().split(/\s+/).filter(Boolean);
+  if (args.length < 5) {
+    throw new TransactionCommandError(
+      "Format tidak valid. Gunakan: /edittransaction <transaction_id> <INCOME|EXPENSE> <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>",
+    );
+  }
+
+  const transactionId = args.shift();
+  const typeToken = args.shift()?.toUpperCase();
+  if (!transactionId || (typeToken !== "INCOME" && typeToken !== "EXPENSE")) {
+    throw new TransactionCommandError(
+      "Format tidak valid. Gunakan: /edittransaction <transaction_id> <INCOME|EXPENSE> <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>",
+    );
+  }
+
+  return {
+    transactionId,
+    input: parseTransactionArguments(args, typeToken, "/edittransaction"),
+  };
+}
+
+function parseTransactionArguments(
+  args: string[],
+  transactionType: TransactionType,
+  prefix: string,
+): CreateTransactionInput {
   if (args.length < 3) {
     throw new TransactionCommandError(
       `Format tidak valid. Gunakan: ${prefix} <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>`,

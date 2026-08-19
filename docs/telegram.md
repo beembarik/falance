@@ -51,7 +51,7 @@ Diagnostic failures are logged server-side using an operation label such as `cre
 
 The transaction foundation is implemented below the Telegram command layer. The service accepts validated income and expense inputs, resolves the requester’s active family and creator membership server-side, persists rows in the central `Transactions` worksheet, records successful creation in the append-only `Audit Log`, and lists only active transactions from the resolved family. Archived families cannot create or list transactions, and transaction rows use soft `VOID` state rather than hard deletion.
 
-Structured transaction commands are introduced in the Milestone 5 section below. Natural-language input, editing, soft cancellation, and interactive transaction confirmation remain future work; existing family-management commands remain unchanged.
+Structured transaction commands are introduced in the Milestone 5 section below. Natural-language input remains future work for Milestone 6; existing family-management commands remain unchanged.
 
 ## Milestone 5 transaction input
 
@@ -59,11 +59,14 @@ Structured transaction commands are introduced in the Milestone 5 section below.
 | --- | --- |
 | `/addincome <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Creates an `INCOME` transaction for the requester’s server-resolved family. The amount may use plain digits or unambiguous three-digit separators such as `150.000`; currency defaults to `IDR`. |
 | `/addexpense <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Creates an `EXPENSE` transaction for the requester’s server-resolved family using the same validation rules. |
-| `/transactions` | Shows a readable balance summary grouped by currency, then lists up to the 50 most recent `ACTIVE` transactions belonging to the requester’s server-resolved family, including opaque transaction IDs for future management flows. `VOID` transactions are excluded from both the summary and list. |
+| `/transactions` | Shows a readable balance summary grouped by currency, then lists up to the 50 most recent `ACTIVE` transactions belonging to the requester’s server-resolved family, including opaque transaction IDs. `VOID` transactions are excluded from both the summary and list. |
+| `/edittransaction <transaction_id> <INCOME|EXPENSE> <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Updates an active transaction in place after resolving and validating the transaction within the requester’s server-resolved family. The original transaction ID, family ID, creator member ID, and creation timestamp are preserved. |
+| `/voidtransaction <transaction_id>` | Requests persisted Y/N confirmation, then changes the active transaction status to `VOID` without deleting its row. |
+| `/canceltransaction <transaction_id>` | Alias for `/voidtransaction`. |
 
 The command layer never accepts `family_id`; `FamilyService` resolves both `family_id` and `created_by_member_id` from the active membership. Invalid amount, date, currency, or description input is rejected in Indonesian. The service records successful creation in the append-only `Audit Log`. The balance summary is cumulative across all active transactions, does not reset monthly, excludes `VOID`, and never converts or mixes different currencies.
 
-Natural-language transaction input, editing, soft cancellation with interactive Y/N confirmation, and other transaction management commands remain planned work in Milestone 5. No hard deletion is permitted.
+Natural-language transaction input remains planned for Milestone 6. Edit and soft-cancellation operations are family-scoped, record `UPDATE_TRANSACTION` or `VOID_TRANSACTION` in the append-only `Audit Log`, and never perform hard deletion. Confirmation state is stored server-side with the existing five-minute expiry.
 
 ## Planned report access
 

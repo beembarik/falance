@@ -278,6 +278,53 @@ test("appends a transaction row with the mandatory family_id and typed fields", 
   }
 });
 
+test("updates a transaction row in place without creating a new transaction row", async () => {
+  const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
+  process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";
+  const updates: Array<{
+    spreadsheetId: string;
+    range: string;
+    values: readonly (readonly string[])[];
+    operation: string | undefined;
+  }> = [];
+  const client = {
+    ensureRegistry: async () => {},
+    getValues: async () => [
+      ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"],
+      ["txn_1", "fam_1", "EXPENSE", "15000", "IDR", "2026-08-19", "Makan siang", "mem_100", "2026-08-19T00:00:00.000Z", "ACTIVE"],
+    ],
+    updateValues: async (
+      spreadsheetId: string,
+      range: string,
+      values: readonly (readonly string[])[],
+      operation?: string,
+    ) => updates.push({ spreadsheetId, range, values, operation }),
+  } as unknown as GoogleSheetsClient;
+
+  try {
+    await new GoogleSheetsFamilyRepository(client).updateTransaction("txn_1", {
+      transactionId: "txn_1",
+      familyId: "fam_1",
+      transactionType: "EXPENSE",
+      amountMinor: 20000,
+      currency: "IDR",
+      transactionDate: "2026-08-20",
+      description: "Belanja baru",
+      createdByMemberId: "mem_100",
+      createdAt: "2026-08-19T00:00:00.000Z",
+      status: "VOID",
+    });
+    assert.deepEqual(updates, [{
+      spreadsheetId: "central-registry-id",
+      range: "Transactions!A2",
+      values: [["txn_1", "fam_1", "EXPENSE", "20000", "IDR", "2026-08-20", "Belanja baru", "mem_100", "2026-08-19T00:00:00.000Z", "VOID"]],
+      operation: "updateTransaction",
+    }]);
+  } finally {
+    restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
+  }
+});
+
 test("updates a suspended Members row to ACTIVE without creating a new member row", async () => {
   const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
   process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";

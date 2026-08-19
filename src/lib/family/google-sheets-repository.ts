@@ -121,6 +121,24 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     ], "createTransaction");
   }
 
+  async updateTransaction(transactionId: string, transaction: Transaction): Promise<void> {
+    const rows = await this.rows("Transactions", "updateTransaction");
+    const index = rows.findIndex((row) => row[0] === transactionId);
+    if (index < 0) throw new GoogleConfigurationError("Transaction registry record is missing.");
+    await this.client.updateValues(this.registryId(), `Transactions!A${index + 2}`, [[
+      transaction.transactionId,
+      transaction.familyId,
+      transaction.transactionType,
+      String(transaction.amountMinor),
+      transaction.currency,
+      transaction.transactionDate,
+      transaction.description,
+      transaction.createdByMemberId,
+      transaction.createdAt,
+      transaction.status,
+    ]], "updateTransaction");
+  }
+
   async findTransactionsByFamilyId(familyId: string): Promise<Transaction[]> {
     return (await this.rows("Transactions", "readTransactions"))
       .filter((row) => row[1] === familyId)

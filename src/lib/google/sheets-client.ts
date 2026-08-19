@@ -233,6 +233,7 @@ export type GoogleOperation =
   | "updatePendingConfirmation"
   | "createAuditLog"
   | "createTransaction"
+  | "updateTransaction"
   | "createMember"
   | "updateMemberRole"
   | "updateMemberStatus"

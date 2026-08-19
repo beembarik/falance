@@ -58,21 +58,21 @@ Status: IN PROGRESS
 - [x] Google Sheets transaction repository
 - [x] Income and expense records
 - [x] Amount, date, ownership, and family-isolation validation
-- [ ] Confirmation and persistence flows
+- [x] Confirmation and persistence flows
 
-The transaction foundation now persists `INCOME` and `EXPENSE` records in the central `Transactions` worksheet. The service resolves `family_id` and `created_by_member_id` from active server-side membership, rejects archived families, validates amount/date/currency/description inputs, records successful creations in the append-only Audit Log, and lists only `ACTIVE` transactions from the requester’s family. Telegram transaction commands and interactive transaction editing/cancellation remain planned for Milestone 5.
+The transaction foundation persists `INCOME` and `EXPENSE` records in the central `Transactions` worksheet. The service resolves `family_id` and `created_by_member_id` from active server-side membership, rejects archived families, validates amount/date/currency/description inputs, records transaction lifecycle actions in the append-only Audit Log, and lists only `ACTIVE` transactions from the requester’s family. Structured Telegram transaction management is implemented in Milestone 5; natural-language parsing remains planned for Milestone 6.
 
 ## Milestone 5 — Manual Transaction Input
 
-Status: IN PROGRESS
+Status: COMPLETE
 
-- [ ] Natural Telegram text commands
+- [ ] Natural-language transaction commands (moved to Milestone 6)
 - [x] Structured `/addincome` and `/addexpense` input
 - [x] Family-scoped `/transactions` listing
 - [x] Cumulative multi-currency balance summary in `/transactions`
-- [ ] Add, edit, delete, cancel, and confirmation flows
+- [x] Add, edit, delete, cancel, and confirmation flows
 
-The first vertical slice accepts structured amount, optional currency, `YYYY-MM-DD` date, and description input through Telegram, and `/transactions` shows a cumulative balance grouped by currency from active transactions. `family_id` and `created_by_member_id` continue to be resolved server-side by `FamilyService`; the command layer never accepts a family identifier. Transaction editing, soft cancellation with Y/N confirmation, and broader natural-language parsing remain planned work in this milestone.
+Milestone 5 now accepts structured amount, optional currency, `YYYY-MM-DD` date, and description input through Telegram. `/transactions` shows a cumulative balance grouped by currency from active transactions, `/edittransaction` updates an active row in place, and `/voidtransaction` or `/canceltransaction` uses persisted Y/N confirmation before changing an active row to `VOID`. `family_id` and `created_by_member_id` continue to be resolved server-side by `FamilyService`; the command layer never accepts a family identifier. Natural-language parsing remains planned for Milestone 6.
 
 ## Milestone 6 — AI Text Parser
 

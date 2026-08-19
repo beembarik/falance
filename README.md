@@ -21,7 +21,7 @@ Implementasi saat ini mencakup identitas Telegram, pembuatan keluarga, undangan,
 | Reactivation anggota | `OWNER` dapat mengaktifkan kembali membership `SUSPENDED` melalui `/reactivate` dengan `member_id` lama dan konfirmasi eksplisit. | Tersedia |
 | Penggantian nama keluarga | `OWNER` dapat mengganti nama keluarga melalui `/renamefamily`; nama dinormalisasi dan dibatasi 1–80 karakter. | Tersedia |
 | Fondasi transaksi | Service dan repository menyimpan transaksi `INCOME`/`EXPENSE` ke worksheet `Transactions`, dengan validasi amount/date/currency/description, soft status, audit creation, dan family isolation. | Tersedia |
-| Input transaksi terstruktur | `/addincome`, `/addexpense`, dan `/transactions` tersedia melalui Telegram; `/transactions` menampilkan saldo kumulatif per currency dan daftar transaksi aktif; edit, soft cancel, dan natural-language input masih dalam pengembangan. | Tersedia sebagian |
+| Input transaksi terstruktur | `/addincome`, `/addexpense`, `/transactions`, `/edittransaction`, dan `/voidtransaction` tersedia melalui Telegram; `/transactions` menampilkan saldo kumulatif per currency dan daftar transaksi aktif. Natural-language input masih direncanakan pada Milestone 6. | Tersedia |
 | Isolasi keluarga | `family_id` selalu ditentukan server dari membership aktif atau invitation yang telah divalidasi. | Tersedia |
 | Registry Google Sheets | Satu registry pusat menggunakan delapan worksheet: `Settings`, `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, `Audit Log`, dan `Transactions`. | Tersedia |
 | Diagnostik aman | Error Google Sheets dicatat menggunakan operation label dan path yang telah direduksi; token, credential, spreadsheet ID, Telegram ID, dan data baris tidak dicatat. | Tersedia |
@@ -40,6 +40,8 @@ Pesan dan error yang dikirim bot kepada pengguna menggunakan Bahasa Indonesia.
 | `/addincome <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Semua anggota aktif | Mencatat pemasukan ke keluarga yang di-resolve server. Currency default `IDR`; amount mendukung digit biasa atau pemisah ribuan tiga digit. |
 | `/addexpense <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Semua anggota aktif | Mencatat pengeluaran ke keluarga yang di-resolve server. |
 | `/transactions` | Semua anggota aktif | Menampilkan ringkasan saldo kumulatif per currency serta maksimal 50 transaksi `ACTIVE` terbaru dari keluarga actor. Transaksi `VOID` dikecualikan. |
+| `/edittransaction <transaction_id> <INCOME|EXPENSE> <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Semua anggota aktif | Memperbarui transaksi aktif dalam keluarga actor tanpa mengganti transaction ID, family ID, creator member ID, atau created timestamp. |
+| `/voidtransaction <transaction_id>` atau `/canceltransaction <transaction_id>` lalu `Y`/`N` | Semua anggota aktif | Meminta konfirmasi interaktif lalu mengubah status transaksi menjadi `VOID` tanpa menghapus row. |
 | `/revokeinvite <code>` lalu `Y`/`N` | `OWNER`, `ADMIN` | Meminta konfirmasi interaktif sebelum mengubah invitation `PENDING` menjadi `REVOKED`. Balasan `Y` menjalankan aksi, sedangkan `N` membatalkan. |
 | `/changerole <member_id_atau_username> <ADMIN\|MEMBER>` | `OWNER` | Mengubah role anggota aktif antara `MEMBER` dan `ADMIN`. Target dapat dipilih menggunakan `Member ID` dari `/members` atau username Telegram. Role `OWNER` tidak dapat diubah. |
 | `/deactivate <member_id_atau_username>` lalu `Y`/`N` | `OWNER` | Menampilkan target dan meminta konfirmasi interaktif sebelum mengubah status menjadi `SUSPENDED`. Balasan `Y` menjalankan aksi, sedangkan `N` membatalkan. |
@@ -210,11 +212,11 @@ npm run build
 git diff --check
 ```
 
-Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, member reactivation with identity preservation, family-name update authorization and persistence, soft family archival/reactivation, pending Y/N confirmation, cancellation, no-pending guard, last-OWNER invariant, append-only Audit Log persistence, transaction creation and family-scoped listing, structured transaction command parsing and handler responses, transaction input validation, transaction row persistence, audit privacy redaction, redacted Google diagnostics, registry initialization caching, dan perlindungan agar Telegram user ID tidak muncul pada output `/members`.
+Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, member reactivation with identity preservation, family-name update authorization and persistence, soft family archival/reactivation, pending Y/N confirmation, cancellation, no-pending guard, last-OWNER invariant, append-only Audit Log persistence, transaction creation, editing, family-scoped listing, soft void confirmation, balance aggregation, structured transaction command parsing and handler responses, transaction input validation, transaction row persistence and replacement, audit privacy redaction, redacted Google diagnostics, registry initialization caching, dan perlindungan agar Telegram user ID tidak muncul pada output `/members`.
 
 ## Roadmap Saat Ini
 
-Milestone 3 — **Family Management and Administration** — selesai. Milestone 4 — **Transaction Foundation** — selesai. Milestone 5 — **Manual Transaction Input** — sedang berjalan; `/addincome`, `/addexpense`, dan `/transactions` sudah tersedia untuk input terstruktur, sedangkan natural-language input, edit, soft cancel, dan confirmation flow transaksi masih direncanakan. Milestone berikutnya juga mencakup parser AI, receipt processing, reports, Telegram Mini App, export CSV/print/PDF dengan opsi password PDF, production hardening, dan migrasi storage ke Supabase.
+Milestone 3 — **Family Management and Administration** — selesai. Milestone 4 — **Transaction Foundation** — selesai. Milestone 5 — **Manual Transaction Input** — selesai untuk command terstruktur, balance summary, edit, dan soft cancellation dengan konfirmasi Y/N. Natural-language input dipindahkan ke Milestone 6. Milestone berikutnya juga mencakup parser AI, receipt processing, reports, Telegram Mini App, export CSV/print/PDF dengan opsi password PDF, production hardening, dan migrasi storage ke Supabase.
 
 ## Dokumentasi Tambahan
 

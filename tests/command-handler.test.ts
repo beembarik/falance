@@ -74,6 +74,64 @@ test("lists transactions through the requester’s server-resolved family", asyn
   assert.match(response, /txn_1/);
 });
 
+test("edits a transaction through the service", async () => {
+  let receivedId: unknown;
+  let receivedInput: unknown;
+  const service = fakeService({
+    updateTransaction: async (_user: TelegramUser, transactionId: string, input: unknown) => {
+      receivedId = transactionId;
+      receivedInput = input;
+      return { transactionId };
+    },
+  });
+
+  const response = await handleTelegramTextMessage(
+    service,
+    owner,
+    "/edittransaction txn_1 EXPENSE 200.000 IDR 2026-08-20 Belanja baru",
+  );
+
+  assert.equal(receivedId, "txn_1");
+  assert.deepEqual(receivedInput, {
+    transactionType: "EXPENSE",
+    amountMinor: 200000,
+    currency: "IDR",
+    transactionDate: "2026-08-20",
+    description: "Belanja baru",
+  });
+  assert.match(response, /Transaksi txn_1 berhasil diperbarui/);
+});
+
+test("requests transaction void with an interactive confirmation prompt", async () => {
+  let requestedId: unknown;
+  const service = fakeService({
+    requestTransactionVoid: async (_user: TelegramUser, transactionId: string) => {
+      requestedId = transactionId;
+      return {};
+    },
+  });
+
+  const response = await handleTelegramTextMessage(service, owner, "/voidtransaction txn_1");
+
+  assert.equal(requestedId, "txn_1");
+  assert.match(response, /membatalkan transaksi txn_1/);
+  assert.match(response, /Balas Y/);
+});
+
+test("formats a confirmed transaction void result", async () => {
+  const service = fakeService({
+    hasPendingConfirmation: async () => true,
+    confirmPendingAction: async () => ({
+      action: "VOID_TRANSACTION",
+      transactionDescription: "Belanja baru",
+    } satisfies ConfirmationResult),
+  });
+
+  const response = await handleTelegramTextMessage(service, owner, "Y");
+
+  assert.match(response, /Belanja baru berhasil dibatalkan secara soft-state/);
+});
+
 test("Y confirms a pending destructive action", async () => {
   let confirmed = false;
   const service = fakeService({
