@@ -13,7 +13,7 @@ import {
   OwnerInvariantError,
   UnauthorizedError,
 } from "../src/lib/family/service";
-import type { Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, TelegramUser } from "../src/lib/family/types";
+import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, TelegramUser } from "../src/lib/family/types";
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
 const member: TelegramUser = { telegramUserId: "200", name: "Member", username: null };
@@ -47,6 +47,48 @@ test("OWNER can update and normalize the family name", async () => {
 
   assert.equal(updated.familyName, "Keluarga Baru");
   assert.equal(repository.families.find((value) => value.familyId === "fam_1")?.familyName, "Keluarga Baru");
+});
+
+test("records administrative audit entries without Telegram identity or family-name values", async () => {
+  const repository = setupMember("OWNER");
+  repository.members.push(activeMember("fam_1", member, "MEMBER"));
+  const service = new FamilyService(repository);
+
+  await service.updateFamilyName(owner, "Nama Audit");
+  const invitation = await service.createInvitation(owner);
+  await service.changeMemberRole(owner, "mem_200", "ADMIN");
+  await service.requestMemberDeactivation(owner, "mem_200");
+  await service.confirmPendingAction(owner);
+  await service.reactivateMember(owner, "mem_200", "CONFIRM");
+  await service.requestFamilyArchive(owner);
+  await service.confirmPendingAction(owner);
+  await service.reactivateFamily(owner, "CONFIRM");
+
+  assert.deepEqual(repository.auditLogs.map((entry) => entry.action), [
+    "RENAME_FAMILY",
+    "CREATE_INVITATION",
+    "CHANGE_MEMBER_ROLE",
+    "DEACTIVATE_MEMBER",
+    "REACTIVATE_MEMBER",
+    "ARCHIVE_FAMILY",
+    "REACTIVATE_FAMILY",
+  ]);
+  assert.equal(repository.auditLogs.every((entry) => entry.familyId === "fam_1"), true);
+  assert.equal(repository.auditLogs.every((entry) => entry.actorMemberId === "mem_100"), true);
+  assert.equal(repository.auditLogs.some((entry) => entry.targetId === invitation.invitationId), true);
+  assert.equal(repository.auditLogs.some((entry) => entry.previousValue === "MEMBER" && entry.newValue === "ADMIN"), true);
+  assert.equal(repository.auditLogs.some((entry) => entry.previousValue === "SUSPENDED" && entry.newValue === "ACTIVE"), true);
+  assert.equal(repository.auditLogs.some((entry) => entry.targetId === "100" || entry.targetId === "200"), false);
+  assert.equal(repository.auditLogs.some((entry) => entry.newValue === "Nama Audit"), false);
+});
+
+test("administrative state changes succeed when audit persistence is unavailable", async () => {
+  const repository = setupMember("OWNER");
+  repository.failAuditLog = true;
+  const updated = await new FamilyService(repository).updateFamilyName(owner, "Tetap Berhasil");
+
+  assert.equal(updated.familyName, "Tetap Berhasil");
+  assert.equal(repository.families[0].familyName, "Tetap Berhasil");
 });
 
 test("rejects family-name updates by non-OWNER and invalid names", async () => {
@@ -488,6 +530,8 @@ class FakeFamilyRepository implements FamilyRepository {
   invitations: Invitation[] = [];
   pending: Array<PendingFamilyCreation & { status: "PENDING" | "COMPLETED" }> = [];
   confirmations: PendingConfirmation[] = [];
+  auditLogs: AuditLogEntry[] = [];
+  failAuditLog = false;
   failMemberCreation = false;
   spreadsheetCreationCalls = 0;
 
@@ -512,6 +556,10 @@ class FakeFamilyRepository implements FamilyRepository {
   async updatePendingConfirmationStatus(confirmationId: string, status: PendingConfirmation["status"]) {
     const value = this.confirmations.find((candidate) => candidate.confirmationId === confirmationId);
     if (value) value.status = status;
+  }
+  async createAuditLog(entry: AuditLogEntry) {
+    if (this.failAuditLog) throw new Error("audit unavailable");
+    this.auditLogs.push(entry);
   }
   async findFamilyById(id: string) {
     this.familyLookupIds.push(id);

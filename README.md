@@ -21,7 +21,7 @@ Implementasi saat ini berfokus pada identitas Telegram, pembuatan keluarga, unda
 | Reactivation anggota | `OWNER` dapat mengaktifkan kembali membership `SUSPENDED` melalui `/reactivate` dengan `member_id` lama dan konfirmasi eksplisit. | Tersedia |
 | Penggantian nama keluarga | `OWNER` dapat mengganti nama keluarga melalui `/renamefamily`; nama dinormalisasi dan dibatasi 1–80 karakter. | Tersedia |
 | Isolasi keluarga | `family_id` selalu ditentukan server dari membership aktif atau invitation yang telah divalidasi. | Tersedia |
-| Registry Google Sheets | Satu registry pusat menggunakan worksheet `Settings`, `Families`, `Members`, `Invitations`, `Pending Family Creations`, dan `Pending Confirmations`. | Tersedia |
+| Registry Google Sheets | Satu registry pusat menggunakan worksheet `Settings`, `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, dan `Audit Log`. | Tersedia |
 | Diagnostik aman | Error Google Sheets dicatat menggunakan operation label dan path yang telah direduksi; token, credential, spreadsheet ID, Telegram ID, dan data baris tidak dicatat. | Tersedia |
 
 ## Telegram Commands
@@ -102,8 +102,9 @@ Lapisan domain bergantung pada kontrak `FamilyRepository`. Implementasi saat ini
 | `Invitations` | Invitation code yang terikat ke `family_id`, status, masa berlaku, serta informasi penggunaan. |
 | `Pending Family Creations` | Pending request sementara untuk alur pembuatan keluarga. |
 | `Pending Confirmations` | Pending Y/N confirmation untuk operasi destruktif; status dan expiry disimpan server-side agar aman pada webhook stateless. |
+| `Audit Log` | Append-only record untuk aksi administratif yang berhasil, dengan actor member ID, role, action, target opaque, state transition, dan timestamp. Telegram user ID, family name, invitation code, dan request body tidak disimpan. |
 
-`Transactions`, `Categories`, `Accounts`, dan `Audit Log` belum dibuat pada milestone saat ini.
+`Transactions`, `Categories`, dan `Accounts` belum dibuat pada milestone saat ini. `Audit Log` sudah diinisialisasi sebagai boundary append-only untuk administrasi.
 
 ### Isolasi Keluarga
 
@@ -148,6 +149,7 @@ Falancé menerapkan batas keamanan berikut:
 - Reactivation hanya dapat dilakukan OWNER terhadap row `SUSPENDED`, menggunakan `member_id` lama, dan membutuhkan `CONFIRM`.
 - Penggantian nama keluarga hanya dapat dilakukan OWNER; `family_id` tetap ditentukan dari membership actor dan nama dinormalisasi dengan batas 80 karakter.
 - Error log tidak boleh memuat spreadsheet ID, bearer token, private key, Telegram user ID, family name, row value, atau request body.
+- Audit Log hanya mencatat aksi administratif yang berhasil pada target opaque; audit persistence failure tidak membatalkan state change utama dan hanya menghasilkan diagnostic operation label yang aman.
 - Password PDF yang direncanakan pada milestone laporan harus digunakan secara ephemeral di server dan tidak disimpan atau dicatat.
 
 ## Konfigurasi Environment
@@ -193,7 +195,7 @@ npm run build
 git diff --check
 ```
 
-Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, member reactivation with identity preservation, family-name update authorization and persistence, soft family archival/reactivation, pending Y/N confirmation, cancellation, no-pending guard, perlindungan role `OWNER`, redacted Google diagnostics, registry initialization caching, dan perlindungan agar Telegram user ID tidak muncul pada output `/members`.
+Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, member reactivation with identity preservation, family-name update authorization and persistence, soft family archival/reactivation, pending Y/N confirmation, cancellation, no-pending guard, last-OWNER invariant, append-only Audit Log persistence, audit privacy redaction, redacted Google diagnostics, registry initialization caching, dan perlindungan agar Telegram user ID tidak muncul pada output `/members`.
 
 ## Roadmap Saat Ini
 

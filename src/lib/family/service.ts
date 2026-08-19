@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import type { FamilyRepository } from "./repository";
 import type {
+  AuditAction,
+  AuditTargetType,
   ConfirmationAction,
   Family,
   FamilyMember,
@@ -131,6 +133,7 @@ export class FamilyService {
 
     const normalizedName = normalizeFamilyName(familyName);
     await this.repository.updateFamilyName(actorMember.familyId, normalizedName);
+    await this.recordAudit(actorMember, "RENAME_FAMILY", "FAMILY", family.familyId, null, null);
     return { ...family, familyName: normalizedName };
   }
 
@@ -184,6 +187,7 @@ export class FamilyService {
     };
 
     await this.repository.createInvitation(invitation);
+    await this.recordAudit(member, "CREATE_INVITATION", "INVITATION", invitation.invitationId, null, null);
     return invitation;
   }
 
@@ -214,6 +218,7 @@ export class FamilyService {
       throw new InvitationError("Invitation is invalid.");
     }
     await this.repository.revokeInvitation(invitation.invitationId);
+    await this.recordAudit(member, "REVOKE_INVITATION", "INVITATION", invitation.invitationId, "PENDING", "REVOKED");
   }
 
   async hasPendingConfirmation(telegramUserId: string): Promise<boolean> {
@@ -290,7 +295,9 @@ export class FamilyService {
       throw new MemberManagementError("Member already has this role.");
     }
 
+    const previousRole = target.role;
     await this.repository.updateMemberRole(target.memberId, newRole);
+    await this.recordAudit(actorMember, "CHANGE_MEMBER_ROLE", "MEMBER", target.memberId, previousRole, newRole);
   }
 
   async requestMemberDeactivation(actor: TelegramUser, targetMemberId: string): Promise<PendingConfirmation> {
@@ -321,6 +328,7 @@ export class FamilyService {
     assertOwnerInvariant(familyMembers, target, "deactivated");
     if (target.role === "OWNER") throw new MemberManagementError("The OWNER role cannot be deactivated.");
     await this.repository.updateMemberStatus(target.memberId, "SUSPENDED");
+    await this.recordAudit(actorMember, "DEACTIVATE_MEMBER", "MEMBER", target.memberId, "ACTIVE", "SUSPENDED");
     return target;
   }
 
@@ -338,6 +346,7 @@ export class FamilyService {
     if (actorMember.role !== "OWNER") throw new UnauthorizedError("Only the owner can archive the family.");
     const family = await this.requireActiveFamily(actorMember.familyId);
     await this.repository.updateFamilyStatus(family.familyId, "SUSPENDED");
+    await this.recordAudit(actorMember, "ARCHIVE_FAMILY", "FAMILY", family.familyId, "ACTIVE", "SUSPENDED");
     return { ...family, status: "SUSPENDED" };
   }
 
@@ -356,6 +365,7 @@ export class FamilyService {
     }
 
     await this.repository.updateFamilyStatus(actorMember.familyId, "ACTIVE");
+    await this.recordAudit(actorMember, "REACTIVATE_FAMILY", "FAMILY", family.familyId, "SUSPENDED", "ACTIVE");
     return { ...family, status: "ACTIVE" };
   }
 
@@ -397,6 +407,7 @@ export class FamilyService {
     }
 
     await this.repository.updateMemberStatus(target.memberId, "ACTIVE");
+    await this.recordAudit(actorMember, "REACTIVATE_MEMBER", "MEMBER", target.memberId, "SUSPENDED", "ACTIVE");
     return { ...target, status: "ACTIVE" };
   }
 
@@ -467,6 +478,33 @@ export class FamilyService {
       throw new UnauthorizedError("User is not an active member.");
     }
     return member;
+  }
+
+  private async recordAudit(
+    actor: FamilyMember,
+    action: AuditAction,
+    targetType: AuditTargetType,
+    targetId: string,
+    previousValue: string | null,
+    newValue: string | null,
+  ): Promise<void> {
+    const entry = {
+      auditId: createId("audit"),
+      familyId: actor.familyId,
+      actorMemberId: actor.memberId,
+      actorRole: actor.role,
+      action,
+      targetType,
+      targetId,
+      previousValue,
+      newValue,
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      await this.repository.createAuditLog(entry);
+    } catch {
+      console.error("[Audit] write failed", { action, targetType });
+    }
   }
 
   private async requireActiveMember(telegramUserId: string): Promise<FamilyMember> {

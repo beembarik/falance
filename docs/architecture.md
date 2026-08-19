@@ -18,12 +18,14 @@ The current Milestone 2 foundation creates or verifies only the following sheets
 | `Invitations` | Family-bound, one-time invitation records. |
 | `Pending Family Creations` | Short-lived `/createfamily` requests. |
 | `Pending Confirmations` | Server-persisted five-minute Y/N confirmations for destructive administrative operations. |
+| `Audit Log` | Append-only successful administrative actions with opaque actor and target identifiers. |
 
-`Transactions`, `Categories`, `Accounts`, and `Audit Log` are reserved schema boundaries for future milestones and are not initialized by Milestone 2.
+`Transactions`, `Categories`, and `Accounts` are reserved schema boundaries for future milestones. `Audit Log` is initialized as the Milestone 3 append-only administrative audit boundary.
 
 ## Registry initialization and quota protection
 
-The repository verifies the central registry through `GoogleSheetsClient.ensureRegistry()`. The client caches the in-flight and completed initialization promise per spreadsheet ID, so one client instance does not repeatedly read all five worksheet headers for every repository operation. If initialization fails, its failed cache entry is removed so a later request can retry initialization.
+The repository verifies the central registry through `GoogleSheetsClient.ensureRegistry()`. The client caches the in-flight and completed initialization promise per spreadsheet ID, so one client instance does not repeatedly read all seven worksheet headers for every repository operation.
+ If initialization fails, its failed cache entry is removed so a later request can retry initialization.
 
 This cache is intentionally scoped to a client instance rather than treated as durable application state. A serverless cold start may initialize the registry again, but operations within the same warm request instance reuse the completed initialization. Registry initialization must remain lightweight because Google Sheets enforces per-user read quotas; repeated metadata and header reads can produce `429 RESOURCE_EXHAUSTED` errors.
 
@@ -56,6 +58,8 @@ No Drive API call, spreadsheet creation request, spreadsheet ID generation, or p
 The system preserves the three roles `OWNER`, `ADMIN`, and `MEMBER`. Owners and admins can create invitations. Members cannot create invitations. Joining resolves the family only from the invitation record, verifies that the invitation is pending and unexpired, rejects an already-active member, creates membership using the invitation’s `family_id`, and marks the code used. Current Milestone 3 administration also provides active-member listing, pending-invitation revocation, OWNER-only MEMBER↔ADMIN role changes, and OWNER-only soft member deactivation.
 
 Member deactivation changes an active non-OWNER row to `SUSPENDED` rather than deleting it. The operation creates a server-persisted pending confirmation with a five-minute expiry; `Y` executes it and `N` cancels it. A `SUSPENDED` membership can be reactivated by the OWNER with `/reactivate <member_id_or_username> CONFIRM`; this changes the existing row back to `ACTIVE`, preserves the original `member_id`, and rejects duplicate active membership. The OWNER can update the family name with `/renamefamily <nama_baru>`; the service normalizes and validates the name before rewriting only the family-name column in the server-resolved family row. Family archival uses the existing family status `SUSPENDED`, creates the same server-persisted Y/N confirmation, preserves the family and member rows, and blocks normal active-family operations. The original OWNER can restore the family with `/reactivatefamily CONFIRM`, which changes only the family status back to `ACTIVE`. Every lifecycle operation must preserve the same server-side `family_id` and role boundaries. The service also enforces a last-OWNER invariant: an active OWNER cannot be deactivated or assigned a non-OWNER role when that would leave the family without an active OWNER.
+
+Successful administrative changes append an `Audit Log` row containing the actor’s opaque `member_id`, role, action, opaque target identifier, allowed state transition, family boundary, and timestamp. Telegram user IDs, family names, invitation codes, request bodies, credentials, and spreadsheet identifiers are excluded. Audit persistence is non-blocking for the primary state change: a failed audit write emits only a safe operation label and does not roll back the completed administrative action.
 
 
 ## Google authentication and scopes

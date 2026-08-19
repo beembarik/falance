@@ -86,13 +86,30 @@ There is deliberately no `spreadsheet_id` column. The central spreadsheet ID bel
 | `expires_at` | Confirmation expiry, currently five minutes after creation. |
 | `status` | `PENDING`, `COMPLETED`, `CANCELLED`, or `EXPIRED`. |
 
+### Audit Log
+
+| Column | Meaning |
+| --- | --- |
+| `audit_id` | Server-generated append-only audit identifier. |
+| `family_id` | Server-resolved family boundary. |
+| `actor_member_id` | Opaque `member_id` of the actor; Telegram user ID is excluded. |
+| `actor_role` | Actor role at the time of the successful action. |
+| `action` | Administrative action such as `CHANGE_MEMBER_ROLE`, `DEACTIVATE_MEMBER`, or `ARCHIVE_FAMILY`. |
+| `target_type` | `INVITATION`, `MEMBER`, or `FAMILY`. |
+| `target_id` | Opaque target identifier; invitation code and request body are excluded. |
+| `previous_value` | Allowed prior state such as `ACTIVE`, `SUSPENDED`, `MEMBER`, or `ADMIN`; family names are excluded. |
+| `new_value` | Allowed resulting state; sensitive values are excluded. |
+| `created_at` | ISO-8601 timestamp of the successful state change. |
+
+Audit rows are appended only after the primary administrative write succeeds. Audit persistence is deliberately non-blocking: if the audit append fails, the primary state change remains successful and only a safe operation label is emitted to diagnostics. Failed authorization, invalid confirmation, cancelled actions, and expired actions are not recorded as successful audit events.
+
 ## Isolation rule
 
 Every future family-owned table must include `family_id` as a mandatory partition key. For example, a future transaction table must begin with `transaction_id` and `family_id`. The application must obtain this value from a server-side membership or validated invitation lookup, never from untrusted Telegram request data.
 
 ## Family-management boundary
 
-The registry stores the membership, invitation, and pending-confirmation records needed for authorization and administration. Milestone 3 lifecycle operations use server-side membership authorization, preserve `family_id`, and record enough state to support recovery; audit fields remain a future boundary.
+The registry stores the membership, invitation, pending-confirmation, and Audit Log records needed for authorization and administration. Milestone 3 lifecycle operations use server-side membership authorization, preserve `family_id`, and record successful administrative state changes without sensitive Telegram or request data.
 
 Hard deletion of a family or irreversible deletion of its financial history is not part of the current schema contract. A future implementation should prefer explicit lifecycle statuses and retention rules until backup, recovery, ownership transfer, and audit requirements are settled.
 

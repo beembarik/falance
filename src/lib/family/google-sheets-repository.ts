@@ -4,7 +4,7 @@ import {
   type GoogleOperation,
 } from "../google/sheets-client";
 import type { FamilyRepository } from "./repository";
-import type { Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation } from "./types";
+import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation } from "./types";
 
 /**
  * Repository backed by the single Falancé database spreadsheet configured for
@@ -85,6 +85,21 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     await this.client.updateValues(this.registryId(), `Pending Confirmations!A${index + 2}`, [[
       ...row.slice(0, 7), status,
     ]], "updatePendingConfirmation");
+  }
+
+  async createAuditLog(entry: AuditLogEntry): Promise<void> {
+    await this.append("Audit Log", [
+      entry.auditId,
+      entry.familyId,
+      entry.actorMemberId,
+      entry.actorRole,
+      entry.action,
+      entry.targetType,
+      entry.targetId,
+      entry.previousValue ?? "",
+      entry.newValue ?? "",
+      entry.createdAt,
+    ], "createAuditLog");
   }
 
   async findFamilyById(familyId: string): Promise<Family | null> {

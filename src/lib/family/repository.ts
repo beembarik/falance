@@ -1,5 +1,6 @@
 import type {
   Family,
+  AuditLogEntry,
   FamilyMember,
   Invitation,
   MemberRole,
@@ -15,6 +16,7 @@ export interface FamilyRepository {
   createPendingConfirmation(confirmation: PendingConfirmation): Promise<void>;
   findPendingConfirmation(telegramUserId: string): Promise<PendingConfirmation | null>;
   updatePendingConfirmationStatus(confirmationId: string, status: PendingConfirmation["status"]): Promise<void>;
+  createAuditLog(entry: AuditLogEntry): Promise<void>;
   findFamilyById(familyId: string): Promise<Family | null>;
   findFamilyByCreatedBy(telegramUserId: string): Promise<Family | null>;
   createMember(member: FamilyMember): Promise<void>;

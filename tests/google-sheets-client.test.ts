@@ -119,6 +119,7 @@ test("initializes the single central registry without Drive or spreadsheet creat
       ["invitation_id", "family_id", "code", "created_by", "created_at", "expires_at", "used_at", "used_by", "status"],
       ["telegram_user_id", "family_name", "created_at", "expires_at", "status"],
       ["confirmation_id", "telegram_user_id", "family_id", "action", "target", "created_at", "expires_at", "status"],
+      ["audit_id", "family_id", "actor_member_id", "actor_role", "action", "target_type", "target_id", "previous_value", "new_value", "created_at"],
     ]);
   } finally {
     globalThis.fetch = originalFetch;
@@ -193,6 +194,44 @@ test("updates a Families row status without creating or deleting the family row"
       range: "Families!A2",
       values: [["fam_1", "Keluarga", "SUSPENDED", "2026-01-01T00:00:00.000Z", "100", "MVP"]],
       operation: "updateFamilyStatus",
+    }]);
+  } finally {
+    restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
+  }
+});
+
+test("appends an audit record to the Audit Log worksheet", async () => {
+  const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
+  process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";
+  const appends: Array<{ spreadsheetId: string; sheetName: string; values: readonly (readonly string[])[]; operation: string | undefined }> = [];
+  const client = {
+    ensureRegistry: async () => {},
+    appendRows: async (
+      spreadsheetId: string,
+      sheetName: string,
+      values: readonly (readonly string[])[],
+      operation?: string,
+    ) => appends.push({ spreadsheetId, sheetName, values, operation }),
+  } as unknown as GoogleSheetsClient;
+
+  try {
+    await new GoogleSheetsFamilyRepository(client).createAuditLog({
+      auditId: "audit_1",
+      familyId: "fam_1",
+      actorMemberId: "mem_100",
+      actorRole: "OWNER",
+      action: "CHANGE_MEMBER_ROLE",
+      targetType: "MEMBER",
+      targetId: "mem_200",
+      previousValue: "MEMBER",
+      newValue: "ADMIN",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+    assert.deepEqual(appends, [{
+      spreadsheetId: "central-registry-id",
+      sheetName: "Audit Log",
+      values: [["audit_1", "fam_1", "mem_100", "OWNER", "CHANGE_MEMBER_ROLE", "MEMBER", "mem_200", "MEMBER", "ADMIN", "2026-01-01T00:00:00.000Z"]],
+      operation: "createAuditLog",
     }]);
   } finally {
     restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);

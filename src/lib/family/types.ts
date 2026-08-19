@@ -16,6 +16,32 @@ export type ConfirmationAction = (typeof CONFIRMATION_ACTIONS)[number];
 export const CONFIRMATION_STATUSES = ["PENDING", "COMPLETED", "CANCELLED", "EXPIRED"] as const;
 export type ConfirmationStatus = (typeof CONFIRMATION_STATUSES)[number];
 
+export const AUDIT_ACTIONS = [
+  "CREATE_INVITATION",
+  "REVOKE_INVITATION",
+  "CHANGE_MEMBER_ROLE",
+  "DEACTIVATE_MEMBER",
+  "REACTIVATE_MEMBER",
+  "RENAME_FAMILY",
+  "ARCHIVE_FAMILY",
+  "REACTIVATE_FAMILY",
+] as const;
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+export type AuditTargetType = "INVITATION" | "MEMBER" | "FAMILY";
+
+export interface AuditLogEntry {
+  auditId: string;
+  familyId: string;
+  actorMemberId: string;
+  actorRole: MemberRole;
+  action: AuditAction;
+  targetType: AuditTargetType;
+  targetId: string;
+  previousValue: string | null;
+  newValue: string | null;
+  createdAt: string;
+}
+
 export interface TelegramUser {
   telegramUserId: string;
   name: string;
