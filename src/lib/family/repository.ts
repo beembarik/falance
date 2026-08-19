@@ -7,6 +7,7 @@ import type {
   MemberStatus,
   PendingConfirmation,
   PendingFamilyCreation,
+  PendingTransactionDraft,
   Transaction,
 } from "./types";
 
@@ -43,4 +44,7 @@ export interface FamilyRepository {
     telegramUserId: string,
   ): Promise<PendingFamilyCreation | null>;
   clearPendingFamilyCreation(telegramUserId: string): Promise<void>;
+  createPendingTransactionDraft(draft: PendingTransactionDraft): Promise<void>;
+  findPendingTransactionDraft(telegramUserId: string): Promise<PendingTransactionDraft | null>;
+  updatePendingTransactionDraft(draft: PendingTransactionDraft): Promise<void>;
 }

@@ -51,7 +51,7 @@ Diagnostic failures are logged server-side using an operation label such as `cre
 
 The transaction foundation is implemented below the Telegram command layer. The service accepts validated income and expense inputs, resolves the requester’s active family and creator membership server-side, persists rows in the central `Transactions` worksheet, records successful creation in the append-only `Audit Log`, and lists only active transactions from the resolved family. Archived families cannot create or list transactions, and transaction rows use soft `VOID` state rather than hard deletion.
 
-Structured transaction commands are introduced in the Milestone 5 section below. Natural-language input remains future work for Milestone 6; existing family-management commands remain unchanged.
+Structured transaction commands are introduced in the Milestone 5 section below. Milestone 6 adds an interactive natural-language draft flow; existing family-management commands remain unchanged.
 
 ## Milestone 5 transaction input
 
@@ -66,7 +66,9 @@ Structured transaction commands are introduced in the Milestone 5 section below.
 
 The command layer never accepts `family_id`; `FamilyService` resolves both `family_id` and `created_by_member_id` from the active membership. Invalid amount, date, currency, or description input is rejected in Indonesian. The service records successful creation in the append-only `Audit Log`. The balance summary is cumulative across all active transactions, does not reset monthly, excludes `VOID`, and never converts or mixes different currencies. Identifier values use Telegram HTML inline-code formatting, and dynamic content is HTML-escaped before sending.
 
-Natural-language transaction input remains planned for Milestone 6. Edit and soft-cancellation operations are family-scoped, record `UPDATE_TRANSACTION` or `VOID_TRANSACTION` in the append-only `Audit Log`, and never perform hard deletion. Confirmation state is stored server-side with the existing five-minute expiry.
+For natural-language parsing, the AI provider is configured only on the server through `FALANCE_AI_API_BASE`, `FALANCE_AI_API_KEY`, and `FALANCE_AI_MODEL`. These values must never be exposed to Telegram or client code. The provider may extract only transaction fields; it must not determine family identity, member identity, authorization, or persistence status.
+
+Milestone 6 accepts non-command natural-language transaction text from active members and creates a server-persisted draft in `Pending Transaction Drafts` when the optional AI provider is configured. The bot shows a readable recap with inline `Ya, simpan`, `Edit`, and `Batalkan` buttons. `Ya, simpan` approves the current draft; `Edit` changes it to manual-edit mode and instructs the user to send `/editdraft <INCOME|EXPENSE> <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>`; the revised draft then shows `Kirim draft`, `Edit lagi`, and `Batalkan` actions. `Kirim draft` and `Ya, simpan` call the same deterministic service boundary, which validates the draft, resolves the family from current membership, persists the transaction, and marks the draft `COMPLETED`. Drafts expire after five minutes, and stale or foreign callback IDs are rejected. Missing fields, invalid values, provider failures, and unavailable configuration produce Indonesian fallback messages. Edit and soft-cancellation operations remain family-scoped, record the appropriate audit action, and never perform hard deletion.
 
 ## Planned report access
 
@@ -81,4 +83,4 @@ If a user requests a password-protected PDF, the password must be collected thro
 
 ## Out of scope
 
-Receipt OCR, AI categorization and summaries, budgets, dashboards, the Telegram Mini App, payments, subscriptions, and Supabase are not implemented. Milestone 3 administration is complete, the Milestone 4 transaction foundation is implemented, and the first structured Milestone 5 transaction commands are now available; natural-language input and transaction edit/cancellation flows remain future work.
+Receipt OCR, AI categorization and summaries, budgets, dashboards, the Telegram Mini App, payments, subscriptions, and Supabase are not implemented. Milestone 3 administration and Milestone 4 transaction foundation are complete, Milestone 5 structured transaction management is complete, and Milestone 6 interactive AI draft confirmation is in progress.

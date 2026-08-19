@@ -14,7 +14,7 @@ import {
   TransactionError,
   UnauthorizedError,
 } from "../src/lib/family/service";
-import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, TelegramUser, Transaction } from "../src/lib/family/types";
+import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, TelegramUser, Transaction } from "../src/lib/family/types";
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
 const member: TelegramUser = { telegramUserId: "200", name: "Member", username: null };
@@ -574,6 +574,56 @@ test("voids an active transaction only after confirmation and keeps the row", as
   assert.equal(repository.auditLogs.at(-1)?.action, "VOID_TRANSACTION");
 });
 
+test("creates, edits, and approves an AI draft only through the service boundary", async () => {
+  const repository = setupMember("OWNER");
+  const service = new FamilyService(repository);
+  const draft = await service.createPendingTransactionDraft(owner, {
+    transactionType: "EXPENSE",
+    amountMinor: 35000,
+    currency: "IDR",
+    transactionDate: "2026-08-19",
+    description: "Beli susu",
+  }, "HIGH");
+
+  assert.equal(draft.familyId, "fam_1");
+  const edited = await service.updatePendingTransactionDraft(owner, {
+    transactionType: "EXPENSE",
+    amountMinor: 40000,
+    currency: "IDR",
+    transactionDate: "2026-08-19",
+    description: "Beli susu dan roti",
+  });
+  const transaction = await service.approvePendingTransactionDraft(owner);
+
+  assert.equal(edited.status, "EDITING");
+  assert.equal(transaction.amountMinor, 40000);
+  assert.equal(transaction.description, "Beli susu dan roti");
+  assert.equal(repository.transactionDrafts[0]?.status, "COMPLETED");
+  assert.equal(repository.transactions[0]?.familyId, "fam_1");
+});
+
+test("expires an AI draft and refuses a foreign user approval", async () => {
+  const repository = setupMember("OWNER");
+  const service = new FamilyService(repository);
+  const draft = await service.createPendingTransactionDraft(owner, {
+    transactionType: "INCOME",
+    amountMinor: 100000,
+    currency: "IDR",
+    transactionDate: "2026-08-19",
+    description: "Gaji",
+  }, "MEDIUM");
+  repository.transactionDrafts[0] = { ...draft, expiresAt: "2020-01-01T00:00:00.000Z" };
+  repository.families.push(family("fam_2"));
+  repository.members.push(activeMember("fam_2", member, "OWNER"));
+
+  assert.equal(await service.getPendingTransactionDraft(owner.telegramUserId), null);
+  assert.equal(repository.transactionDrafts[0]?.status, "EXPIRED");
+  await assert.rejects(
+    () => service.approvePendingTransactionDraft(member),
+    TransactionError,
+  );
+});
+
 test("joins a valid invitation once and marks it used", async () => {
   const repository = setupMember("OWNER");
   const service = new FamilyService(repository);
@@ -680,6 +730,7 @@ class FakeFamilyRepository implements FamilyRepository {
   confirmations: PendingConfirmation[] = [];
   auditLogs: AuditLogEntry[] = [];
   transactions: Transaction[] = [];
+  transactionDrafts: PendingTransactionDraft[] = [];
   failAuditLog = false;
   failMemberCreation = false;
   spreadsheetCreationCalls = 0;
@@ -748,6 +799,17 @@ class FakeFamilyRepository implements FamilyRepository {
   async revokeInvitation(id: string) {
     const value = this.invitations.find((candidate) => candidate.invitationId === id);
     if (value && value.status === "PENDING") value.status = "REVOKED";
+  }
+  async createPendingTransactionDraft(value: PendingTransactionDraft) {
+    this.transactionDrafts = this.transactionDrafts.filter((draft) => draft.telegramUserId !== value.telegramUserId || !["PENDING", "EDITING"].includes(draft.status));
+    this.transactionDrafts.push(value);
+  }
+  async findPendingTransactionDraft(telegramUserId: string) {
+    return this.transactionDrafts.find((draft) => draft.telegramUserId === telegramUserId && ["PENDING", "EDITING"].includes(draft.status)) ?? null;
+  }
+  async updatePendingTransactionDraft(value: PendingTransactionDraft) {
+    const index = this.transactionDrafts.findIndex((draft) => draft.draftId === value.draftId);
+    if (index >= 0) this.transactionDrafts[index] = value;
   }
   async createPendingFamilyCreation(value: PendingFamilyCreation) {
     this.pending = this.pending.filter((pendingValue) => pendingValue.telegramUserId !== value.telegramUserId);

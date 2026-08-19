@@ -4,7 +4,7 @@ import {
   type GoogleOperation,
 } from "../google/sheets-client";
 import type { FamilyRepository } from "./repository";
-import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, Transaction } from "./types";
+import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, Transaction } from "./types";
 
 /**
  * Repository backed by the single Falancé database spreadsheet configured for
@@ -238,6 +238,54 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     ]], "revokeInvitation");
   }
 
+  async createPendingTransactionDraft(draft: PendingTransactionDraft): Promise<void> {
+    const existing = await this.findPendingTransactionDraft(draft.telegramUserId);
+    if (existing) {
+      await this.updatePendingTransactionDraft({ ...existing, status: "CANCELLED" });
+    }
+    await this.append("Pending Transaction Drafts", [
+      draft.draftId,
+      draft.telegramUserId,
+      draft.familyId,
+      draft.transactionType,
+      String(draft.amountMinor),
+      draft.currency,
+      draft.transactionDate,
+      draft.description,
+      draft.confidence,
+      draft.createdAt,
+      draft.expiresAt,
+      draft.status,
+    ], "createPendingTransactionDraft");
+  }
+
+  async findPendingTransactionDraft(telegramUserId: string): Promise<PendingTransactionDraft | null> {
+    const row = (await this.rows("Pending Transaction Drafts", "readPendingTransactionDrafts")).find(
+      (value) => value[1] === telegramUserId && (value[11] === "PENDING" || value[11] === "EDITING"),
+    );
+    return row ? pendingTransactionDraftFromRow(row) : null;
+  }
+
+  async updatePendingTransactionDraft(draft: PendingTransactionDraft): Promise<void> {
+    const rows = await this.rows("Pending Transaction Drafts", "updatePendingTransactionDraft");
+    const index = rows.findIndex((row) => row[0] === draft.draftId);
+    if (index < 0) throw new GoogleConfigurationError("Pending transaction draft record is missing.");
+    await this.client.updateValues(this.registryId(), `Pending Transaction Drafts!A${index + 2}`, [[
+      draft.draftId,
+      draft.telegramUserId,
+      draft.familyId,
+      draft.transactionType,
+      String(draft.amountMinor),
+      draft.currency,
+      draft.transactionDate,
+      draft.description,
+      draft.confidence,
+      draft.createdAt,
+      draft.expiresAt,
+      draft.status,
+    ]], "updatePendingTransactionDraft");
+  }
+
   async createPendingFamilyCreation(pending: PendingFamilyCreation): Promise<void> {
     await this.clearPendingFamilyCreation(pending.telegramUserId);
     await this.append("Pending Family Creations", [
@@ -301,6 +349,23 @@ function pendingConfirmationFromRow(row: string[]): PendingConfirmation {
     createdAt: row[5],
     expiresAt: row[6],
     status: row[7] as PendingConfirmation["status"],
+  };
+}
+
+function pendingTransactionDraftFromRow(row: string[]): PendingTransactionDraft {
+  return {
+    draftId: row[0],
+    telegramUserId: row[1],
+    familyId: row[2],
+    transactionType: row[3] as PendingTransactionDraft["transactionType"],
+    amountMinor: Number(row[4]),
+    currency: row[5],
+    transactionDate: row[6],
+    description: row[7],
+    confidence: row[8] as PendingTransactionDraft["confidence"],
+    createdAt: row[9],
+    expiresAt: row[10],
+    status: row[11] as PendingTransactionDraft["status"],
   };
 }
 

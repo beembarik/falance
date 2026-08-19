@@ -119,6 +119,7 @@ test("initializes the single central registry without Drive or spreadsheet creat
       ["invitation_id", "family_id", "code", "created_by", "created_at", "expires_at", "used_at", "used_by", "status"],
       ["telegram_user_id", "family_name", "created_at", "expires_at", "status"],
       ["confirmation_id", "telegram_user_id", "family_id", "action", "target", "created_at", "expires_at", "status"],
+      ["draft_id", "telegram_user_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "confidence", "created_at", "expires_at", "status"],
       ["audit_id", "family_id", "actor_member_id", "actor_role", "action", "target_type", "target_id", "previous_value", "new_value", "created_at"],
       ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"],
     ]);
@@ -272,6 +273,47 @@ test("appends a transaction row with the mandatory family_id and typed fields", 
       sheetName: "Transactions",
       values: [["txn_1", "fam_1", "EXPENSE", "15000", "IDR", "2026-08-19", "Makan siang", "mem_100", "2026-08-19T00:00:00.000Z", "ACTIVE"]],
       operation: "createTransaction",
+    }]);
+  } finally {
+    restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
+  }
+});
+
+test("appends a pending AI draft row with server-owned identity and expiry fields", async () => {
+  const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
+  process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";
+  const appends: Array<{ spreadsheetId: string; sheetName: string; values: readonly (readonly string[])[]; operation: string | undefined }> = [];
+  const client = {
+    ensureRegistry: async () => {},
+    getValues: async () => [["draft_id", "telegram_user_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "confidence", "created_at", "expires_at", "status"]],
+    appendRows: async (
+      spreadsheetId: string,
+      sheetName: string,
+      values: readonly (readonly string[])[],
+      operation?: string,
+    ) => appends.push({ spreadsheetId, sheetName, values, operation }),
+  } as unknown as GoogleSheetsClient;
+
+  try {
+    await new GoogleSheetsFamilyRepository(client).createPendingTransactionDraft({
+      draftId: "draft_1",
+      telegramUserId: "100",
+      familyId: "fam_1",
+      transactionType: "EXPENSE",
+      amountMinor: 35000,
+      currency: "IDR",
+      transactionDate: "2026-08-19",
+      description: "Beli susu",
+      confidence: "HIGH",
+      createdAt: "2026-08-19T00:00:00.000Z",
+      expiresAt: "2026-08-19T00:05:00.000Z",
+      status: "PENDING",
+    });
+    assert.deepEqual(appends, [{
+      spreadsheetId: "central-registry-id",
+      sheetName: "Pending Transaction Drafts",
+      values: [["draft_1", "100", "fam_1", "EXPENSE", "35000", "IDR", "2026-08-19", "Beli susu", "HIGH", "2026-08-19T00:00:00.000Z", "2026-08-19T00:05:00.000Z", "PENDING"]],
+      operation: "createPendingTransactionDraft",
     }]);
   } finally {
     restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);

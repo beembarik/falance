@@ -1,28 +1,40 @@
 import {
+  answerTelegramCallbackQuery,
   TelegramApiError,
   TelegramConfigurationError,
   sendTelegramMessage,
 } from "@/lib/telegram/client";
 import { GoogleSheetsFamilyRepository } from "@/lib/family/google-sheets-repository";
 import { FamilyService } from "@/lib/family/service";
-import { handleTelegramTextMessage } from "@/lib/telegram/command-handler";
+import {
+  handleTelegramCallbackQuery,
+  handleTelegramTextMessageResponse,
+} from "@/lib/telegram/command-handler";
 import { usesTelegramHtml } from "@/lib/telegram/html";
 
 interface TelegramUpdate {
   update_id: number;
+  callback_query?: {
+    id?: string;
+    data?: string;
+    from?: TelegramFrom;
+    message?: { chat?: { id?: number } };
+  };
   message?: {
     chat?: {
       id?: number;
     };
-    from?: {
-      id?: number;
-      first_name?: string;
-      last_name?: string;
-      username?: string;
-    };
+    from?: TelegramFrom;
     text?: string;
   };
 }
+
+type TelegramFrom = {
+  id?: number;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+};
 
 export async function GET(): Promise<Response> {
   return Response.json({ status: "ok" });
@@ -41,28 +53,53 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
 
-  const chatId = payload.message?.chat?.id;
-  const text = payload.message?.text;
-  const from = payload.message?.from;
-
-  if (typeof chatId !== "number" || typeof text !== "string" || !from || typeof from.id !== "number") {
-    return Response.json({ ok: true, ignored: true });
-  }
+  const service = new FamilyService(new GoogleSheetsFamilyRepository());
 
   try {
-    const responseText = await handleTelegramTextMessage(
-      new FamilyService(new GoogleSheetsFamilyRepository()),
-      {
-        telegramUserId: String(from.id),
-        name: [from.first_name, from.last_name].filter(Boolean).join(" ") || "Pengguna Telegram",
-        username: typeof from.username === "string" ? from.username : null,
-      },
+    const callback = payload.callback_query;
+    const callbackChatId = callback?.message?.chat?.id;
+    const callbackFrom = callback?.from;
+    if (
+      callback &&
+      typeof callback.id === "string" &&
+      typeof callback.data === "string" &&
+      typeof callbackChatId === "number" &&
+      callbackFrom &&
+      typeof callbackFrom.id === "number"
+    ) {
+      const response = await handleTelegramCallbackQuery(
+        service,
+        toTelegramUser(callbackFrom),
+        callback.data,
+      );
+      await answerTelegramCallbackQuery(callback.id);
+      await sendTelegramMessage({
+        chatId: callbackChatId,
+        text: response.text,
+        ...(usesTelegramHtml(response.text) ? { parseMode: "HTML" as const } : {}),
+        ...(response.replyMarkup ? { replyMarkup: response.replyMarkup } : {}),
+      });
+      return Response.json({ ok: true });
+    }
+
+    const chatId = payload.message?.chat?.id;
+    const text = payload.message?.text;
+    const from = payload.message?.from;
+    if (typeof chatId !== "number" || typeof text !== "string" || !from || typeof from.id !== "number") {
+      return Response.json({ ok: true, ignored: true });
+    }
+
+    const response = await handleTelegramTextMessageResponse(
+      service,
+      toTelegramUser(from),
       text,
     );
+    const responseText = typeof response === "string" ? response : response.text;
     await sendTelegramMessage({
       chatId,
       text: responseText,
       ...(usesTelegramHtml(responseText) ? { parseMode: "HTML" as const } : {}),
+      ...(typeof response !== "string" && response.replyMarkup ? { replyMarkup: response.replyMarkup } : {}),
     });
 
     return Response.json({ ok: true });
@@ -77,6 +114,14 @@ export async function POST(request: Request): Promise<Response> {
 
     return Response.json({ error: "Unable to process update." }, { status: 500 });
   }
+}
+
+function toTelegramUser(from: TelegramFrom) {
+  return {
+    telegramUserId: String(from.id),
+    name: [from.first_name, from.last_name].filter(Boolean).join(" ") || "Pengguna Telegram",
+    username: typeof from.username === "string" ? from.username : null,
+  };
 }
 
 function isTelegramUpdate(value: unknown): value is TelegramUpdate {

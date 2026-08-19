@@ -16,6 +16,15 @@ export function parseManualTransactionCommand(
   );
 }
 
+export function parseEditDraftCommand(command: string): CreateTransactionInput {
+  const args = command.slice("/editdraft".length).trim().split(/\s+/).filter(Boolean);
+  return parseTransactionArguments(
+    args,
+    normalizeTransactionType(args.shift()),
+    "/editdraft <INCOME|EXPENSE> <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>",
+  );
+}
+
 export function parseEditTransactionCommand(command: string): {
   transactionId: string;
   input: CreateTransactionInput;
@@ -43,6 +52,16 @@ export function parseEditTransactionCommand(command: string): {
       "/edittransaction <transaction_id> <INCOME|EXPENSE> <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>",
     ),
   };
+}
+
+function normalizeTransactionType(value: string | undefined): TransactionType {
+  const type = value?.toUpperCase();
+  if (type !== "INCOME" && type !== "EXPENSE") {
+    throw new TransactionCommandError(
+      "Format tidak valid. Gunakan: /editdraft <INCOME|EXPENSE> <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>",
+    );
+  }
+  return type;
 }
 
 function parseTransactionArguments(

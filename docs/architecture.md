@@ -8,7 +8,7 @@ Google Sheets is an implementation detail behind the repository abstraction. Dom
 
 ## Storage layout
 
-The central registry currently creates or verifies the following eight sheets:
+The central registry currently creates or verifies the following nine sheets:
 
 | Sheet | Purpose |
 | --- | --- |
@@ -18,14 +18,15 @@ The central registry currently creates or verifies the following eight sheets:
 | `Invitations` | Family-bound, one-time invitation records. |
 | `Pending Family Creations` | Short-lived `/createfamily` requests. |
 | `Pending Confirmations` | Server-persisted five-minute Y/N confirmations for destructive administrative operations. |
+| `Pending Transaction Drafts` | Server-persisted five-minute AI transaction drafts awaiting `Ya`, `Edit`, or cancellation. |
 | `Audit Log` | Append-only successful administrative actions with opaque actor and target identifiers. |
 | `Transactions` | Family-scoped `INCOME` and `EXPENSE` records with soft `ACTIVE`/`VOID` status. |
 
-`Categories` and `Accounts` remain reserved schema boundaries for future milestones. `Audit Log` is the Milestone 3 append-only administrative audit boundary, and `Transactions` is the Milestone 4 foundation boundary.
+`Categories` and `Accounts` remain reserved schema boundaries for future milestones. `Audit Log` is the Milestone 3 append-only administrative audit boundary, `Transactions` is the Milestone 4 foundation boundary, and `Pending Transaction Drafts` is the Milestone 6 temporary AI-draft boundary.
 
 ## Registry initialization and quota protection
 
-The repository verifies the central registry through `GoogleSheetsClient.ensureRegistry()`. The client caches the in-flight and completed initialization promise per spreadsheet ID, so one client instance does not repeatedly read all eight worksheet headers for every repository operation.
+The repository verifies the central registry through `GoogleSheetsClient.ensureRegistry()`. The client caches the in-flight and completed initialization promise per spreadsheet ID, so one client instance does not repeatedly read all nine worksheet headers for every repository operation.
  If initialization fails, its failed cache entry is removed so a later request can retry initialization.
 
 This cache is intentionally scoped to a client instance rather than treated as durable application state. A serverless cold start may initialize the registry again, but operations within the same warm request instance reuse the completed initialization. Registry initialization must remain lightweight because Google Sheets enforces per-user read quotas; repeated metadata and header reads can produce `429 RESOURCE_EXHAUSTED` errors.

@@ -103,6 +103,25 @@ There is deliberately no `spreadsheet_id` column. The central spreadsheet ID bel
 
 Audit rows are appended only after the primary administrative write succeeds. Audit persistence is deliberately non-blocking: if the audit append fails, the primary state change remains successful and only a safe operation label is emitted to diagnostics. Failed authorization, invalid confirmation, cancelled actions, and expired actions are not recorded as successful audit events.
 
+### Pending Transaction Drafts
+
+| Column | Meaning |
+| --- | --- |
+| `draft_id` | Opaque server-generated draft identifier. |
+| `telegram_user_id` | Telegram identity that created the draft; server-only authorization key. |
+| `family_id` | Server-resolved family boundary; never accepted from Telegram input. |
+| `transaction_type` | `INCOME` or `EXPENSE`. |
+| `amount_minor` | Positive integer amount in the smallest currency unit. |
+| `currency` | Three-letter uppercase currency code. |
+| `transaction_date` | Valid `YYYY-MM-DD` transaction date. |
+| `description` | Normalized 1–200 character description. |
+| `confidence` | AI extraction confidence: `HIGH`, `MEDIUM`, or `LOW`. |
+| `created_at` | Draft creation timestamp. |
+| `expires_at` | Five-minute draft expiry timestamp. |
+| `status` | `PENDING`, `EDITING`, `COMPLETED`, `CANCELLED`, or `EXPIRED`. |
+
+Pending drafts are temporary server state. A natural-language message creates or replaces the user’s active draft; `Ya`/`Kirim draft` validates and persists a transaction, `Edit` changes the draft to manual-edit mode, and cancellation or expiry preserves the row without persisting a transaction. The draft repository filters by the server-resolved Telegram identity, and the service verifies the active family before any update or approval.
+
 ### Transactions
 
 | Column | Meaning |
@@ -118,7 +137,7 @@ Audit rows are appended only after the primary administrative write succeeds. Au
 | `created_at` | ISO-8601 creation timestamp. |
 | `status` | `ACTIVE` or `VOID`; transaction history is not hard-deleted. |
 
-Transactions are appended to the central registry by the repository and read back by `family_id`. Every active `OWNER`, `ADMIN`, and `MEMBER` may create a transaction for their server-resolved family. Successful creation appends a privacy-preserving `CREATE_TRANSACTION` entry to the `Audit Log`; Telegram transaction commands and VOID confirmation flows remain future work.
+Transactions are appended to the central registry by the repository and read back by `family_id`. Every active `OWNER`, `ADMIN`, and `MEMBER` may create a transaction for their server-resolved family. Successful creation appends a privacy-preserving `CREATE_TRANSACTION` entry to the `Audit Log`; structured Telegram transaction commands and VOID confirmation flows are implemented, while AI draft approval reuses the same service boundary.
 
 ## Isolation rule
 

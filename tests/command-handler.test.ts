@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { handleTelegramTextMessage } from "../src/lib/telegram/command-handler";
+import { handleTelegramCallbackQuery, handleTelegramTextMessage } from "../src/lib/telegram/command-handler";
 import type { FamilyService, ConfirmationResult } from "../src/lib/family/service";
 import type { Family, TelegramUser, Transaction } from "../src/lib/family/types";
+import type { TransactionTextParser } from "../src/lib/ai/transaction-text-parser";
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
 
@@ -15,6 +16,90 @@ test("formats an invitation code as inline code", async () => {
   const response = await handleTelegramTextMessage(service, owner, "/invite");
 
   assert.match(response, /Kode: <code>FAL-ABC123<\/code>/);
+});
+
+test("previews a natural-language transaction draft without persisting it", async () => {
+  let persisted = false;
+  const service = fakeService({
+    createTransaction: async () => {
+      persisted = true;
+      throw new Error("must not persist from natural language");
+    },
+    createPendingTransactionDraft: async () => ({
+      draftId: "draft_1",
+      telegramUserId: owner.telegramUserId,
+      familyId: "fam_1",
+      transactionType: "EXPENSE",
+      amountMinor: 35000,
+      currency: "IDR",
+      transactionDate: "2026-08-20",
+      description: "Beli susu",
+      confidence: "HIGH",
+      createdAt: "2026-08-20T00:00:00.000Z",
+      expiresAt: "2026-08-20T00:05:00.000Z",
+      status: "PENDING",
+    }),
+  });
+  const parser: TransactionTextParser = {
+    parse: async () => ({
+      kind: "READY",
+      draft: {
+        transactionType: "EXPENSE",
+        amountMinor: 35000,
+        currency: "IDR",
+        transactionDate: "2026-08-20",
+        description: "Beli susu",
+        confidence: "HIGH",
+      },
+    }),
+  };
+
+  const response = await handleTelegramTextMessage(service, owner, "beli susu 35 ribu", parser);
+
+  assert.equal(persisted, false);
+  assert.match(response, /DRAFT TRANSAKSI/);
+  assert.match(response, /<code>\/addexpense 35000 IDR 2026-08-20 Beli susu<\/code>/);
+});
+
+test("draft Edit callback enters manual edit mode", async () => {
+  let markedEditing = false;
+  const service = fakeService({
+    getPendingTransactionDraft: async () => ({ draftId: "draft_1" }),
+    markPendingTransactionDraftEditing: async () => { markedEditing = true; },
+  });
+
+  const response = await handleTelegramCallbackQuery(service, owner, "draft:edit:draft_1");
+
+  assert.equal(markedEditing, true);
+  assert.match(response.text, /EDIT DRAFT TRANSAKSI/);
+  assert.match(response.text, /<code>\/editdraft/);
+});
+
+test("draft Ya callback approves the server-resolved draft and saves the transaction", async () => {
+  let approved = false;
+  const service = fakeService({
+    getPendingTransactionDraft: async () => ({ draftId: "draft_1" }),
+    approvePendingTransactionDraft: async () => {
+      approved = true;
+      return { transactionId: "txn_saved" };
+    },
+  });
+
+  const response = await handleTelegramCallbackQuery(service, owner, "draft:yes:draft_1");
+
+  assert.equal(approved, true);
+  assert.match(response.text, /Transaksi berhasil disimpan/);
+  assert.match(response.text, /<code>txn_saved<\/code>/);
+});
+
+test("draft callback rejects a foreign or stale draft ID", async () => {
+  const service = fakeService({
+    getPendingTransactionDraft: async () => ({ draftId: "draft_other" }),
+  });
+
+  const response = await handleTelegramCallbackQuery(service, owner, "draft:yes:draft_foreign");
+
+  assert.match(response.text, /kedaluwarsa atau tidak tersedia/);
 });
 
 test("adds an expense through the service and formats the Indonesian response", async () => {

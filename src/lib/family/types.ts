@@ -13,6 +13,9 @@ export type InvitationStatus = (typeof INVITATION_STATUSES)[number];
 export const CONFIRMATION_ACTIONS = ["REVOKE_INVITATION", "DEACTIVATE_MEMBER", "ARCHIVE_FAMILY", "VOID_TRANSACTION"] as const;
 export type ConfirmationAction = (typeof CONFIRMATION_ACTIONS)[number];
 
+export const TRANSACTION_DRAFT_STATUSES = ["PENDING", "EDITING", "COMPLETED", "CANCELLED", "EXPIRED"] as const;
+export type TransactionDraftStatus = (typeof TRANSACTION_DRAFT_STATUSES)[number];
+
 export const CONFIRMATION_STATUSES = ["PENDING", "COMPLETED", "CANCELLED", "EXPIRED"] as const;
 export type ConfirmationStatus = (typeof CONFIRMATION_STATUSES)[number];
 
@@ -114,4 +117,19 @@ export interface PendingFamilyCreation {
   familyName: string | null;
   createdAt: string;
   expiresAt: string;
+}
+
+export interface PendingTransactionDraft {
+  draftId: string;
+  telegramUserId: string;
+  familyId: string;
+  transactionType: TransactionType;
+  amountMinor: number;
+  currency: string;
+  transactionDate: string;
+  description: string;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  createdAt: string;
+  expiresAt: string;
+  status: TransactionDraftStatus;
 }

@@ -13,10 +13,23 @@ import {
   UnauthorizedError,
 } from "../family/service";
 import type { FamilyMember, MemberRole, TelegramUser } from "../family/types";
+import type { TelegramReplyMarkup } from "./client";
+import {
+  createTransactionTextParser,
+  TransactionTextParserUnavailableError,
+  type TransactionTextParser,
+} from "../ai/transaction-text-parser";
 import { formatMembersMessage } from "./member-message";
 import { formatTransactionCreatedMessage, formatTransactionsMessage } from "./transaction-message";
-import { parseEditTransactionCommand, parseManualTransactionCommand, TransactionCommandError } from "./transaction-command";
+import { parseEditDraftCommand, parseEditTransactionCommand, parseManualTransactionCommand, TransactionCommandError } from "./transaction-command";
 import { telegramCode } from "./html";
+import {
+  formatDraftActionMarkup,
+  formatDraftCancelledMessage,
+  formatDraftEditInstructions,
+  formatDraftSavedMessage,
+  formatTransactionDraftMessage,
+} from "./transaction-draft-message";
 
 const UNREGISTERED_START = `👋 Halo! Selamat datang di Falancé.
 
@@ -26,11 +39,27 @@ Kamu bisa:
 • membuat keluarga baru
 • bergabung menggunakan invitation code.`;
 
+export interface TelegramHandlerResponse {
+  text: string;
+  replyMarkup?: TelegramReplyMarkup;
+}
+
 export async function handleTelegramTextMessage(
   service: FamilyService,
   user: TelegramUser,
   text: string,
+  transactionTextParser: TransactionTextParser = createTransactionTextParser(),
 ): Promise<string> {
+  const response = await handleTelegramTextMessageResponse(service, user, text, transactionTextParser);
+  return typeof response === "string" ? response : response.text;
+}
+
+export async function handleTelegramTextMessageResponse(
+  service: FamilyService,
+  user: TelegramUser,
+  text: string,
+  transactionTextParser: TransactionTextParser = createTransactionTextParser(),
+): Promise<TelegramHandlerResponse | string> {
   const command = text.trim();
   try {
     if (command === "/start") return startMessage(await service.getActiveMembership(user.telegramUserId));
@@ -70,6 +99,10 @@ export async function handleTelegramTextMessage(
     if (command === "/transactions") {
       const family = await service.getActiveFamily(user.telegramUserId);
       return formatTransactionsMessage(family, await service.listTransactions(user.telegramUserId));
+    }
+    if (command.startsWith("/editdraft")) {
+      const draft = await service.updatePendingTransactionDraft(user, parseEditDraftCommand(command));
+      return { text: formatTransactionDraftMessage(draft), replyMarkup: formatDraftActionMarkup(draft.draftId, draft.status) };
     }
     if (command.startsWith("/edittransaction")) {
       const { transactionId, input } = parseEditTransactionCommand(command);
@@ -154,9 +187,46 @@ export async function handleTelegramTextMessage(
       const family = await service.createFamilyFromPending(user, command);
       return `✅ Keluarga ${family.familyName} berhasil dibuat. Kamu adalah OWNER keluarga ini.`;
     }
+    if (!command.startsWith("/") && command !== "Y" && command !== "N") {
+      const parsed = await transactionTextParser.parse(command, new Date().toISOString().slice(0, 10));
+      if (parsed.kind === "READY") {
+        const draft = await service.createPendingTransactionDraft(user, parsed.draft, parsed.draft.confidence);
+        return { text: formatTransactionDraftMessage(draft), replyMarkup: formatDraftActionMarkup(draft.draftId, draft.status) };
+      }
+      if (parsed.kind === "NEEDS_CLARIFICATION") return `🤔 ${parsed.question}`;
+      return `🤔 ${parsed.reason}`;
+    }
     return "Falancé sedang dalam pengembangan. Fitur pencatatan keuangan akan segera hadir.";
   } catch (error) {
     return messageForError(error);
+  }
+}
+
+export async function handleTelegramCallbackQuery(
+  service: FamilyService,
+  user: TelegramUser,
+  callbackData: string,
+): Promise<TelegramHandlerResponse> {
+  try {
+    const [prefix, action, draftId] = callbackData.split(":");
+    if (prefix !== "draft" || !draftId || !["yes", "submit", "edit", "cancel"].includes(action)) {
+      return { text: "Tombol ini sudah tidak berlaku." };
+    }
+    const draft = await service.getPendingTransactionDraft(user.telegramUserId);
+    if (!draft || draft.draftId !== draftId) return { text: "Draft transaksi sudah kedaluwarsa atau tidak tersedia." };
+
+    if (action === "edit") {
+      await service.markPendingTransactionDraftEditing(user);
+      return { text: formatDraftEditInstructions() };
+    }
+    if (action === "cancel") {
+      await service.cancelPendingTransactionDraft(user);
+      return { text: formatDraftCancelledMessage() };
+    }
+    const transaction = await service.approvePendingTransactionDraft(user);
+    return { text: formatDraftSavedMessage(transaction.transactionId) };
+  } catch (error) {
+    return { text: messageForError(error) };
   }
 }
 
@@ -189,6 +259,7 @@ function confirmationResultMessage(result: ConfirmationResult): string {
 
 function messageForError(error: unknown): string {
   if (error instanceof TransactionCommandError) return error.message;
+  if (error instanceof TransactionTextParserUnavailableError) return "Parser AI belum tersedia. Gunakan command transaksi terstruktur seperti /addincome atau /addexpense.";
   if (error instanceof AlreadyRegisteredError) return "Kamu sudah terdaftar dalam keluarga aktif.";
   if (error instanceof UnauthorizedError) return "Kamu tidak memiliki izin untuk menjalankan perintah ini.";
   if (error instanceof InvitationError) return "Invitation tidak valid, sudah digunakan, dicabut, atau kedaluwarsa.";

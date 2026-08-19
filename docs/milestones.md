@@ -76,10 +76,15 @@ Milestone 5 now accepts structured amount, optional currency, `YYYY-MM-DD` date,
 
 ## Milestone 6 — AI Text Parser
 
-- [ ] AI provider abstraction
-- [ ] Transaction extraction and validation
+Status: IN PROGRESS
+
+- [x] AI provider abstraction
+- [x] Transaction extraction and deterministic validation
 - [ ] Category and description suggestions
-- [ ] Failure fallback
+- [x] Failure fallback
+- [x] Interactive Telegram draft preview, approval, cancellation, and manual edit flow
+
+The first Milestone 6 slice accepts natural-language text from an active Telegram member, extracts a validated transaction draft through an optional server-only OpenAI-compatible provider, persists temporary draft state with a five-minute expiry, and shows inline `Ya`, `Edit`, and `Batalkan` actions. Approval calls the same deterministic transaction service used by structured commands; Edit uses `/editdraft` and requires a second approval before persistence. The AI layer never receives or controls `family_id`, `created_by_member_id`, authorization, or transaction status. Missing configuration, provider failures, invalid JSON, missing fields, and deterministic validation failures fall back to Indonesian clarification or availability messages.
 
 ## Milestone 7 — Receipt Processing
 

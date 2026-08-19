@@ -10,6 +10,7 @@ import type {
   Invitation,
   MemberRole,
   PendingConfirmation,
+  PendingTransactionDraft,
   TelegramUser,
   Transaction,
   TransactionType,
@@ -451,6 +452,92 @@ export class FamilyService {
     return transaction;
   }
 
+  async createPendingTransactionDraft(
+    user: TelegramUser,
+    input: CreateTransactionInput,
+    confidence: PendingTransactionDraft["confidence"],
+  ): Promise<PendingTransactionDraft> {
+    const member = await this.requireActiveMember(user.telegramUserId);
+    validateTransactionInput(input);
+    const now = new Date();
+    const draft: PendingTransactionDraft = {
+      draftId: createId("draft"),
+      telegramUserId: user.telegramUserId,
+      familyId: member.familyId,
+      transactionType: input.transactionType,
+      amountMinor: input.amountMinor,
+      currency: normalizeCurrency(input.currency),
+      transactionDate: input.transactionDate,
+      description: normalizeTransactionDescription(input.description),
+      confidence,
+      createdAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + 5 * 60 * 1000).toISOString(),
+      status: "PENDING",
+    };
+    await this.repository.createPendingTransactionDraft(draft);
+    return draft;
+  }
+
+  async getPendingTransactionDraft(telegramUserId: string): Promise<PendingTransactionDraft | null> {
+    const member = await this.requireActiveMember(telegramUserId);
+    const draft = await this.repository.findPendingTransactionDraft(telegramUserId);
+    if (!draft) return null;
+    if (draft.familyId !== member.familyId) throw new UnauthorizedError("Draft is not in the active family.");
+    if (new Date(draft.expiresAt) <= new Date()) {
+      await this.repository.updatePendingTransactionDraft({ ...draft, status: "EXPIRED" });
+      return null;
+    }
+    return draft;
+  }
+
+  async markPendingTransactionDraftEditing(user: TelegramUser): Promise<PendingTransactionDraft> {
+    const draft = await this.getPendingTransactionDraft(user.telegramUserId);
+    if (!draft) throw new TransactionError("No active transaction draft is available.");
+    const updated = { ...draft, status: "EDITING" as const };
+    await this.repository.updatePendingTransactionDraft(updated);
+    return updated;
+  }
+
+  async updatePendingTransactionDraft(
+    user: TelegramUser,
+    input: CreateTransactionInput,
+  ): Promise<PendingTransactionDraft> {
+    const draft = await this.getPendingTransactionDraft(user.telegramUserId);
+    if (!draft) throw new TransactionError("No active transaction draft is available.");
+    validateTransactionInput(input);
+    const updated: PendingTransactionDraft = {
+      ...draft,
+      transactionType: input.transactionType,
+      amountMinor: input.amountMinor,
+      currency: normalizeCurrency(input.currency),
+      transactionDate: input.transactionDate,
+      description: normalizeTransactionDescription(input.description),
+      status: "EDITING",
+    };
+    await this.repository.updatePendingTransactionDraft(updated);
+    return updated;
+  }
+
+  async cancelPendingTransactionDraft(user: TelegramUser): Promise<void> {
+    const draft = await this.getPendingTransactionDraft(user.telegramUserId);
+    if (!draft) throw new TransactionError("No active transaction draft is available.");
+    await this.repository.updatePendingTransactionDraft({ ...draft, status: "CANCELLED" });
+  }
+
+  async approvePendingTransactionDraft(user: TelegramUser): Promise<Transaction> {
+    const draft = await this.getPendingTransactionDraft(user.telegramUserId);
+    if (!draft) throw new TransactionError("No active transaction draft is available.");
+    const transaction = await this.createTransaction(user, {
+      transactionType: draft.transactionType,
+      amountMinor: draft.amountMinor,
+      currency: draft.currency,
+      transactionDate: draft.transactionDate,
+      description: draft.description,
+    });
+    await this.repository.updatePendingTransactionDraft({ ...draft, status: "COMPLETED" });
+    return transaction;
+  }
+
   async listTransactions(telegramUserId: string): Promise<Transaction[]> {
     const member = await this.requireActiveMember(telegramUserId);
     await this.requireActiveFamily(member.familyId);
@@ -659,7 +746,7 @@ function normalizeFamilyName(value: string): string {
   return name;
 }
 
-function validateTransactionInput(input: CreateTransactionInput): void {
+export function validateTransactionInput(input: CreateTransactionInput): void {
   if (input.transactionType !== "INCOME" && input.transactionType !== "EXPENSE") {
     throw new TransactionError("Transaction type must be INCOME or EXPENSE.");
   }
