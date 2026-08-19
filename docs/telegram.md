@@ -1,72 +1,32 @@
-# Telegram Integration
-
-## Bot
-
-Brand:
-Falancé
-
-Current bot username:
-@Falance_Bot
-
-## Planned Interaction
-
-Telegram Bot:
-- /start
-- /help
-- /rekap
-- /family
-- /invite
-- natural-language transaction input
-- receipt image input
-
-## Family Commands
-
-Milestone 2 supports `/createfamily`, `/invite`, and `/join <code>`. An unregistered user
-starts family creation with `/createfamily` and then sends the family name. The creator is
-persisted as OWNER. OWNER and ADMIN may generate a one-time, expiring invitation; MEMBER
-may not. `/join` validates the invitation and resolves membership server-side.
-
-`/start` checks the user's membership. Unregistered users receive the family creation/join
-guidance; registered users receive their role confirmation.
-
-## Authentication
-
-Telegram user identity is based on Telegram user ID.
-
-Unknown users must not gain access to family data.
-
-Users must be invited/registered before accessing a family.
-
-Telegram user IDs, not usernames, are the identity key. Telegram updates supply the user
-identity server-side; no command accepts a trusted family or spreadsheet ID.
-
-## Mini App
-
-The Telegram Mini App will provide:
-
-- family dashboard
-- transaction list
-- add transaction
-- reports
-- family management
-- financial analysis
-
-The Mini App communicates with the Next.js backend.
-
-Authorization must be validated server-side.
+# Falancé Telegram Integration
 
 ## Webhook
 
-Production:
+Telegram updates are received by `POST /api/telegram/webhook`. `GET /api/telegram/webhook` remains a health/status endpoint. The route validates the update shape, passes supported commands to the family service, and sends user-facing responses through the existing Telegram Bot API client.
 
-Telegram
-→ HTTPS webhook
-→ Next.js API route
+Telegram credentials remain server-only. The bot token must not be exposed to browser code or included in user-visible messages.
 
-Development may use a secure tunnel such as ngrok or Cloudflare Tunnel.
+## Milestone 2 commands
 
-## Security
+| Command | Behavior |
+| --- | --- |
+| `/start` | Returns the existing welcome response. |
+| `/createfamily` | Starts or replaces a 15-minute pending family creation request. A user with active membership is rejected. The next text message supplies the family name. |
+| `/invite` | Requires an active `OWNER` or `ADMIN` membership. The generated code is bound to that member’s server-resolved `family_id`. |
+| `/join <code>` | Resolves the invitation by code, validates status and expiry, rejects an already-active member, creates membership for the invitation’s family, and consumes the code. |
 
-Telegram credentials must remain server-side.
+## Identity and authorization
 
-Never expose the bot token to browser code.
+The backend uses the Telegram user ID from the verified update as the identity key. It looks up active membership in the central `Members` sheet and obtains the authorized `family_id` from that row.
+
+> User-provided `family_id`, spreadsheet ID, or other storage identifier is never an authorization input.
+
+Invitation joins are family-bound because the server obtains `family_id` from the invitation row after validating the code. The client supplies only the code and cannot select a different family.
+
+## Roles
+
+`OWNER` and `ADMIN` may create invitations. `MEMBER` may use normal family features but cannot create invitations. These checks are enforced in the family service rather than trusted to Telegram message wording or a future client interface.
+
+## Out of scope
+
+Financial transactions, receipt OCR, AI categorization and summaries, budgets, dashboards, the Telegram Mini App, payments, subscriptions, and Supabase are not implemented in Milestone 2.

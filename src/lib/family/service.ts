@@ -37,6 +37,7 @@ export class FamilyService {
     const now = new Date();
     await this.repository.createPendingFamilyCreation({
       telegramUserId: user.telegramUserId,
+      familyName: null,
       createdAt: now.toISOString(),
       expiresAt: new Date(
         now.getTime() + FAMILY_CREATION_EXPIRY_MINUTES * 60 * 1000,
@@ -54,31 +55,60 @@ export class FamilyService {
     }
 
     const normalizedName = normalizeFamilyName(familyName);
-    if (await this.getActiveMembership(user.telegramUserId)) {
+    const activeMembership = await this.getActiveMembership(user.telegramUserId);
+    if (activeMembership) {
+      const activeFamily = await this.repository.findFamilyById(activeMembership.familyId);
+      if (activeFamily?.createdBy === user.telegramUserId) {
+        await this.repository.clearPendingFamilyCreation(user.telegramUserId);
+        return activeFamily;
+      }
       throw new AlreadyRegisteredError("User already belongs to a family.");
     }
 
-    const familyId = createId("fam");
-    const now = new Date().toISOString();
-    const spreadsheetId = await this.repository.createFamilySpreadsheet(
-      normalizedName,
-      familyId,
-    );
+    // A family row may have been written before a transient membership-write
+    // failure. Reuse it instead of creating a second family on retry.
+    const existingFamily = await this.repository.findFamilyByCreatedBy(user.telegramUserId);
+    if (existingFamily) {
+      const now = new Date().toISOString();
+      await this.repository.createMember(
+        createMember(existingFamily.familyId, user, "OWNER", now),
+      );
+      await this.repository.clearPendingFamilyCreation(user.telegramUserId);
+      return existingFamily;
+    }
+
     const family: Family = {
-      familyId,
+      familyId: createId("fam"),
       familyName: normalizedName,
-      spreadsheetId,
       status: "ACTIVE",
-      createdAt: now,
+      createdAt: new Date().toISOString(),
       createdBy: user.telegramUserId,
       plan: "MVP",
     };
-    const owner = createMember(familyId, user, "OWNER", now);
+    const owner = createMember(family.familyId, user, "OWNER", family.createdAt);
 
+    // The repository writes both records to the single authoritative
+    // spreadsheet. Pending state is only completed after both writes succeed.
     await this.repository.createFamily(family);
     await this.repository.createMember(owner);
     await this.repository.clearPendingFamilyCreation(user.telegramUserId);
 
+    return family;
+  }
+
+  async requireAuthorizedFamily(
+    telegramUserId: string,
+    requestedFamilyId: string,
+  ): Promise<Family> {
+    const member = await this.requireActiveMember(telegramUserId);
+    if (member.familyId !== requestedFamilyId) {
+      throw new UnauthorizedError("User is not authorized for this family.");
+    }
+
+    const family = await this.repository.findFamilyById(member.familyId);
+    if (!family || family.status !== "ACTIVE") {
+      throw new UnauthorizedError("Family is unavailable.");
+    }
     return family;
   }
 

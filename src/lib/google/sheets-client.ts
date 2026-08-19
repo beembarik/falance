@@ -1,5 +1,4 @@
-const GOOGLE_SHEETS_SCOPE =
-  "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive";
+const GOOGLE_SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 
 export class GoogleConfigurationError extends Error {}
 export class GoogleApiError extends Error {}
@@ -8,86 +7,16 @@ export class GoogleSheetsClient {
   private accessToken: string | null = null;
   private accessTokenExpiresAt = 0;
 
-  async createFamilySpreadsheet(familyName: string, familyId: string): Promise<string> {
-    const folderId = getFalanceDriveFolderId();
-    const driveFile = await this.request<{ id?: string }>(
-      "https://www.googleapis.com/drive/v3/files?fields=id",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          name: `Falancé — ${familyName}`,
-          mimeType: "application/vnd.google-apps.spreadsheet",
-          parents: [folderId],
-        }),
-      },
-      "createDriveSpreadsheet",
-    );
-
-    if (!driveFile.id) {
-      console.error("[Google] createDriveSpreadsheet failed", {
-        reason: "missing_spreadsheet_id",
-      });
-      throw new GoogleApiError("Drive spreadsheet creation did not return an ID.");
-    }
-
-    await this.initializeFamilySpreadsheet(driveFile.id);
-    await this.appendRows(
-      driveFile.id,
-      "Settings",
-      [["family_id", familyId]],
-      "initializeFamilySettings",
-    );
-    return driveFile.id;
-  }
-
-  private async initializeFamilySpreadsheet(spreadsheetId: string): Promise<void> {
-    const metadata = await this.request<SpreadsheetMetadata>(
-      `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}?fields=sheets.properties`,
-      {},
-      "getNewSpreadsheetMetadata",
-    );
-    const initialSheetIds = metadata.sheets
-      ?.flatMap((sheet) => (typeof sheet.properties?.sheetId === "number" ? [sheet.properties.sheetId] : []))
-      ?? [];
-
-    await this.request(
-      `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          requests: [
-            ...FAMILY_SHEETS.map((sheet) => ({
-              addSheet: { properties: { title: sheet.name } },
-            })),
-            ...initialSheetIds.map((sheetId) => ({ deleteSheet: { sheetId } })),
-          ],
-        }),
-      },
-      "initializeFamilySheets",
-    );
-
-    await this.request(
-      `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values:batchUpdate`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          valueInputOption: "RAW",
-          data: FAMILY_SHEETS.map((sheet) => ({
-            range: `${sheet.name}!A1`,
-            values: [sheet.headers],
-          })),
-        }),
-      },
-      "initializeFamilyHeaders",
-    );
-  }
-
   async ensureRegistry(spreadsheetId: string): Promise<void> {
-    const metadata = await this.request<{ sheets?: Array<{ properties?: { title?: string } }> }>(
+    let metadata = await this.request<SpreadsheetMetadata>(
       `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}?fields=sheets.properties`,
     );
-    const existingSheets = new Set(
-      metadata.sheets?.flatMap((sheet) => (sheet.properties?.title ? [sheet.properties.title] : [])),
+    const existingSheets = new Map(
+      metadata.sheets?.flatMap((sheet) => {
+        const title = sheet.properties?.title;
+        const sheetId = sheet.properties?.sheetId;
+        return title && typeof sheetId === "number" ? [[title, sheetId] as const] : [];
+      }),
     );
     const missingSheets = REGISTRY_SHEETS.filter((sheet) => !existingSheets.has(sheet.name));
 
@@ -103,11 +32,42 @@ export class GoogleSheetsClient {
           }),
         },
       );
+      metadata = await this.request<SpreadsheetMetadata>(
+        `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}?fields=sheets.properties`,
+      );
     }
+
+    const currentSheets = new Map(
+      metadata.sheets?.flatMap((sheet) => {
+        const title = sheet.properties?.title;
+        const sheetId = sheet.properties?.sheetId;
+        return title && typeof sheetId === "number" ? [[title, sheetId] as const] : [];
+      }),
+    );
 
     for (const sheet of REGISTRY_SHEETS) {
       const values = await this.getValues(spreadsheetId, `${sheet.name}!1:1`);
-      if (values.length === 0) {
+      const header = values[0] ?? [];
+      if (sheet.name === "Families" && header.includes("spreadsheet_id")) {
+        const sheetId = currentSheets.get(sheet.name);
+        if (sheetId !== undefined) {
+          await this.request(
+            `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                requests: [{
+                  deleteDimension: {
+                    range: { sheetId, dimension: "COLUMNS", startIndex: 2, endIndex: 3 },
+                  },
+                }],
+              }),
+            },
+            "migrateFamiliesSchema",
+          );
+        }
+      }
+      if (header.length === 0 || header.includes("spreadsheet_id")) {
         await this.updateValues(spreadsheetId, `${sheet.name}!A1`, [sheet.headers]);
       }
     }
@@ -211,12 +171,7 @@ export class GoogleSheetsClient {
   }
 }
 
-type GoogleOperation =
-  | "createDriveSpreadsheet"
-  | "getNewSpreadsheetMetadata"
-  | "initializeFamilySheets"
-  | "initializeFamilyHeaders"
-  | "initializeFamilySettings";
+type GoogleOperation = "migrateFamiliesSchema";
 
 function logGoogleFailure(
   operation: GoogleOperation | undefined,
@@ -289,14 +244,6 @@ async function createServiceAccountAssertion(email: string, privateKey: string):
   return `${signingInput}.${base64Url(signature)}`;
 }
 
-function getFalanceDriveFolderId(): string {
-  const folderId = process.env.GOOGLE_FALANCE_DRIVE_FOLDER_ID;
-  if (!folderId) {
-    throw new GoogleConfigurationError("Falancé Drive folder is not configured.");
-  }
-  return folderId;
-}
-
 function base64Url(value: string | ArrayBuffer): string {
   const bytes = typeof value === "string" ? new TextEncoder().encode(value) : new Uint8Array(value);
   let binary = "";
@@ -311,28 +258,21 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-const FAMILY_SHEETS = [
+const REGISTRY_SHEETS = [
   { name: "Settings", headers: ["key", "value"] },
-  { name: "Members", headers: ["member_id", "telegram_user_id", "name", "username", "role", "status", "joined_at"] },
-  { name: "Transactions", headers: ["transaction_id", "family_id", "created_by", "type", "amount", "currency", "category_id", "description", "transaction_date", "source", "created_at"] },
-  { name: "Categories", headers: ["category_id", "family_id", "name", "type", "is_active"] },
-  { name: "Monthly Summary", headers: ["summary_id", "family_id", "month", "income", "expense", "balance", "updated_at"] },
-  { name: "AI Insights", headers: ["insight_id", "family_id", "period", "content", "created_at"] },
+  { name: "Families", headers: ["family_id", "family_name", "status", "created_at", "created_by", "plan"] },
+  { name: "Members", headers: ["member_id", "family_id", "telegram_user_id", "name", "username", "role", "status", "joined_at"] },
+  { name: "Invitations", headers: ["invitation_id", "family_id", "code", "created_by", "created_at", "expires_at", "used_at", "used_by", "status"] },
+  { name: "Pending Family Creations", headers: ["telegram_user_id", "family_name", "created_at", "expires_at", "status"] },
 ] as const;
 
 interface SpreadsheetMetadata {
   sheets?: Array<{
     properties?: {
+      title?: string;
       sheetId?: number;
     };
   }>;
 }
 
-const REGISTRY_SHEETS = [
-  { name: "Families", headers: ["family_id", "family_name", "spreadsheet_id", "status", "created_at", "created_by", "plan"] },
-  { name: "Members", headers: ["member_id", "family_id", "telegram_user_id", "name", "username", "role", "status", "joined_at"] },
-  { name: "Invitations", headers: ["invitation_id", "family_id", "code", "created_by", "created_at", "expires_at", "status", "used_by", "used_at"] },
-  { name: "Pending Family Creations", headers: ["telegram_user_id", "created_at", "expires_at", "status"] },
-] as const;
-
-export const FAMILY_MEMBER_HEADERS = FAMILY_SHEETS[1].headers;
+export const FAMILY_MEMBER_HEADERS = REGISTRY_SHEETS[2].headers;

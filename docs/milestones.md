@@ -4,201 +4,78 @@
 
 Status: IN PROGRESS
 
-- [x] Project concept defined
-- [x] Brand selected: Falancé
-- [x] Telegram bot selected: @Falance_Bot
-- [x] Architecture direction defined
-- [x] Google Sheets selected as initial storage
-- [x] Supabase selected as future migration target
-- [x] Telegram Mini App selected as dashboard
-- [ ] Next.js project initialized
-- [ ] Agent rules configured
-
----
+Falancé uses Google Sheets as its initial storage implementation and Supabase as the planned future migration target. The Telegram Mini App and later financial features remain future work.
 
 ## Milestone 1 — Telegram Webhook
 
 Status: COMPLETE
 
-Goals:
+The Next.js webhook, `/start` command, environment handling, Telegram Bot API client, and error mapping are implemented. `GET /api/telegram/webhook` remains available for health checks.
 
-- [x] Telegram webhook endpoint
-- [x] /start command
-- [x] Basic text response
-- [x] Environment variables
-- [x] Error handling
-- [ ] Local webhook testing
+## Milestone 2 — Family and Authorization Foundation
 
----
+Status: COMPLETE in this implementation; production validation remains manual.
 
-## Milestone 2 — Family & Authorization Foundation
+Milestone 2 uses one Google Spreadsheet per Falancé deployment. The central spreadsheet contains all families. `family_id` is the server-side tenant boundary, and no spreadsheet is created when a family registers.
 
-Status: IN PROGRESS
+The completed foundation includes Telegram identity resolution, `OWNER`, `ADMIN`, and `MEMBER` roles, central `Families`, `Members`, `Invitations`, `Pending Family Creations`, and `Settings` sheets, one-time expiring family-bound invitations, server-side family isolation, service-account authentication, the Sheets-only OAuth scope, retry-safe pending family creation, and automated coverage for authorization and failure behavior.
 
-Architecture:
+The following are explicitly outside this milestone: transactions, receipt OCR, AI categorization, AI summaries, budgets, dashboards, Mini App functionality, payment, subscriptions, and Supabase implementation.
 
-- One Falancé deployment uses one Google Spreadsheet
-- All families share the same spreadsheet
-- `family_id` is the server-side family isolation / tenant boundary
-- No spreadsheet is created when a new family registers
-- Google Sheets is treated as the backend data store
-- Users do not receive spreadsheet IDs or storage identifiers
-- Supabase remains the future storage migration target
-
-Goals:
-
-- [x] Telegram user identity
-- [x] Family entity
-- [x] Member entity
-- [x] Owner role
-- [x] Admin role
-- [x] Member role
-- [x] Invitation system
-- [x] One-time invitation codes
-- [x] Invitation expiry
-- [x] Server-side family resolution
-- [x] Family isolation using `family_id`
-- [x] Central Google Sheets registry
-- [x] Google service-account authentication
-- [ ] Refactor from per-family spreadsheet provisioning to single-spreadsheet architecture
-- [ ] Remove Google Drive provisioning
-- [ ] Remove per-family spreadsheet IDs
-- [ ] Update database schemas
-- [ ] Update repository implementation
-- [ ] Update tests
-- [ ] Production family creation test
-- [ ] Production invitation/join test
-
----
+Remaining manual validation consists of granting the service account access to the existing central spreadsheet, setting the required environment variables, deploying the webhook, and exercising family creation and invitation flows against the production spreadsheet.
 
 ## Milestone 3 — Transaction Foundation
 
-- [ ] Transactions schema
-- [ ] Transaction entity
-- [ ] Transaction repository interface
+- [ ] Transactions schema with mandatory `family_id`
+- [ ] Transaction entity and repository interface
 - [ ] Google Sheets transaction repository
-- [ ] Income
-- [ ] Expense
-- [ ] Categories
-- [ ] Amount validation
-- [ ] Date validation
-- [ ] Transaction ownership / family isolation
-- [ ] Confirmation flow
-- [ ] Transaction persistence
-
----
+- [ ] Income and expense records
+- [ ] Amount, date, ownership, and family-isolation validation
+- [ ] Confirmation and persistence flows
 
 ## Milestone 4 — Manual Transaction Input
 
 - [ ] Natural Telegram text commands
 - [ ] Structured transaction input
-- [ ] Add income
-- [ ] Add expense
-- [ ] Edit transaction
-- [ ] Delete/cancel transaction
-- [ ] Confirmation
-- [ ] Error handling
-- [ ] User-friendly responses
-
----
+- [ ] Add, edit, delete, cancel, and confirmation flows
 
 ## Milestone 5 — AI Text Parser
 
 - [ ] AI provider abstraction
-- [ ] AI transaction extraction
-- [ ] Amount extraction
-- [ ] Date extraction
-- [ ] Category suggestion
-- [ ] Description extraction
-- [ ] Validation
-- [ ] Confirmation
-- [ ] Persistence
-- [ ] AI failure fallback
-
----
+- [ ] Transaction extraction and validation
+- [ ] Category and description suggestions
+- [ ] Failure fallback
 
 ## Milestone 6 — Receipt Processing
 
 - [ ] Telegram image handling
-- [ ] Image download
-- [ ] Vision model abstraction
-- [ ] Receipt extraction
-- [ ] Merchant extraction
-- [ ] Date extraction
-- [ ] Item/total extraction
-- [ ] Category suggestion
-- [ ] Transaction confirmation
-- [ ] Persistence
-- [ ] Invalid receipt handling
+- [ ] Receipt extraction and confirmation
+- [ ] Persistence with family authorization
 
----
+## Milestone 7 — Reports and AI Analysis
 
-## Milestone 7 — Reports & AI Analysis
-
-- [ ] Monthly summary
-- [ ] Category summary
-- [ ] Income vs expense
-- [ ] Balance
-- [ ] Family financial overview
-- [ ] Date-range filtering
-- [ ] AI financial analysis
-- [ ] AI spending insights
-- [ ] Report authorization
-- [ ] Family isolation verification
-
----
+- [ ] Monthly and category summaries
+- [ ] Income, expense, balance, and family overview
+- [ ] Date filtering and authorized AI insights
 
 ## Milestone 8 — Telegram Mini App
 
-- [ ] Telegram Mini App
 - [ ] Telegram authentication
-- [ ] Server-side user verification
-- [ ] Family authorization
-- [ ] Dashboard
-- [ ] Transactions
-- [ ] Add transaction
-- [ ] Edit transaction
-- [ ] Reports
-- [ ] Mobile-first UI
-- [ ] PWA support
-
----
+- [ ] Authorized mobile-first dashboard
+- [ ] Transactions, reports, and PWA support
 
 ## Milestone 9 — Gemini Canvas Workflow
 
-- [ ] Google Sheets Canvas experimentation
-- [ ] Dashboard experimentation
-- [ ] Analytics workflow
-- [ ] UI inspiration
-- [ ] Document useful Canvas patterns
-- [ ] Evaluate whether Canvas-generated workflows should remain part of production architecture
-
----
+- [ ] Canvas experimentation and documentation
+- [ ] Evaluation of production suitability
 
 ## Milestone 10 — Production Hardening
 
-- [ ] Security review
-- [ ] Authorization review
-- [ ] Family isolation review
-- [ ] Input validation review
-- [ ] Error handling
-- [ ] Rate limiting
-- [ ] Logging
-- [ ] Monitoring
-- [ ] Backup strategy
-- [ ] Google Sheets quota review
-- [ ] Data integrity review
-- [ ] Recovery strategy
-
----
+- [ ] Security and authorization review
+- [ ] Input validation, rate limiting, logging, monitoring, backups, and recovery
+- [ ] Google Sheets quota and data-integrity review
 
 ## Milestone 11 — Supabase Migration
 
-- [ ] Supabase schema
-- [ ] Supabase repository
-- [ ] Migration tooling
-- [ ] Data migration
-- [ ] Verification
-- [ ] Performance comparison
-- [ ] Switch repository implementation
-- [ ] Retain Google Sheets export/backup strategy if appropriate
+- [ ] Supabase schema and repository
+- [ ] Migration tooling, data migration, verification, and cutover

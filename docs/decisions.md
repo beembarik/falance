@@ -1,114 +1,41 @@
 # Falancé Architecture Decisions
 
-## ADR-001 — Google Sheets as Initial Storage
+## ADR-001: One deployment, one spreadsheet
 
-Status: Accepted
+**Status:** Accepted for Milestone 2.
 
-Google Sheets is used as the initial storage layer.
+One Falancé deployment uses one existing Google Spreadsheet containing all families. Google Sheets is the current backend data store. A new family is represented by rows in `Families`, `Members`, and related central sheets; it does not receive a new spreadsheet.
 
-Reason:
-- easy to inspect
-- easy for family administrators
-- easy to prototype
-- works well with Gemini/Canvas
-- low initial infrastructure complexity
+The earlier one-family-one-spreadsheet design is obsolete. It required Google Drive file creation and failed in production when the service account reached its Drive storage quota. Removing provisioning eliminates that failure mode and reduces the required Google permissions.
 
-The application must use a repository abstraction so storage can later migrate to Supabase.
+## ADR-002: `family_id` is the tenant boundary
 
----
+**Status:** Accepted.
 
-## ADR-002 — Supabase as Future Storage
+`family_id` is a server-generated, mandatory partition key for family-owned data. The backend resolves Telegram user ID to active membership to family ID before performing family operations. Client-supplied family IDs and spreadsheet IDs are ignored as authorization inputs.
 
-Status: Accepted
+This rule applies to all future family-owned tables, including transactions, categories, accounts, and audit records.
 
-Supabase is the planned production-scale storage option.
+## ADR-003: Repository abstraction
 
-Reason:
-- relational database
-- authentication possibilities
-- Row Level Security
-- scalable backend architecture
+**Status:** Accepted.
 
-Migration is not part of the initial MVP.
+Business logic depends on `FamilyRepository`, not on Google Sheets APIs. `GoogleSheetsFamilyRepository` is the current implementation and always uses the configured central spreadsheet. A future Supabase repository can implement the same business-facing contract.
 
----
+## ADR-004: Service-account Sheets access
 
-## ADR-003 — Telegram as Primary Interface
+**Status:** Accepted.
 
-Status: Accepted
+The service account remains the authentication mechanism for the existing spreadsheet. The narrow OAuth scope is `https://www.googleapis.com/auth/spreadsheets`. Drive scope, OAuth user consent, refresh-token flows, shared drives, and dedicated storage accounts are not required for this architecture.
 
-Telegram is the primary user interface.
+## ADR-005: Bounded pending family creation
 
-Reason:
-- family members can interact through chat
-- natural-language transaction entry
-- receipt submission
-- notifications
-- Mini App support
+**Status:** Accepted.
 
----
+A `/createfamily` request is retained for 15 minutes. A new request replaces the prior pending request for that Telegram user. Pending state is completed only after the family and OWNER membership writes succeed. The repository treats family and membership writes as idempotent by their server-generated identifiers and reuses an existing family created by the same user when retrying a partial write.
 
-## ADR-004 — Telegram Mini App for Dashboard
+## ADR-006: Future storage migration
 
-Status: Accepted
+**Status:** Planned.
 
-The Mini App will provide the production dashboard.
-
-Gemini Canvas is used as a prototyping/analytics tool, not as the production frontend.
-
----
-
-## ADR-005 — AI Provider Agnostic
-
-Status: Accepted
-
-Falancé must not be tightly coupled to one AI provider.
-
-Potential providers can include OpenRouter, Cerebras, Gemini, and other compatible APIs.
-
-Provider/model selection should be configuration-driven where practical.
-
----
-
-## ADR-006 — Family Isolation
-
-Status: Accepted
-
-Every family-owned record is scoped by family_id.
-
-No user may access another family's data.
-
-Authorization is enforced server-side.
-
----
-
-## ADR-007 — One Google Spreadsheet per Family
-
-Status: Accepted
-
-Each family receives a dedicated Google Spreadsheet. A separate central registry maps the
-stable application `family_id` to the storage-specific `spreadsheet_id`, along with family,
-membership, and invitation metadata.
-
-Reason:
-- natural family-level isolation
-- simpler storage administration
-- avoids a large shared financial spreadsheet
-- preserves a stable family identifier for future Supabase migration
-
-Google-specific code is isolated behind the family repository interface. Application
-authorization uses the registry membership index before resolving a spreadsheet.
-
-Family spreadsheets are provisioned with Google Drive `files.create` inside a dedicated
-Falancé Drive folder, then initialized through the Sheets API. This avoids relying on the
-service account's default Drive storage while preserving one-family-one-spreadsheet.
-
----
-
-## ADR-008 — Subscription-ready, No Billing in MVP
-
-Status: Accepted
-
-Families store a non-enforcing `plan` value so future entitlements can be introduced without
-changing the family model. Billing, payment providers, invoices, and paywalls are explicitly
-out of scope for the MVP. All current families have access to implemented functionality.
+Supabase is the planned future storage implementation. Milestone 2 deliberately does not introduce Supabase, transactions, financial parsing, AI, dashboards, Mini App functionality, payment, or subscription systems.

@@ -1,113 +1,74 @@
 # Falancé Database
 
-## Storage
+## Storage model
 
-Initial storage:
-Google Sheets
+The current storage implementation is one existing Google Spreadsheet per Falancé deployment. It is the backend database, not a direct user-facing interface. All families share this spreadsheet and are isolated logically by `family_id`.
 
-Future storage:
-Supabase
+The service account needs access to the spreadsheet identified by `GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID`. It does not need Google Drive access, a Drive folder, or permission to create spreadsheets.
 
-The application must access financial data through a repository abstraction.
+## Milestone 2 schema
 
-## Family Registry
+### Settings
 
-The central registry is a dedicated Google Spreadsheet, configured with
-`GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID`. It contains `Families`, `Members`,
-`Invitations`, and `Pending Family Creations` sheets. It is application metadata, not a
-family financial spreadsheet.
-
-Family spreadsheets are separate Google Drive files created in the dedicated folder
-configured by `GOOGLE_FALANCE_DRIVE_FOLDER_ID`. The service account needs access to both
-the registry and this folder.
-
-Families include `family_id`, `family_name`, `spreadsheet_id`, `status`, `created_at`,
-`created_by`, and `plan`. `family_id` is the stable application identifier; the Google
-`spreadsheet_id` is replaceable storage metadata.
-
-## Planned Entities
+| Column | Meaning |
+| --- | --- |
+| `key` | Deployment setting name. |
+| `value` | Deployment setting value. |
 
 ### Families
 
-- family_id
-- name
-- created_at
-- created_by
+| Column | Meaning |
+| --- | --- |
+| `family_id` | Server-generated family tenant identifier. |
+| `family_name` | Display name. |
+| `status` | `ACTIVE` or `SUSPENDED`. |
+| `created_at` | ISO-8601 creation timestamp. |
+| `created_by` | Telegram user ID of the creator. |
+| `plan` | Current plan label. |
+
+There is deliberately no `spreadsheet_id` column. The central spreadsheet ID belongs to deployment configuration, not to a family.
 
 ### Members
 
-- member_id
-- family_id
-- telegram_user_id
-- display_name
-- role
-- status
-- joined_at
-
-Roles:
-- OWNER
-- ADMIN
-- MEMBER
-
-Member statuses are ACTIVE, SUSPENDED, and LEFT. Telegram user IDs are persisted as
-strings. The registry membership index is used to resolve family access server-side.
-Pending family-creation records expire after 15 minutes; a new `/createfamily` replaces
-the previous pending record, so an abandoned flow cannot block future creation.
+| Column | Meaning |
+| --- | --- |
+| `member_id` | Server-generated membership identifier. |
+| `family_id` | Mandatory tenant key. |
+| `telegram_user_id` | Telegram identity. |
+| `name` | Telegram display name captured at membership creation. |
+| `username` | Telegram username, when available. |
+| `role` | `OWNER`, `ADMIN`, or `MEMBER`. |
+| `status` | Membership status, including `ACTIVE`. |
+| `joined_at` | ISO-8601 membership timestamp. |
 
 ### Invitations
 
-- invitation_id
-- family_id
-- code
-- created_by
-- created_at
-- expires_at
-- status
-- used_by
-- used_at
+| Column | Meaning |
+| --- | --- |
+| `invitation_id` | Server-generated invitation identifier. |
+| `family_id` | Family to which the code belongs. |
+| `code` | One-time normalized invitation code. |
+| `created_by` | Telegram user ID of the owner or admin. |
+| `created_at` | ISO-8601 creation timestamp. |
+| `expires_at` | Expiration timestamp. |
+| `used_at` | Timestamp at which the code was consumed, when used. |
+| `used_by` | Telegram user ID that consumed it, when used. |
+| `status` | `PENDING`, `USED`, `EXPIRED`, or `REVOKED`. |
 
-Invitation statuses are PENDING, USED, EXPIRED, and REVOKED. Invitations are validated
-before membership creation and are single-use in application logic. The expiry duration is
-configured with `FALANCE_INVITATION_EXPIRY_HOURS` (24 hours by default).
+### Pending Family Creations
 
-### Transactions
+| Column | Meaning |
+| --- | --- |
+| `telegram_user_id` | Telegram identity that initiated the request. |
+| `family_name` | Optional captured family name; the current two-step flow supplies it at completion. |
+| `created_at` | ISO-8601 request timestamp. |
+| `expires_at` | Request expiry, currently 15 minutes after creation. |
+| `status` | `PENDING` or `COMPLETED`. |
 
-- transaction_id
-- family_id
-- created_by
-- type
-- amount
-- currency
-- category
-- description
-- transaction_date
-- source
-- created_at
+## Isolation rule
 
-Types:
-- INCOME
-- EXPENSE
+Every future family-owned table must include `family_id` as a mandatory partition key. For example, a future transaction table must begin with `transaction_id` and `family_id`. The application must obtain this value from a server-side membership or validated invitation lookup, never from untrusted Telegram request data.
 
-Sources:
-- TEXT
-- RECEIPT
-- MINI_APP
-- OTHER
+## Future boundaries
 
-### Categories
-
-- category_id
-- family_id
-- name
-- type
-- is_active
-
-## Important Rule
-
-Every family-owned entity must contain `family_id`.
-
-All reads and writes must be scoped to the authenticated user's family.
-
-## Migration
-
-Google Sheets implementation must eventually be replaceable by a Supabase implementation without changing Telegram or Mini App business logic.
+Transactions, categories, accounts, audit events, receipt parsing, AI analysis, budgets, dashboards, Mini App features, Supabase storage, payments, and subscriptions are outside Milestone 2. Their eventual schemas must preserve the `family_id` rule.

@@ -3,58 +3,58 @@ import test from "node:test";
 
 import { GoogleSheetsClient } from "../src/lib/google/sheets-client";
 
-test("creates family spreadsheets in the configured Drive folder before Sheets initialization", async () => {
+test("initializes the single central registry without Drive or spreadsheet creation calls", async () => {
   const originalFetch = globalThis.fetch;
   const originalEnvironment = {
     email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
     privateKey: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
-    folderId: process.env.GOOGLE_FALANCE_DRIVE_FOLDER_ID,
   };
   const requests: Array<{ url: string; init: RequestInit | undefined }> = [];
-
   process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL = "service-account@example.iam.gserviceaccount.com";
   process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY = await createPrivateKeyPem();
-  process.env.GOOGLE_FALANCE_DRIVE_FOLDER_ID = "falance-folder-id";
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     requests.push({ url, init });
-
     if (url === "https://oauth2.googleapis.com/token") {
+      const body = new URLSearchParams(String(init?.body));
+      const assertion = String(body.get("assertion"));
+      const claim = JSON.parse(Buffer.from(assertion.split(".")[1], "base64url").toString("utf8")) as { scope: string };
+      assert.equal(claim.scope, "https://www.googleapis.com/auth/spreadsheets");
       return jsonResponse({ access_token: "test-access-token", expires_in: 3600 });
     }
-    if (url === "https://www.googleapis.com/drive/v3/files?fields=id") {
-      return jsonResponse({ id: "new-spreadsheet-id" });
-    }
     if (url.includes("?fields=sheets.properties")) {
-      return jsonResponse({ sheets: [{ properties: { sheetId: 0 } }] });
+      return jsonResponse({ sheets: [
+        { properties: { title: "Settings", sheetId: 1 } },
+        { properties: { title: "Families", sheetId: 2 } },
+        { properties: { title: "Members", sheetId: 3 } },
+        { properties: { title: "Invitations", sheetId: 4 } },
+        { properties: { title: "Pending Family Creations", sheetId: 5 } },
+      ] });
     }
+    if (url.includes("/values/") && url.includes("%3A1")) return jsonResponse({ values: [] });
     return jsonResponse({});
   };
 
   try {
-    const spreadsheetId = await new GoogleSheetsClient().createFamilySpreadsheet(
-      "Keluarga Beem",
-      "fam_123",
-    );
-
-    assert.equal(spreadsheetId, "new-spreadsheet-id");
-    const driveRequest = requests.find(
-      (request) => request.url === "https://www.googleapis.com/drive/v3/files?fields=id",
-    );
-    assert.ok(driveRequest);
-    assert.deepEqual(JSON.parse(String(driveRequest.init?.body)), {
-      name: "Falancé — Keluarga Beem",
-      mimeType: "application/vnd.google-apps.spreadsheet",
-      parents: ["falance-folder-id"],
-    });
-    assert.ok(requests.some((request) => request.url.includes(":batchUpdate")));
-    assert.ok(requests.some((request) => request.url.includes("/values:batchUpdate")));
-    assert.ok(requests.some((request) => request.url.includes("/values/Settings:append")));
+    await new GoogleSheetsClient().ensureRegistry("central-registry-id");
+    assert.ok(requests.some((request) => request.url.includes("/spreadsheets/central-registry-id")));
+    assert.equal(requests.some((request) => request.url.includes("www.googleapis.com/drive")), false);
+    assert.equal(requests.some((request) => request.url.includes("drive/v3/files")), false);
+    assert.equal(requests.some((request) => String(request.init?.body).includes("createDriveSpreadsheet")), false);
+    const headerBodies = requests
+      .filter((request) => request.url.includes("/values/") && request.url.includes("A1") && request.init?.body !== undefined)
+      .map((request) => JSON.parse(String(request.init?.body)).values[0]);
+    assert.deepEqual(headerBodies, [
+      ["key", "value"],
+      ["family_id", "family_name", "status", "created_at", "created_by", "plan"],
+      ["member_id", "family_id", "telegram_user_id", "name", "username", "role", "status", "joined_at"],
+      ["invitation_id", "family_id", "code", "created_by", "created_at", "expires_at", "used_at", "used_by", "status"],
+      ["telegram_user_id", "family_name", "created_at", "expires_at", "status"],
+    ]);
   } finally {
     globalThis.fetch = originalFetch;
     restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_EMAIL", originalEnvironment.email);
     restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY", originalEnvironment.privateKey);
-    restoreEnvironment("GOOGLE_FALANCE_DRIVE_FOLDER_ID", originalEnvironment.folderId);
   }
 });
 

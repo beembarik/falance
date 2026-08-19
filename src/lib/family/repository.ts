@@ -6,9 +6,9 @@ import type {
 } from "./types";
 
 export interface FamilyRepository {
-  createFamilySpreadsheet(familyName: string, familyId: string): Promise<string>;
   createFamily(family: Family): Promise<void>;
   findFamilyById(familyId: string): Promise<Family | null>;
+  findFamilyByCreatedBy(telegramUserId: string): Promise<Family | null>;
   createMember(member: FamilyMember): Promise<void>;
   findActiveMemberByTelegramUserId(
     telegramUserId: string,

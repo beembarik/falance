@@ -16,7 +16,6 @@ export interface TelegramUser {
 export interface Family {
   familyId: string;
   familyName: string;
-  spreadsheetId: string;
   status: "ACTIVE" | "SUSPENDED";
   createdAt: string;
   createdBy: string;
@@ -45,6 +44,7 @@ export interface Invitation {
 
 export interface PendingFamilyCreation {
   telegramUserId: string;
+  familyName: string | null;
   createdAt: string;
   expiresAt: string;
 }
