@@ -38,7 +38,7 @@ A `/createfamily` request is retained for 15 minutes. A new request replaces the
 
 **Status:** Planned.
 
-Supabase is the planned future storage implementation. Milestone 2 deliberately does not introduce Supabase, transactions, financial parsing, AI, dashboards, Mini App functionality, payment, or subscription systems.
+Supabase is the planned future storage implementation. Milestone 2 deliberately did not introduce Supabase or transaction commands. The Milestone 4 transaction foundation now provides central transaction persistence and service authorization; financial parsing, AI, dashboards, Mini App functionality, payment, and subscription systems remain future work.
 
 ## ADR-007: Quota-aware registry initialization and safe diagnostics
 
@@ -50,9 +50,9 @@ The decision responds to a production `429 RESOURCE_EXHAUSTED` failure caused by
 
 ## ADR-008: Family Management and Administration as a separate milestone
 
-**Status:** Planned.
+**Status:** Accepted and implemented in Milestone 3.
 
-Family creation, invitation, and join behavior provide the Milestone 2 foundation, but member lifecycle and family administration are a distinct capability. Member listing, role promotion or demotion, member removal, invitation revocation, family renaming, and family archival require additional authorization rules, confirmation flows, and recovery/audit semantics. They are therefore scheduled as Milestone 3 before transaction features rather than being treated as incidental additions to the transaction milestone.
+Family creation, invitation, and join behavior provide the Milestone 2 foundation, while member lifecycle and family administration are a distinct capability. Member listing, role promotion or demotion, member removal, invitation revocation, family renaming, and family archival were implemented in Milestone 3 with explicit authorization, confirmation, recovery, last-OWNER, and audit semantics before transaction commands are introduced.
 
 Hard deletion remains deferred until retention, backup, recovery, and ownership-transfer rules are defined.
 

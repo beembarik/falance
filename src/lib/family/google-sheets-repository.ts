@@ -4,7 +4,7 @@ import {
   type GoogleOperation,
 } from "../google/sheets-client";
 import type { FamilyRepository } from "./repository";
-import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation } from "./types";
+import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, Transaction } from "./types";
 
 /**
  * Repository backed by the single Falancé database spreadsheet configured for
@@ -100,6 +100,31 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
       entry.newValue ?? "",
       entry.createdAt,
     ], "createAuditLog");
+  }
+
+  async createTransaction(transaction: Transaction): Promise<void> {
+    const existing = (await this.findTransactionsByFamilyId(transaction.familyId)).find(
+      (candidate) => candidate.transactionId === transaction.transactionId,
+    );
+    if (existing) return;
+    await this.append("Transactions", [
+      transaction.transactionId,
+      transaction.familyId,
+      transaction.transactionType,
+      String(transaction.amountMinor),
+      transaction.currency,
+      transaction.transactionDate,
+      transaction.description,
+      transaction.createdByMemberId,
+      transaction.createdAt,
+      transaction.status,
+    ], "createTransaction");
+  }
+
+  async findTransactionsByFamilyId(familyId: string): Promise<Transaction[]> {
+    return (await this.rows("Transactions", "readTransactions"))
+      .filter((row) => row[1] === familyId)
+      .map(transactionFromRow);
   }
 
   async findFamilyById(familyId: string): Promise<Family | null> {
@@ -258,6 +283,21 @@ function pendingConfirmationFromRow(row: string[]): PendingConfirmation {
     createdAt: row[5],
     expiresAt: row[6],
     status: row[7] as PendingConfirmation["status"],
+  };
+}
+
+function transactionFromRow(row: string[]): Transaction {
+  return {
+    transactionId: row[0],
+    familyId: row[1],
+    transactionType: row[2] as Transaction["transactionType"],
+    amountMinor: Number(row[3]),
+    currency: row[4],
+    transactionDate: row[5],
+    description: row[6],
+    createdByMemberId: row[7],
+    createdAt: row[8],
+    status: row[9] as Transaction["status"],
   };
 }
 

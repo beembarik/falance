@@ -120,6 +120,7 @@ test("initializes the single central registry without Drive or spreadsheet creat
       ["telegram_user_id", "family_name", "created_at", "expires_at", "status"],
       ["confirmation_id", "telegram_user_id", "family_id", "action", "target", "created_at", "expires_at", "status"],
       ["audit_id", "family_id", "actor_member_id", "actor_role", "action", "target_type", "target_id", "previous_value", "new_value", "created_at"],
+      ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"],
     ]);
   } finally {
     globalThis.fetch = originalFetch;
@@ -232,6 +233,45 @@ test("appends an audit record to the Audit Log worksheet", async () => {
       sheetName: "Audit Log",
       values: [["audit_1", "fam_1", "mem_100", "OWNER", "CHANGE_MEMBER_ROLE", "MEMBER", "mem_200", "MEMBER", "ADMIN", "2026-01-01T00:00:00.000Z"]],
       operation: "createAuditLog",
+    }]);
+  } finally {
+    restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
+  }
+});
+
+test("appends a transaction row with the mandatory family_id and typed fields", async () => {
+  const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
+  process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";
+  const appends: Array<{ spreadsheetId: string; sheetName: string; values: readonly (readonly string[])[]; operation: string | undefined }> = [];
+  const client = {
+    ensureRegistry: async () => {},
+    getValues: async () => [["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"]],
+    appendRows: async (
+      spreadsheetId: string,
+      sheetName: string,
+      values: readonly (readonly string[])[],
+      operation?: string,
+    ) => appends.push({ spreadsheetId, sheetName, values, operation }),
+  } as unknown as GoogleSheetsClient;
+
+  try {
+    await new GoogleSheetsFamilyRepository(client).createTransaction({
+      transactionId: "txn_1",
+      familyId: "fam_1",
+      transactionType: "EXPENSE",
+      amountMinor: 15000,
+      currency: "IDR",
+      transactionDate: "2026-08-19",
+      description: "Makan siang",
+      createdByMemberId: "mem_100",
+      createdAt: "2026-08-19T00:00:00.000Z",
+      status: "ACTIVE",
+    });
+    assert.deepEqual(appends, [{
+      spreadsheetId: "central-registry-id",
+      sheetName: "Transactions",
+      values: [["txn_1", "fam_1", "EXPENSE", "15000", "IDR", "2026-08-19", "Makan siang", "mem_100", "2026-08-19T00:00:00.000Z", "ACTIVE"]],
+      operation: "createTransaction",
     }]);
   } finally {
     restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);

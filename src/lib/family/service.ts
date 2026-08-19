@@ -11,11 +11,23 @@ import type {
   MemberRole,
   PendingConfirmation,
   TelegramUser,
+  Transaction,
+  TransactionType,
 } from "./types";
 
 const FAMILY_NAME_MAX_LENGTH = 80;
 const DEFAULT_INVITATION_EXPIRY_HOURS = 24;
 const FAMILY_CREATION_EXPIRY_MINUTES = 15;
+const TRANSACTION_DESCRIPTION_MAX_LENGTH = 200;
+const MAX_TRANSACTION_AMOUNT_MINOR = 1_000_000_000_000;
+
+export interface CreateTransactionInput {
+  transactionType: TransactionType;
+  amountMinor: number;
+  currency?: string;
+  transactionDate: string;
+  description: string;
+}
 
 export class FamilyServiceError extends Error {}
 export class AlreadyRegisteredError extends FamilyServiceError {}
@@ -26,6 +38,7 @@ export class FamilyNameError extends FamilyServiceError {}
 export class ConfirmationError extends FamilyServiceError {}
 export class FamilyLifecycleError extends FamilyServiceError {}
 export class OwnerInvariantError extends FamilyServiceError {}
+export class TransactionError extends FamilyServiceError {}
 
 export interface ConfirmationResult {
   action: ConfirmationAction;
@@ -411,6 +424,36 @@ export class FamilyService {
     return { ...target, status: "ACTIVE" };
   }
 
+  async createTransaction(user: TelegramUser, input: CreateTransactionInput): Promise<Transaction> {
+    const member = await this.requireActiveMember(user.telegramUserId);
+    await this.requireActiveFamily(member.familyId);
+    validateTransactionInput(input);
+
+    const transaction: Transaction = {
+      transactionId: createId("txn"),
+      familyId: member.familyId,
+      transactionType: input.transactionType,
+      amountMinor: input.amountMinor,
+      currency: normalizeCurrency(input.currency),
+      transactionDate: input.transactionDate,
+      description: normalizeTransactionDescription(input.description),
+      createdByMemberId: member.memberId,
+      createdAt: new Date().toISOString(),
+      status: "ACTIVE",
+    };
+
+    await this.repository.createTransaction(transaction);
+    await this.recordAudit(member, "CREATE_TRANSACTION", "TRANSACTION", transaction.transactionId, null, "ACTIVE");
+    return transaction;
+  }
+
+  async listTransactions(telegramUserId: string): Promise<Transaction[]> {
+    const member = await this.requireActiveMember(telegramUserId);
+    await this.requireActiveFamily(member.familyId);
+    return (await this.repository.findTransactionsByFamilyId(member.familyId))
+      .filter((transaction) => transaction.status === "ACTIVE");
+  }
+
   async joinFamily(user: TelegramUser, code: string): Promise<Family> {
     if (await this.getActiveMembership(user.telegramUserId)) {
       throw new AlreadyRegisteredError("User already belongs to a family.");
@@ -563,8 +606,35 @@ function normalizeFamilyName(value: string): string {
   return name;
 }
 
-function normalizeInvitationCode(value: string): string {
-  return value.trim().toUpperCase();
+function validateTransactionInput(input: CreateTransactionInput): void {
+  if (input.transactionType !== "INCOME" && input.transactionType !== "EXPENSE") {
+    throw new TransactionError("Transaction type must be INCOME or EXPENSE.");
+  }
+  if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0 || input.amountMinor > MAX_TRANSACTION_AMOUNT_MINOR) {
+    throw new TransactionError("Transaction amount must be a positive safe integer within the allowed limit.");
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.transactionDate) || Number.isNaN(Date.parse(`${input.transactionDate}T00:00:00Z`))) {
+    throw new TransactionError("Transaction date must use a valid YYYY-MM-DD date.");
+  }
+  const description = normalizeTransactionDescription(input.description);
+  if (description.length < 1 || description.length > TRANSACTION_DESCRIPTION_MAX_LENGTH) {
+    throw new TransactionError("Transaction description must be 1–200 characters.");
+  }
+  normalizeCurrency(input.currency);
+}
+
+function normalizeCurrency(currency: string | undefined): string {
+  const normalized = (currency ?? "IDR").trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(normalized)) throw new TransactionError("Currency must be a three-letter code.");
+  return normalized;
+}
+
+function normalizeTransactionDescription(description: string): string {
+  return description.replace(/\s+/g, " ").trim();
+}
+
+function normalizeInvitationCode(code: string): string {
+  return code.trim().toUpperCase();
 }
 
 function getInvitationExpiryHours(): number {

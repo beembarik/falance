@@ -2,11 +2,11 @@
 
 Falancé adalah bot Telegram untuk pencatatan dan pengelolaan keuangan keluarga. Repository ini berisi fondasi aplikasi yang berjalan di Next.js, menerima update Telegram melalui webhook, dan menggunakan **satu Google Spreadsheet pusat untuk seluruh keluarga dalam satu deployment**.
 
-> **Status saat ini:** Milestone 2 selesai dan Milestone 3 sedang berjalan. Fitur transaksi keuangan, laporan, Mini App, dan export belum diimplementasikan.
+> **Status saat ini:** Milestone 3 selesai dan Milestone 4 (transaction foundation) sedang berjalan. Penyimpanan transaksi dan service authorization sudah tersedia, tetapi command transaksi Telegram, laporan, Mini App, dan export belum diimplementasikan.
 
 ## Kemampuan yang Sudah Tersedia
 
-Implementasi saat ini berfokus pada identitas Telegram, pembuatan keluarga, undangan, keanggotaan, isolasi data antarkeluarga, serta administrasi dasar anggota.
+Implementasi saat ini mencakup identitas Telegram, pembuatan keluarga, undangan, keanggotaan, isolasi data antarkeluarga, administrasi anggota dan keluarga, audit administratif, serta fondasi penyimpanan transaksi yang family-scoped.
 
 | Kemampuan | Keterangan | Status |
 | --- | --- | --- |
@@ -20,8 +20,9 @@ Implementasi saat ini berfokus pada identitas Telegram, pembuatan keluarga, unda
 | Deactivation anggota | `OWNER` dapat menonaktifkan anggota non-OWNER secara soft-state menjadi `SUSPENDED` melalui `/deactivate`, lalu mengonfirmasi dengan balasan `Y` atau membatalkan dengan `N`. | Tersedia |
 | Reactivation anggota | `OWNER` dapat mengaktifkan kembali membership `SUSPENDED` melalui `/reactivate` dengan `member_id` lama dan konfirmasi eksplisit. | Tersedia |
 | Penggantian nama keluarga | `OWNER` dapat mengganti nama keluarga melalui `/renamefamily`; nama dinormalisasi dan dibatasi 1–80 karakter. | Tersedia |
+| Fondasi transaksi | Service dan repository menyimpan transaksi `INCOME`/`EXPENSE` ke worksheet `Transactions`, dengan validasi amount/date/currency/description, soft status, audit creation, dan family isolation. Belum ada command Telegram. | Tersedia |
 | Isolasi keluarga | `family_id` selalu ditentukan server dari membership aktif atau invitation yang telah divalidasi. | Tersedia |
-| Registry Google Sheets | Satu registry pusat menggunakan worksheet `Settings`, `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, dan `Audit Log`. | Tersedia |
+| Registry Google Sheets | Satu registry pusat menggunakan delapan worksheet: `Settings`, `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, `Audit Log`, dan `Transactions`. | Tersedia |
 | Diagnostik aman | Error Google Sheets dicatat menggunakan operation label dan path yang telah direduksi; token, credential, spreadsheet ID, Telegram ID, dan data baris tidak dicatat. | Tersedia |
 
 ## Telegram Commands
@@ -77,6 +78,7 @@ Role disimpan pada worksheet `Members` dan divalidasi pada service layer. Pembat
 | Mengaktifkan kembali anggota `SUSPENDED` | Ya | Tidak | Tidak |
 | Mengaktifkan kembali keluarga `SUSPENDED` | Ya | Tidak | Tidak |
 | Mengubah nama keluarga | Ya | Tidak | Tidak |
+| Membuat transaksi pada keluarga sendiri | Ya | Ya | Ya |
 
 Pada tahap laporan yang direncanakan, `OWNER` dan `ADMIN` akan memiliki akses export CSV, print, dan PDF. `MEMBER` hanya akan dapat melihat laporan melalui Telegram atau Mini App; fitur tersebut belum tersedia pada versi saat ini.
 
@@ -103,8 +105,9 @@ Lapisan domain bergantung pada kontrak `FamilyRepository`. Implementasi saat ini
 | `Pending Family Creations` | Pending request sementara untuk alur pembuatan keluarga. |
 | `Pending Confirmations` | Pending Y/N confirmation untuk operasi destruktif; status dan expiry disimpan server-side agar aman pada webhook stateless. |
 | `Audit Log` | Append-only record untuk aksi administratif yang berhasil, dengan actor member ID, role, action, target opaque, state transition, dan timestamp. Telegram user ID, family name, invitation code, dan request body tidak disimpan. |
+| `Transactions` | Record `INCOME` dan `EXPENSE` dengan `transaction_id`, mandatory `family_id`, amount minor, currency, tanggal, deskripsi, creator member ID, timestamp, dan soft status `ACTIVE`/`VOID`. |
 
-`Transactions`, `Categories`, dan `Accounts` belum dibuat pada milestone saat ini. `Audit Log` sudah diinisialisasi sebagai boundary append-only untuk administrasi.
+`Categories` dan `Accounts` belum dibuat. `Audit Log` menjadi boundary append-only untuk administrasi dan penciptaan transaksi.
 
 ### Isolasi Keluarga
 
@@ -195,17 +198,13 @@ npm run build
 git diff --check
 ```
 
-Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, member reactivation with identity preservation, family-name update authorization and persistence, soft family archival/reactivation, pending Y/N confirmation, cancellation, no-pending guard, last-OWNER invariant, append-only Audit Log persistence, audit privacy redaction, redacted Google diagnostics, registry initialization caching, dan perlindungan agar Telegram user ID tidak muncul pada output `/members`.
+Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, member reactivation with identity preservation, family-name update authorization and persistence, soft family archival/reactivation, pending Y/N confirmation, cancellation, no-pending guard, last-OWNER invariant, append-only Audit Log persistence, transaction creation and family-scoped listing, transaction input validation, transaction row persistence, audit privacy redaction, redacted Google diagnostics, registry initialization caching, dan perlindungan agar Telegram user ID tidak muncul pada output `/members`.
 
 ## Roadmap Saat Ini
 
-Milestone 3 — **Family Management and Administration** — masih berjalan. Fitur yang masih direncanakan meliputi:
+Milestone 3 — **Family Management and Administration** — selesai. Milestone 4 — **Transaction Foundation** — sedang berjalan: entity, repository contract, central `Transactions` worksheet, income/expense persistence, server-side ownership and family-isolation validation, and `CREATE_TRANSACTION` audit coverage sudah tersedia.
 
-- konfirmasi lengkap untuk seluruh operasi privilege-changing;
-- invariants lengkap untuk lifecycle anggota dan OWNER terakhir;
-- audit fields atau audit-log boundary.
-
-Milestone berikutnya mencakup fondasi transaksi, input transaksi manual, parser AI, receipt processing, reports, Telegram Mini App, export CSV/print/PDF dengan opsi password PDF, production hardening, dan migrasi storage ke Supabase. Fitur-fitur tersebut belum aktif pada deployment saat ini.
+Command transaksi Telegram, structured transaction input, edit/cancel flows, and interactive transaction confirmations tetap direncanakan pada Milestone 5. Milestone berikutnya juga mencakup parser AI, receipt processing, reports, Telegram Mini App, export CSV/print/PDF dengan opsi password PDF, production hardening, dan migrasi storage ke Supabase.
 
 ## Dokumentasi Tambahan
 

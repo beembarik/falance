@@ -18,16 +18,16 @@ Status: COMPLETE in this implementation; production validation remains manual.
 
 Milestone 2 uses one Google Spreadsheet per Falancé deployment. The central spreadsheet contains all families. `family_id` is the server-side tenant boundary, and no spreadsheet is created when a family registers.
 
-The completed foundation includes Telegram identity resolution, `OWNER`, `ADMIN`, and `MEMBER` roles, central `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, and `Settings` sheets, one-time expiring family-bound invitations, server-side family isolation, service-account authentication, the Sheets-only OAuth scope, retry-safe pending family creation, per-client registry initialization caching to avoid repeated Google Sheets quota usage, redacted server-side
+The completed foundation includes Telegram identity resolution, `OWNER`, `ADMIN`, and `MEMBER` roles, central `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, `Audit Log`, and `Transactions` sheets, one-time expiring family-bound invitations, server-side family isolation, service-account authentication, the Sheets-only OAuth scope, retry-safe pending family creation, per-client registry initialization caching to avoid repeated Google Sheets quota usage, redacted server-side
  Google diagnostics, and automated coverage for authorization, failure behavior, and initialization caching.
 
-The following are explicitly outside this milestone: member listing and administration, role promotion or demotion, member removal, invitation revocation, family renaming, family archival or deactivation, transactions, receipt OCR, AI categorization, AI summaries, budgets, dashboards, Mini App functionality, payment, subscriptions, and Supabase implementation.
+The following are explicitly outside this milestone: member listing and administration, role promotion or demotion, member removal, invitation revocation, family renaming, family archival or deactivation, transaction commands, receipt OCR, AI categorization, AI summaries, budgets, dashboards, Mini App functionality, payment, subscriptions, and Supabase implementation.
 
 Remaining manual validation consists of granting the service account access to the existing central spreadsheet, setting the required environment variables, deploying the webhook, and exercising family creation and invitation flows against the production spreadsheet. The smoke test must confirm that `/createfamily` creates an `ACTIVE` family row, an OWNER membership row, and a `COMPLETED` pending row without a `429 RESOURCE_EXHAUSTED` error. If a partial write is observed, the redacted operation log and the idempotent retry behavior should be used for recovery before continuing to Milestone 3.
 
 ## Milestone 3 — Family Management and Administration
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 This milestone turns the Milestone 2 membership and invitation foundation into a usable administrative system. It must be completed before transaction features depend on stable member lifecycle and role-management rules.
 
@@ -51,12 +51,16 @@ The milestone depends on Milestone 2’s central spreadsheet, server-side `famil
 
 ## Milestone 4 — Transaction Foundation
 
-- [ ] Transactions schema with mandatory `family_id`
-- [ ] Transaction entity and repository interface
-- [ ] Google Sheets transaction repository
-- [ ] Income and expense records
-- [ ] Amount, date, ownership, and family-isolation validation
+Status: IN PROGRESS
+
+- [x] Transactions schema with mandatory `family_id`
+- [x] Transaction entity and repository interface
+- [x] Google Sheets transaction repository
+- [x] Income and expense records
+- [x] Amount, date, ownership, and family-isolation validation
 - [ ] Confirmation and persistence flows
+
+The transaction foundation now persists `INCOME` and `EXPENSE` records in the central `Transactions` worksheet. The service resolves `family_id` and `created_by_member_id` from active server-side membership, rejects archived families, validates amount/date/currency/description inputs, records successful creations in the append-only Audit Log, and lists only `ACTIVE` transactions from the requester’s family. Telegram transaction commands and interactive transaction editing/cancellation remain planned for Milestone 5.
 
 ## Milestone 5 — Manual Transaction Input
 

@@ -8,7 +8,7 @@ Google Sheets is an implementation detail behind the repository abstraction. Dom
 
 ## Storage layout
 
-The current Milestone 2 foundation creates or verifies only the following sheets:
+The central registry currently creates or verifies the following eight sheets:
 
 | Sheet | Purpose |
 | --- | --- |
@@ -19,12 +19,13 @@ The current Milestone 2 foundation creates or verifies only the following sheets
 | `Pending Family Creations` | Short-lived `/createfamily` requests. |
 | `Pending Confirmations` | Server-persisted five-minute Y/N confirmations for destructive administrative operations. |
 | `Audit Log` | Append-only successful administrative actions with opaque actor and target identifiers. |
+| `Transactions` | Family-scoped `INCOME` and `EXPENSE` records with soft `ACTIVE`/`VOID` status. |
 
-`Transactions`, `Categories`, and `Accounts` are reserved schema boundaries for future milestones. `Audit Log` is initialized as the Milestone 3 append-only administrative audit boundary.
+`Categories` and `Accounts` remain reserved schema boundaries for future milestones. `Audit Log` is the Milestone 3 append-only administrative audit boundary, and `Transactions` is the Milestone 4 foundation boundary.
 
 ## Registry initialization and quota protection
 
-The repository verifies the central registry through `GoogleSheetsClient.ensureRegistry()`. The client caches the in-flight and completed initialization promise per spreadsheet ID, so one client instance does not repeatedly read all seven worksheet headers for every repository operation.
+The repository verifies the central registry through `GoogleSheetsClient.ensureRegistry()`. The client caches the in-flight and completed initialization promise per spreadsheet ID, so one client instance does not repeatedly read all eight worksheet headers for every repository operation.
  If initialization fails, its failed cache entry is removed so a later request can retry initialization.
 
 This cache is intentionally scoped to a client instance rather than treated as durable application state. A serverless cold start may initialize the registry again, but operations within the same warm request instance reuse the completed initialization. Registry initialization must remain lightweight because Google Sheets enforces per-user read quotas; repeated metadata and header reads can produce `429 RESOURCE_EXHAUSTED` errors.
@@ -37,7 +38,7 @@ Google API failures are logged server-side with a labeled operation, HTTP method
 
 > A Telegram client must never select a family by sending `family_id`, a spreadsheet ID, or another storage identifier. The backend must derive the family from the authenticated Telegram user or from a validated family-bound invitation.
 
-Future family-owned tables, such as `Transactions`, must include `family_id` in their schema. A table that stores family-owned data without this key is not valid under this architecture.
+The `Transactions` table includes `family_id` and is read only through the requester’s server-resolved family. Any future family-owned table must also include `family_id`; a table that stores family-owned data without this key is not valid under this architecture.
 
 ## Report privacy and export boundary
 

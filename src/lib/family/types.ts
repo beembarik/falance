@@ -25,9 +25,28 @@ export const AUDIT_ACTIONS = [
   "RENAME_FAMILY",
   "ARCHIVE_FAMILY",
   "REACTIVATE_FAMILY",
+  "CREATE_TRANSACTION",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
-export type AuditTargetType = "INVITATION" | "MEMBER" | "FAMILY";
+export type AuditTargetType = "INVITATION" | "MEMBER" | "FAMILY" | "TRANSACTION";
+
+export const TRANSACTION_TYPES = ["INCOME", "EXPENSE"] as const;
+export type TransactionType = (typeof TRANSACTION_TYPES)[number];
+export const TRANSACTION_STATUSES = ["ACTIVE", "VOID"] as const;
+export type TransactionStatus = (typeof TRANSACTION_STATUSES)[number];
+
+export interface Transaction {
+  transactionId: string;
+  familyId: string;
+  transactionType: TransactionType;
+  amountMinor: number;
+  currency: string;
+  transactionDate: string;
+  description: string;
+  createdByMemberId: string;
+  createdAt: string;
+  status: TransactionStatus;
+}
 
 export interface AuditLogEntry {
   auditId: string;

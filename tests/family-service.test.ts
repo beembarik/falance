@@ -11,9 +11,10 @@ import {
   InvitationError,
   MemberManagementError,
   OwnerInvariantError,
+  TransactionError,
   UnauthorizedError,
 } from "../src/lib/family/service";
-import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, TelegramUser } from "../src/lib/family/types";
+import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, TelegramUser, Transaction } from "../src/lib/family/types";
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
 const member: TelegramUser = { telegramUserId: "200", name: "Member", username: null };
@@ -441,6 +442,74 @@ test("rejects revoking a foreign or already-consumed invitation", async () => {
   await assert.rejects(service.requestInvitationRevocation(owner, used.code), InvitationError);
 });
 
+test("creates normalized income and expense transactions with server-owned family and creator", async () => {
+  const repository = setupMember("OWNER");
+  const service = new FamilyService(repository);
+
+  const income = await service.createTransaction(owner, {
+    transactionType: "INCOME",
+    amountMinor: 15000,
+    currency: "idr",
+    transactionDate: "2026-08-19",
+    description: "  Gaji   bulanan  ",
+  });
+  const expense = await service.createTransaction(owner, {
+    transactionType: "EXPENSE",
+    amountMinor: 2500,
+    transactionDate: "2026-08-18",
+    description: "Makan siang",
+  });
+
+  assert.equal(income.familyId, "fam_1");
+  assert.equal(income.createdByMemberId, "mem_100");
+  assert.equal(income.currency, "IDR");
+  assert.equal(income.description, "Gaji bulanan");
+  assert.equal(expense.transactionType, "EXPENSE");
+  assert.deepEqual(repository.transactions.map((value) => value.transactionId), [income.transactionId, expense.transactionId]);
+  assert.equal(repository.auditLogs.at(-1)?.action, "CREATE_TRANSACTION");
+  assert.equal(repository.auditLogs.at(-1)?.targetType, "TRANSACTION");
+});
+
+test("lists only active transactions from the requester’s server-resolved family", async () => {
+  const familyBOwner: TelegramUser = { telegramUserId: "300", name: "Family B Owner", username: "family-b-owner" };
+  const repository = new FakeFamilyRepository();
+  repository.families.push(family("fam_1"), { ...family("fam_2"), createdBy: familyBOwner.telegramUserId });
+  repository.members.push(activeMember("fam_1", owner, "OWNER"), activeMember("fam_2", familyBOwner, "OWNER"));
+  repository.transactions.push(
+    transaction("txn_a", "fam_1", "ACTIVE"),
+    transaction("txn_void", "fam_1", "VOID"),
+    transaction("txn_b", "fam_2", "ACTIVE"),
+  );
+
+  const listed = await new FamilyService(repository).listTransactions(owner.telegramUserId);
+
+  assert.deepEqual(listed.map((value) => value.transactionId), ["txn_a"]);
+  assert.equal(listed.every((value) => value.familyId === "fam_1"), true);
+});
+
+test("rejects invalid transaction input and archived-family transaction access", async () => {
+  const repository = setupMember("OWNER");
+  const service = new FamilyService(repository);
+  const valid = {
+    transactionType: "INCOME" as const,
+    amountMinor: 100,
+    transactionDate: "2026-08-19",
+    description: "Valid",
+  };
+
+  await assert.rejects(service.createTransaction(owner, { ...valid, amountMinor: 0 }), TransactionError);
+  await assert.rejects(service.createTransaction(owner, { ...valid, amountMinor: 1.5 }), TransactionError);
+  await assert.rejects(service.createTransaction(owner, { ...valid, transactionType: "OTHER" as "INCOME" }), TransactionError);
+  await assert.rejects(service.createTransaction(owner, { ...valid, transactionDate: "19-08-2026" }), TransactionError);
+  await assert.rejects(service.createTransaction(owner, { ...valid, description: "   " }), TransactionError);
+  await assert.rejects(service.createTransaction(owner, { ...valid, currency: "RUPIAH" }), TransactionError);
+
+  repository.families[0].status = "SUSPENDED";
+  await assert.rejects(service.createTransaction(owner, valid), UnauthorizedError);
+  await assert.rejects(service.listTransactions(owner.telegramUserId), UnauthorizedError);
+  assert.equal(repository.transactions.length, 0);
+});
+
 test("joins a valid invitation once and marks it used", async () => {
   const repository = setupMember("OWNER");
   const service = new FamilyService(repository);
@@ -519,6 +588,21 @@ function activeMember(familyId: string, user: TelegramUser, role: FamilyMember["
   return { memberId: `mem_${user.telegramUserId}`, familyId, ...user, role, status: "ACTIVE", joinedAt: "2026-01-01T00:00:00.000Z" };
 }
 
+function transaction(transactionId: string, familyId: string, status: Transaction["status"]): Transaction {
+  return {
+    transactionId,
+    familyId,
+    transactionType: "EXPENSE",
+    amountMinor: 1000,
+    currency: "IDR",
+    transactionDate: "2026-08-19",
+    description: "Test",
+    createdByMemberId: "mem_100",
+    createdAt: "2026-08-19T00:00:00.000Z",
+    status,
+  };
+}
+
 function invitation(code: string, status: Invitation["status"]): Invitation {
   return { invitationId: `inv_${code}`, familyId: "fam_1", code, createdBy: owner.telegramUserId, createdAt: "2026-01-01T00:00:00.000Z", expiresAt: "2030-01-01T00:00:00.000Z", status, usedBy: null, usedAt: null };
 }
@@ -531,6 +615,7 @@ class FakeFamilyRepository implements FamilyRepository {
   pending: Array<PendingFamilyCreation & { status: "PENDING" | "COMPLETED" }> = [];
   confirmations: PendingConfirmation[] = [];
   auditLogs: AuditLogEntry[] = [];
+  transactions: Transaction[] = [];
   failAuditLog = false;
   failMemberCreation = false;
   spreadsheetCreationCalls = 0;
@@ -560,6 +645,12 @@ class FakeFamilyRepository implements FamilyRepository {
   async createAuditLog(entry: AuditLogEntry) {
     if (this.failAuditLog) throw new Error("audit unavailable");
     this.auditLogs.push(entry);
+  }
+  async createTransaction(value: Transaction) {
+    if (!this.transactions.some((candidate) => candidate.transactionId === value.transactionId)) this.transactions.push(value);
+  }
+  async findTransactionsByFamilyId(familyId: string) {
+    return this.transactions.filter((value) => value.familyId === familyId);
   }
   async findFamilyById(id: string) {
     this.familyLookupIds.push(id);

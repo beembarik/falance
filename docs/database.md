@@ -103,9 +103,26 @@ There is deliberately no `spreadsheet_id` column. The central spreadsheet ID bel
 
 Audit rows are appended only after the primary administrative write succeeds. Audit persistence is deliberately non-blocking: if the audit append fails, the primary state change remains successful and only a safe operation label is emitted to diagnostics. Failed authorization, invalid confirmation, cancelled actions, and expired actions are not recorded as successful audit events.
 
+### Transactions
+
+| Column | Meaning |
+| --- | --- |
+| `transaction_id` | Server-generated transaction identifier. |
+| `family_id` | Mandatory server-resolved family tenant identifier. |
+| `transaction_type` | `INCOME` or `EXPENSE`. |
+| `amount_minor` | Positive safe integer amount in the smallest currency unit, capped by the service validation limit. |
+| `currency` | Normalized three-letter ISO currency code; defaults to `IDR`. |
+| `transaction_date` | Valid calendar date in `YYYY-MM-DD` format. |
+| `description` | Whitespace-normalized description containing 1–200 characters. |
+| `created_by_member_id` | Opaque active membership identifier of the creating member. |
+| `created_at` | ISO-8601 creation timestamp. |
+| `status` | `ACTIVE` or `VOID`; transaction history is not hard-deleted. |
+
+Transactions are appended to the central registry by the repository and read back by `family_id`. Every active `OWNER`, `ADMIN`, and `MEMBER` may create a transaction for their server-resolved family. Successful creation appends a privacy-preserving `CREATE_TRANSACTION` entry to the `Audit Log`; Telegram transaction commands and VOID confirmation flows remain future work.
+
 ## Isolation rule
 
-Every future family-owned table must include `family_id` as a mandatory partition key. For example, a future transaction table must begin with `transaction_id` and `family_id`. The application must obtain this value from a server-side membership or validated invitation lookup, never from untrusted Telegram request data.
+Every family-owned table must include `family_id` as a mandatory partition key. The application must obtain this value from a server-side membership or validated invitation lookup, never from untrusted Telegram request data.
 
 ## Family-management boundary
 
@@ -123,4 +140,4 @@ Export artifacts should be short-lived and cleaned up after delivery or expiry. 
 
 ## Future boundaries
 
-Transactions, categories, accounts, audit events, receipt parsing, AI analysis, budgets, dashboards, Supabase storage, payments, and subscriptions are outside Milestone 2. Reports and exports are planned for Milestone 8, while the first authenticated Mini App report views are also delivered there; their eventual schemas and read models must preserve the `family_id` rule.
+Receipt parsing, AI analysis, budgets, dashboards, Supabase storage, payments, and subscriptions are outside Milestone 2. The transaction foundation is implemented in Milestone 4, while transaction commands remain future work. Reports and exports are planned for Milestone 8, while the first authenticated Mini App report views are also delivered there; their eventual schemas and read models must preserve the `family_id` rule.

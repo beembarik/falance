@@ -42,10 +42,16 @@ Invitation joins are family-bound because the server obtains `family_id` from th
 
 A successful `/createfamily` flow must produce an `ACTIVE` row in `Families`, an `OWNER` row in `Members`, and a `COMPLETED` row in `Pending Family Creations`. If `Families` is present but `Members` is empty and pending remains `PENDING`, the flow experienced a partial write; do not delete the family row before checking whether a retry can complete the existing family safely.
 
-The Google Sheets client caches registry initialization per spreadsheet ID for the lifetime of a client instance. This prevents every repository operation from repeating the metadata and seven worksheet-header reads.
+The Google Sheets client caches registry initialization per spreadsheet ID for the lifetime of a client instance. This prevents every repository operation from repeating the metadata and eight worksheet-header reads.
  A production `429 RESOURCE_EXHAUSTED` error with the quota metric `Read requests` indicates repeated Google Sheets reads, not a Telegram authorization failure or a missing per-family spreadsheet.
 
 Diagnostic failures are logged server-side using an operation label such as `createMember` or `completePendingFamilyCreation`, an HTTP status, and a redacted API path. Logs must not contain Telegram identifiers, family names, row values, spreadsheet IDs, bearer tokens, or private keys.
+
+## Milestone 4 transaction foundation
+
+The transaction foundation is implemented below the Telegram command layer. The service accepts validated income and expense inputs, resolves the requester’s active family and creator membership server-side, persists rows in the central `Transactions` worksheet, records successful creation in the append-only `Audit Log`, and lists only active transactions from the resolved family. Archived families cannot create or list transactions, and transaction rows use soft `VOID` state rather than hard deletion.
+
+No Telegram transaction command is exposed yet. Natural-language input, structured `/addtransaction`-style flows, edits, cancellation, and interactive confirmation remain planned for Milestone 5. Until then, the existing Telegram command surface is unchanged.
 
 ## Planned report access
 
@@ -60,4 +66,4 @@ If a user requests a password-protected PDF, the password must be collected thro
 
 ## Out of scope
 
-Financial transactions, receipt OCR, AI categorization and summaries, budgets, dashboards, the Telegram Mini App, payments, subscriptions, and Supabase are not implemented in Milestone 2. The current Milestone 3 administration flows cover member lifecycle, family naming, soft family archival, and the append-only Audit Log boundary; transaction features remain future work.
+Receipt OCR, AI categorization and summaries, budgets, dashboards, the Telegram Mini App, payments, subscriptions, and Supabase are not implemented. Milestone 3 administration is complete, and the Milestone 4 transaction foundation is implemented below the Telegram command layer; transaction input commands and confirmation flows remain future work.
