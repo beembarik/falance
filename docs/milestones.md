@@ -30,10 +30,10 @@ Status: PLANNED
 
 This milestone turns the Milestone 2 membership and invitation foundation into a usable administrative system. It must be completed before transaction features depend on stable member lifecycle and role-management rules.
 
-- [ ] Authorized `/members` command or equivalent member-listing flow
+- [x] Authorized `/members` command or equivalent member-listing flow
 - [ ] Owner-controlled promotion and demotion between `MEMBER` and `ADMIN`
 - [ ] Safe member removal or deactivation with server-side family authorization
-- [ ] Owner/admin revocation of pending invitations
+- [x] Owner/admin revocation of pending invitations
 - [ ] Owner-controlled family-name update
 - [ ] Safe family archival or deactivation rather than irreversible hard deletion
 - [ ] Explicit confirmation for destructive or privilege-changing operations

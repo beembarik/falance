@@ -83,6 +83,17 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     ]], "markInvitationUsed");
   }
 
+  async revokeInvitation(invitationId: string): Promise<void> {
+    const rows = await this.rows("Invitations", "revokeInvitation");
+    const index = rows.findIndex((row) => row[0] === invitationId);
+    if (index < 0) throw new GoogleConfigurationError("Invitation registry record is missing.");
+    const row = rows[index];
+    if (row[8] !== "PENDING") return;
+    await this.client.updateValues(this.registryId(), `Invitations!A${index + 2}`, [[
+      ...row.slice(0, 8), "REVOKED",
+    ]], "revokeInvitation");
+  }
+
   async createPendingFamilyCreation(pending: PendingFamilyCreation): Promise<void> {
     await this.clearPendingFamilyCreation(pending.telegramUserId);
     await this.append("Pending Family Creations", [

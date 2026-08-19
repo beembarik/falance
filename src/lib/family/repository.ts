@@ -21,6 +21,7 @@ export interface FamilyRepository {
     telegramUserId: string,
     usedAt: string,
   ): Promise<void>;
+  revokeInvitation(invitationId: string): Promise<void>;
   createPendingFamilyCreation(pending: PendingFamilyCreation): Promise<void>;
   findPendingFamilyCreation(
     telegramUserId: string,

@@ -227,6 +227,7 @@ export type GoogleOperation =
   | "createFamily"
   | "createMember"
   | "createInvitation"
+  | "revokeInvitation"
   | "createPendingFamilyCreation"
   | "markInvitationUsed"
   | "completePendingFamilyCreation"

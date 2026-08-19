@@ -113,6 +113,40 @@ test("rejects a foreign family_id at the service authorization boundary", async 
   );
 });
 
+test("OWNER and ADMIN can revoke only pending invitations in their own family", async () => {
+  for (const role of ["OWNER", "ADMIN"] as const) {
+    const repository = setupMember(role);
+    const service = new FamilyService(repository);
+    const created = await service.createInvitation(owner);
+
+    await service.revokeInvitation(owner, created.code);
+
+    assert.equal(repository.invitations[0].status, "REVOKED");
+  }
+
+  const memberRepository = setupMember("MEMBER");
+  memberRepository.invitations.push(invitation("FAL-MEMBER-REV", "PENDING"));
+  await assert.rejects(
+    new FamilyService(memberRepository).revokeInvitation(owner, "FAL-MEMBER-REV"),
+    UnauthorizedError,
+  );
+  assert.equal(memberRepository.invitations[0].status, "PENDING");
+});
+
+test("rejects revoking a foreign or already-consumed invitation", async () => {
+  const repository = setupMember("OWNER");
+  repository.families.push({ ...family("fam_2"), createdBy: "300" });
+  repository.invitations.push({ ...invitation("FAL-FOREIGN", "PENDING"), familyId: "fam_2" });
+  const service = new FamilyService(repository);
+
+  await assert.rejects(service.revokeInvitation(owner, "FAL-FOREIGN"), InvitationError);
+  assert.equal(repository.invitations.at(-1)?.status, "PENDING");
+
+  const used = await service.createInvitation(owner);
+  used.status = "USED";
+  await assert.rejects(service.revokeInvitation(owner, used.code), InvitationError);
+});
+
 test("joins a valid invitation once and marks it used", async () => {
   const repository = setupMember("OWNER");
   const service = new FamilyService(repository);
@@ -223,6 +257,10 @@ class FakeFamilyRepository implements FamilyRepository {
   async markInvitationUsed(id: string, userId: string, usedAt: string) {
     const value = this.invitations.find((candidate) => candidate.invitationId === id);
     if (value) { value.status = "USED"; value.usedBy = userId; value.usedAt = usedAt; }
+  }
+  async revokeInvitation(id: string) {
+    const value = this.invitations.find((candidate) => candidate.invitationId === id);
+    if (value && value.status === "PENDING") value.status = "REVOKED";
   }
   async createPendingFamilyCreation(value: PendingFamilyCreation) {
     this.pending = this.pending.filter((pendingValue) => pendingValue.telegramUserId !== value.telegramUserId);

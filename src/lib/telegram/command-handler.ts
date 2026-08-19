@@ -34,6 +34,12 @@ export async function handleTelegramTextMessage(
     if (command === "/members") {
       return membersMessage(await service.listFamilyMembers(user.telegramUserId));
     }
+    if (command.startsWith("/revokeinvite")) {
+      const code = command.slice("/revokeinvite".length).trim();
+      if (!code) return "Format tidak valid. Gunakan: /revokeinvite FAL-XXXXXX";
+      await service.revokeInvitation(user, code);
+      return "✅ Invitation berhasil dicabut.";
+    }
     if (command.startsWith("/join")) {
       const code = command.slice("/join".length).trim();
       if (!code) return "Format tidak valid. Gunakan: /join FAL-XXXXXX";

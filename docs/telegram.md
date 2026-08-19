@@ -20,6 +20,7 @@ Telegram credentials remain server-only. The bot token must not be exposed to br
 | Command | Behavior |
 | --- | --- |
 | `/members` | Lists active members of the requester’s server-resolved family without exposing the central spreadsheet or full Telegram user IDs. Available to active OWNER, ADMIN, and MEMBER users. |
+| `/revokeinvite <code>` | Revokes a `PENDING` invitation belonging to the requester’s family. Available only to `OWNER` and `ADMIN`. |
 
 The command list is updated only after the handler and authorization tests are implemented. Future administrative commands must preserve the same server-side family boundary.
 

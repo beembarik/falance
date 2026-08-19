@@ -149,6 +149,23 @@ export class FamilyService {
     return invitation;
   }
 
+  async revokeInvitation(user: TelegramUser, code: string): Promise<void> {
+    const member = await this.requireActiveMember(user.telegramUserId);
+    if (member.role !== "OWNER" && member.role !== "ADMIN") {
+      throw new UnauthorizedError("Only owners and admins can revoke invitations.");
+    }
+
+    const invitation = await this.repository.findInvitationByCode(normalizeInvitationCode(code));
+    if (!invitation || invitation.familyId !== member.familyId) {
+      throw new InvitationError("Invitation is invalid.");
+    }
+    if (invitation.status !== "PENDING") {
+      throw new InvitationError("Only pending invitations can be revoked.");
+    }
+
+    await this.repository.revokeInvitation(invitation.invitationId);
+  }
+
   async joinFamily(user: TelegramUser, code: string): Promise<Family> {
     if (await this.getActiveMembership(user.telegramUserId)) {
       throw new AlreadyRegisteredError("User already belongs to a family.");
