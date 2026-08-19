@@ -3,9 +3,76 @@ import test from "node:test";
 
 import { handleTelegramTextMessage } from "../src/lib/telegram/command-handler";
 import type { FamilyService, ConfirmationResult } from "../src/lib/family/service";
-import type { TelegramUser } from "../src/lib/family/types";
+import type { Family, TelegramUser, Transaction } from "../src/lib/family/types";
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
+
+test("adds an expense through the service and formats the Indonesian response", async () => {
+  let receivedInput: unknown;
+  const transaction: Transaction = {
+    transactionId: "txn_1",
+    familyId: "fam_1",
+    transactionType: "EXPENSE",
+    amountMinor: 150000,
+    currency: "IDR",
+    transactionDate: "2026-08-19",
+    description: "Makan siang",
+    createdByMemberId: "mem_100",
+    createdAt: "2026-08-19T00:00:00.000Z",
+    status: "ACTIVE",
+  };
+  const service = fakeService({
+    createTransaction: async (_user: TelegramUser, input: unknown) => {
+      receivedInput = input;
+      return transaction;
+    },
+  });
+
+  const response = await handleTelegramTextMessage(service, owner, "/addexpense 150.000 2026-08-19 Makan siang");
+
+  assert.deepEqual(receivedInput, {
+    transactionType: "EXPENSE",
+    amountMinor: 150000,
+    currency: undefined,
+    transactionDate: "2026-08-19",
+    description: "Makan siang",
+  });
+  assert.match(response, /Pengeluaran berhasil dicatat/);
+  assert.match(response, /txn_1/);
+});
+
+test("lists transactions through the requester’s server-resolved family", async () => {
+  const family: Family = {
+    familyId: "fam_1",
+    familyName: "Keluarga Owner",
+    status: "ACTIVE",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    createdBy: owner.telegramUserId,
+    plan: "FREE",
+  };
+  const transaction: Transaction = {
+    transactionId: "txn_1",
+    familyId: "fam_1",
+    transactionType: "INCOME",
+    amountMinor: 100000,
+    currency: "IDR",
+    transactionDate: "2026-08-19",
+    description: "Gaji",
+    createdByMemberId: "mem_100",
+    createdAt: "2026-08-19T00:00:00.000Z",
+    status: "ACTIVE",
+  };
+  const service = fakeService({
+    getActiveFamily: async () => family,
+    listTransactions: async () => [transaction],
+  });
+
+  const response = await handleTelegramTextMessage(service, owner, "/transactions");
+
+  assert.match(response, /Keluarga Owner/);
+  assert.match(response, /Gaji/);
+  assert.match(response, /txn_1/);
+});
 
 test("Y confirms a pending destructive action", async () => {
   let confirmed = false;

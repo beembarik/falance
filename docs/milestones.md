@@ -64,9 +64,14 @@ The transaction foundation now persists `INCOME` and `EXPENSE` records in the ce
 
 ## Milestone 5 — Manual Transaction Input
 
+Status: IN PROGRESS
+
 - [ ] Natural Telegram text commands
-- [ ] Structured transaction input
+- [x] Structured `/addincome` and `/addexpense` input
+- [x] Family-scoped `/transactions` listing
 - [ ] Add, edit, delete, cancel, and confirmation flows
+
+The first vertical slice accepts structured amount, optional currency, `YYYY-MM-DD` date, and description input through Telegram. `family_id` and `created_by_member_id` continue to be resolved server-side by `FamilyService`; the command layer never accepts a family identifier. Transaction editing, soft cancellation with Y/N confirmation, and broader natural-language parsing remain planned work in this milestone.
 
 ## Milestone 6 — AI Text Parser
 

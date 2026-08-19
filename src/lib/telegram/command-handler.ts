@@ -7,12 +7,15 @@ import {
   FamilyNameError,
   FamilyServiceError,
   InvitationError,
+  TransactionError,
   MemberManagementError,
   OwnerInvariantError,
   UnauthorizedError,
 } from "../family/service";
 import type { FamilyMember, MemberRole, TelegramUser } from "../family/types";
 import { formatMembersMessage } from "./member-message";
+import { formatTransactionCreatedMessage, formatTransactionsMessage } from "./transaction-message";
+import { parseManualTransactionCommand, TransactionCommandError } from "./transaction-command";
 
 const UNREGISTERED_START = `👋 Halo! Selamat datang di Falancé.
 
@@ -48,6 +51,24 @@ export async function handleTelegramTextMessage(
     if (command === "/members") {
       const family = await service.getActiveFamily(user.telegramUserId);
       return formatMembersMessage(family.familyName, await service.listFamilyMembers(user.telegramUserId));
+    }
+    if (command.startsWith("/addincome")) {
+      const transaction = await service.createTransaction(
+        user,
+        parseManualTransactionCommand(command, "/addincome"),
+      );
+      return formatTransactionCreatedMessage(transaction);
+    }
+    if (command.startsWith("/addexpense")) {
+      const transaction = await service.createTransaction(
+        user,
+        parseManualTransactionCommand(command, "/addexpense"),
+      );
+      return formatTransactionCreatedMessage(transaction);
+    }
+    if (command === "/transactions") {
+      const family = await service.getActiveFamily(user.telegramUserId);
+      return formatTransactionsMessage(family, await service.listTransactions(user.telegramUserId));
     }
     if (command.startsWith("/revokeinvite")) {
       const code = command.slice("/revokeinvite".length).trim();
@@ -153,6 +174,7 @@ function confirmationResultMessage(result: ConfirmationResult): string {
 }
 
 function messageForError(error: unknown): string {
+  if (error instanceof TransactionCommandError) return error.message;
   if (error instanceof AlreadyRegisteredError) return "Kamu sudah terdaftar dalam keluarga aktif.";
   if (error instanceof UnauthorizedError) return "Kamu tidak memiliki izin untuk menjalankan perintah ini.";
   if (error instanceof InvitationError) return "Invitation tidak valid, sudah digunakan, dicabut, atau kedaluwarsa.";
@@ -161,6 +183,7 @@ function messageForError(error: unknown): string {
   if (error instanceof FamilyLifecycleError) return "Status keluarga tidak memungkinkan operasi ini.";
   if (error instanceof OwnerInvariantError) return "Operasi ditolak karena keluarga harus selalu memiliki setidaknya satu OWNER aktif.";
   if (error instanceof MemberManagementError) return "Perubahan anggota tidak dapat diproses. Pastikan target memiliki status yang sesuai dan gunakan konfirmasi CONFIRM.";
+  if (error instanceof TransactionError) return "Transaksi tidak dapat diproses. Pastikan ID, status, dan data transaksi berada pada keluarga aktif kamu.";
   if (error instanceof FamilyServiceError) return "Permintaan tidak dapat diproses. Gunakan /createfamily untuk memulai kembali.";
   return "Terjadi gangguan saat memproses permintaan. Silakan coba lagi.";
 }

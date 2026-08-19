@@ -2,7 +2,7 @@
 
 Falancé adalah bot Telegram untuk pencatatan dan pengelolaan keuangan keluarga. Repository ini berisi fondasi aplikasi yang berjalan di Next.js, menerima update Telegram melalui webhook, dan menggunakan **satu Google Spreadsheet pusat untuk seluruh keluarga dalam satu deployment**.
 
-> **Status saat ini:** Milestone 3 selesai dan Milestone 4 (transaction foundation) sedang berjalan. Penyimpanan transaksi dan service authorization sudah tersedia, tetapi command transaksi Telegram, laporan, Mini App, dan export belum diimplementasikan.
+> **Status saat ini:** Milestone 3 selesai dan Milestone 4 (transaction foundation) selesai. Milestone 5 sedang berjalan dengan command terstruktur untuk menambah dan melihat transaksi; laporan, Mini App, export, serta edit/cancel transaksi belum diimplementasikan.
 
 ## Kemampuan yang Sudah Tersedia
 
@@ -20,7 +20,8 @@ Implementasi saat ini mencakup identitas Telegram, pembuatan keluarga, undangan,
 | Deactivation anggota | `OWNER` dapat menonaktifkan anggota non-OWNER secara soft-state menjadi `SUSPENDED` melalui `/deactivate`, lalu mengonfirmasi dengan balasan `Y` atau membatalkan dengan `N`. | Tersedia |
 | Reactivation anggota | `OWNER` dapat mengaktifkan kembali membership `SUSPENDED` melalui `/reactivate` dengan `member_id` lama dan konfirmasi eksplisit. | Tersedia |
 | Penggantian nama keluarga | `OWNER` dapat mengganti nama keluarga melalui `/renamefamily`; nama dinormalisasi dan dibatasi 1–80 karakter. | Tersedia |
-| Fondasi transaksi | Service dan repository menyimpan transaksi `INCOME`/`EXPENSE` ke worksheet `Transactions`, dengan validasi amount/date/currency/description, soft status, audit creation, dan family isolation. Belum ada command Telegram. | Tersedia |
+| Fondasi transaksi | Service dan repository menyimpan transaksi `INCOME`/`EXPENSE` ke worksheet `Transactions`, dengan validasi amount/date/currency/description, soft status, audit creation, dan family isolation. | Tersedia |
+| Input transaksi terstruktur | `/addincome`, `/addexpense`, dan `/transactions` tersedia melalui Telegram; edit, soft cancel, dan natural-language input masih dalam pengembangan. | Tersedia sebagian |
 | Isolasi keluarga | `family_id` selalu ditentukan server dari membership aktif atau invitation yang telah divalidasi. | Tersedia |
 | Registry Google Sheets | Satu registry pusat menggunakan delapan worksheet: `Settings`, `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, `Audit Log`, dan `Transactions`. | Tersedia |
 | Diagnostik aman | Error Google Sheets dicatat menggunakan operation label dan path yang telah direduksi; token, credential, spreadsheet ID, Telegram ID, dan data baris tidak dicatat. | Tersedia |
@@ -36,6 +37,9 @@ Pesan dan error yang dikirim bot kepada pengguna menggunakan Bahasa Indonesia.
 | `/invite` | `OWNER`, `ADMIN` | Membuat invitation code baru untuk keluarga actor. Masa berlaku default adalah 24 jam dan dapat dikonfigurasi melalui environment variable. |
 | `/join <code>` | Pengguna tanpa membership aktif | Memvalidasi invitation code, membuat membership sebagai `MEMBER`, lalu menandai invitation sebagai `USED`. |
 | `/members` | `OWNER`, `ADMIN`, `MEMBER` aktif | Menampilkan anggota aktif dari keluarga actor, termasuk `Member ID`, role, status, username jika ada, dan tanggal bergabung. |
+| `/addincome <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Semua anggota aktif | Mencatat pemasukan ke keluarga yang di-resolve server. Currency default `IDR`; amount mendukung digit biasa atau pemisah ribuan tiga digit. |
+| `/addexpense <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Semua anggota aktif | Mencatat pengeluaran ke keluarga yang di-resolve server. |
+| `/transactions` | Semua anggota aktif | Menampilkan maksimal 50 transaksi `ACTIVE` terbaru dari keluarga actor. |
 | `/revokeinvite <code>` lalu `Y`/`N` | `OWNER`, `ADMIN` | Meminta konfirmasi interaktif sebelum mengubah invitation `PENDING` menjadi `REVOKED`. Balasan `Y` menjalankan aksi, sedangkan `N` membatalkan. |
 | `/changerole <member_id_atau_username> <ADMIN\|MEMBER>` | `OWNER` | Mengubah role anggota aktif antara `MEMBER` dan `ADMIN`. Target dapat dipilih menggunakan `Member ID` dari `/members` atau username Telegram. Role `OWNER` tidak dapat diubah. |
 | `/deactivate <member_id_atau_username>` lalu `Y`/`N` | `OWNER` | Menampilkan target dan meminta konfirmasi interaktif sebelum mengubah status menjadi `SUSPENDED`. Balasan `Y` menjalankan aksi, sedangkan `N` membatalkan. |
@@ -108,6 +112,14 @@ Lapisan domain bergantung pada kontrak `FamilyRepository`. Implementasi saat ini
 | `Transactions` | Record `INCOME` dan `EXPENSE` dengan `transaction_id`, mandatory `family_id`, amount minor, currency, tanggal, deskripsi, creator member ID, timestamp, dan soft status `ACTIVE`/`VOID`. |
 
 `Categories` dan `Accounts` belum dibuat. `Audit Log` menjadi boundary append-only untuk administrasi dan penciptaan transaksi.
+
+Contoh input transaksi:
+
+```text
+/addincome 15.000 IDR 2026-08-19 Gaji bulanan
+/addexpense 150.000 2026-08-19 Makan siang keluarga
+/transactions
+```
 
 ### Isolasi Keluarga
 
@@ -198,13 +210,11 @@ npm run build
 git diff --check
 ```
 
-Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, member reactivation with identity preservation, family-name update authorization and persistence, soft family archival/reactivation, pending Y/N confirmation, cancellation, no-pending guard, last-OWNER invariant, append-only Audit Log persistence, transaction creation and family-scoped listing, transaction input validation, transaction row persistence, audit privacy redaction, redacted Google diagnostics, registry initialization caching, dan perlindungan agar Telegram user ID tidak muncul pada output `/members`.
+Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, member reactivation with identity preservation, family-name update authorization and persistence, soft family archival/reactivation, pending Y/N confirmation, cancellation, no-pending guard, last-OWNER invariant, append-only Audit Log persistence, transaction creation and family-scoped listing, structured transaction command parsing and handler responses, transaction input validation, transaction row persistence, audit privacy redaction, redacted Google diagnostics, registry initialization caching, dan perlindungan agar Telegram user ID tidak muncul pada output `/members`.
 
 ## Roadmap Saat Ini
 
-Milestone 3 — **Family Management and Administration** — selesai. Milestone 4 — **Transaction Foundation** — sedang berjalan: entity, repository contract, central `Transactions` worksheet, income/expense persistence, server-side ownership and family-isolation validation, and `CREATE_TRANSACTION` audit coverage sudah tersedia.
-
-Command transaksi Telegram, structured transaction input, edit/cancel flows, and interactive transaction confirmations tetap direncanakan pada Milestone 5. Milestone berikutnya juga mencakup parser AI, receipt processing, reports, Telegram Mini App, export CSV/print/PDF dengan opsi password PDF, production hardening, dan migrasi storage ke Supabase.
+Milestone 3 — **Family Management and Administration** — selesai. Milestone 4 — **Transaction Foundation** — selesai. Milestone 5 — **Manual Transaction Input** — sedang berjalan; `/addincome`, `/addexpense`, dan `/transactions` sudah tersedia untuk input terstruktur, sedangkan natural-language input, edit, soft cancel, dan confirmation flow transaksi masih direncanakan. Milestone berikutnya juga mencakup parser AI, receipt processing, reports, Telegram Mini App, export CSV/print/PDF dengan opsi password PDF, production hardening, dan migrasi storage ke Supabase.
 
 ## Dokumentasi Tambahan
 

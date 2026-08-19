@@ -51,7 +51,19 @@ Diagnostic failures are logged server-side using an operation label such as `cre
 
 The transaction foundation is implemented below the Telegram command layer. The service accepts validated income and expense inputs, resolves the requester’s active family and creator membership server-side, persists rows in the central `Transactions` worksheet, records successful creation in the append-only `Audit Log`, and lists only active transactions from the resolved family. Archived families cannot create or list transactions, and transaction rows use soft `VOID` state rather than hard deletion.
 
-No Telegram transaction command is exposed yet. Natural-language input, structured `/addtransaction`-style flows, edits, cancellation, and interactive confirmation remain planned for Milestone 5. Until then, the existing Telegram command surface is unchanged.
+Structured transaction commands are introduced in the Milestone 5 section below. Natural-language input, editing, soft cancellation, and interactive transaction confirmation remain future work; existing family-management commands remain unchanged.
+
+## Milestone 5 transaction input
+
+| Command | Behavior |
+| --- | --- |
+| `/addincome <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Creates an `INCOME` transaction for the requester’s server-resolved family. The amount may use plain digits or unambiguous three-digit separators such as `150.000`; currency defaults to `IDR`. |
+| `/addexpense <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Creates an `EXPENSE` transaction for the requester’s server-resolved family using the same validation rules. |
+| `/transactions` | Lists up to the 50 most recent `ACTIVE` transactions belonging to the requester’s server-resolved family, including opaque transaction IDs for future management flows. |
+
+The command layer never accepts `family_id`; `FamilyService` resolves both `family_id` and `created_by_member_id` from the active membership. Invalid amount, date, currency, or description input is rejected in Indonesian. The service records successful creation in the append-only `Audit Log`.
+
+Natural-language transaction input, editing, soft cancellation with interactive Y/N confirmation, and other transaction management commands remain planned work in Milestone 5. No hard deletion is permitted.
 
 ## Planned report access
 
@@ -66,4 +78,4 @@ If a user requests a password-protected PDF, the password must be collected thro
 
 ## Out of scope
 
-Receipt OCR, AI categorization and summaries, budgets, dashboards, the Telegram Mini App, payments, subscriptions, and Supabase are not implemented. Milestone 3 administration is complete, and the Milestone 4 transaction foundation is implemented below the Telegram command layer; transaction input commands and confirmation flows remain future work.
+Receipt OCR, AI categorization and summaries, budgets, dashboards, the Telegram Mini App, payments, subscriptions, and Supabase are not implemented. Milestone 3 administration is complete, the Milestone 4 transaction foundation is implemented, and the first structured Milestone 5 transaction commands are now available; natural-language input and transaction edit/cancellation flows remain future work.
