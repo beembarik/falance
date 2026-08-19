@@ -233,6 +233,43 @@ export class FamilyService {
     await this.repository.updateMemberStatus(target.memberId, "SUSPENDED");
   }
 
+  async reactivateMember(
+    actor: TelegramUser,
+    targetMemberId: string,
+    confirmation: string,
+  ): Promise<FamilyMember> {
+    const actorMember = await this.requireActiveMember(actor.telegramUserId);
+    if (actorMember.role !== "OWNER") {
+      throw new UnauthorizedError("Only the owner can reactivate members.");
+    }
+    if (confirmation.trim().toUpperCase() !== "CONFIRM") {
+      throw new MemberManagementError("Explicit confirmation is required.");
+    }
+
+    const family = await this.repository.findFamilyById(actorMember.familyId);
+    if (!family || family.status !== "ACTIVE") {
+      throw new UnauthorizedError("Family is unavailable.");
+    }
+
+    const target = (await this.repository.findMembersByFamilyId(actorMember.familyId)).find(
+      (candidate) => candidate.memberId === targetMemberId && candidate.status === "SUSPENDED",
+    );
+    if (!target) {
+      throw new MemberManagementError("Suspended member is not found in the active family.");
+    }
+    if (target.role === "OWNER") {
+      throw new MemberManagementError("The OWNER role cannot be reactivated through this flow.");
+    }
+
+    const activeMembership = await this.repository.findActiveMemberByTelegramUserId(target.telegramUserId);
+    if (activeMembership) {
+      throw new MemberManagementError("Member already has an active membership.");
+    }
+
+    await this.repository.updateMemberStatus(target.memberId, "ACTIVE");
+    return { ...target, status: "ACTIVE" };
+  }
+
   async joinFamily(user: TelegramUser, code: string): Promise<Family> {
     if (await this.getActiveMembership(user.telegramUserId)) {
       throw new AlreadyRegisteredError("User already belongs to a family.");

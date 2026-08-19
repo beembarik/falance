@@ -232,6 +232,60 @@ test("rejects unsafe member deactivation targets and missing confirmation", asyn
   assert.equal(repository.members.find((value) => value.memberId === "mem_400")?.status, "ACTIVE");
 });
 
+test("OWNER can reactivate a SUSPENDED member without changing the member ID", async () => {
+  const repository = new FakeFamilyRepository();
+  repository.families.push(family("fam_1"));
+  repository.members.push(
+    activeMember("fam_1", owner, "OWNER"),
+    { ...activeMember("fam_1", member, "MEMBER"), status: "SUSPENDED" },
+  );
+  const service = new FamilyService(repository);
+
+  const reactivated = await service.reactivateMember(owner, "mem_200", "confirm");
+
+  assert.equal(reactivated.memberId, "mem_200");
+  assert.equal(reactivated.status, "ACTIVE");
+  assert.equal(repository.members.find((value) => value.memberId === "mem_200")?.status, "ACTIVE");
+  assert.equal((await service.getActiveMembership(member.telegramUserId))?.memberId, "mem_200");
+});
+
+test("rejects unsafe member reactivation targets and duplicate active membership", async () => {
+  const familyBOwner: TelegramUser = { telegramUserId: "300", name: "Family B Owner", username: "family-b-owner" };
+  const familyBMember: TelegramUser = { telegramUserId: "400", name: "Family B Member", username: "family-b-member" };
+  const activeDuplicate: TelegramUser = { telegramUserId: "500", name: "Active Duplicate", username: "active-duplicate" };
+  const repository = new FakeFamilyRepository();
+  repository.families.push(family("fam_1"), { ...family("fam_2"), createdBy: familyBOwner.telegramUserId });
+  repository.members.push(
+    activeMember("fam_1", owner, "OWNER"),
+    activeMember("fam_1", member, "MEMBER"),
+    { ...activeMember("fam_1", activeDuplicate, "MEMBER"), memberId: "mem_500", status: "ACTIVE" },
+    { ...activeMember("fam_1", activeDuplicate, "MEMBER"), memberId: "mem_501", status: "SUSPENDED" },
+    activeMember("fam_2", familyBOwner, "OWNER"),
+    { ...activeMember("fam_2", familyBMember, "MEMBER"), status: "SUSPENDED" },
+  );
+  const service = new FamilyService(repository);
+
+  await assert.rejects(
+    service.reactivateMember(owner, "mem_200", "CONFIRM"),
+    MemberManagementError,
+  );
+  await assert.rejects(
+    service.reactivateMember(member, "mem_200", "CONFIRM"),
+    UnauthorizedError,
+  );
+  await assert.rejects(
+    service.reactivateMember(owner, "mem_400", "CONFIRM"),
+    MemberManagementError,
+  );
+  await assert.rejects(
+    service.reactivateMember(owner, "mem_501", "REMOVE"),
+    MemberManagementError,
+  );
+
+  assert.equal(repository.members.find((value) => value.memberId === "mem_400")?.status, "SUSPENDED");
+  assert.equal(repository.members.find((value) => value.memberId === "mem_501")?.status, "SUSPENDED");
+});
+
 test("rejects revoking a foreign or already-consumed invitation", async () => {
   const repository = setupMember("OWNER");
   repository.families.push({ ...family("fam_2"), createdBy: "300" });

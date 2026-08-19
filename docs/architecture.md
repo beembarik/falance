@@ -54,7 +54,7 @@ No Drive API call, spreadsheet creation request, spreadsheet ID generation, or p
 
 The system preserves the three roles `OWNER`, `ADMIN`, and `MEMBER`. Owners and admins can create invitations. Members cannot create invitations. Joining resolves the family only from the invitation record, verifies that the invitation is pending and unexpired, rejects an already-active member, creates membership using the invitation’s `family_id`, and marks the code used. Current Milestone 3 administration also provides active-member listing, pending-invitation revocation, OWNER-only MEMBER↔ADMIN role changes, and OWNER-only soft member deactivation.
 
-Member deactivation changes an active non-OWNER row to `SUSPENDED` rather than deleting it. The operation requires explicit `CONFIRM`, resolves the target from the OWNER’s server-resolved family, and rejects OWNER, inactive, and cross-family targets. Family renaming, family archival, and broader audit fields remain future work. Every lifecycle operation must preserve the same server-side `family_id` and role boundaries.
+Member deactivation changes an active non-OWNER row to `SUSPENDED` rather than deleting it. The operation requires explicit `CONFIRM`, resolves the target from the OWNER’s server-resolved family, and rejects OWNER, inactive, and cross-family targets. A `SUSPENDED` membership can be reactivated by the OWNER with `/reactivate <member_id> CONFIRM`; this changes the existing row back to `ACTIVE`, preserves the original `member_id`, and rejects duplicate active membership. Family renaming, family archival, and broader audit fields remain future work. Every lifecycle operation must preserve the same server-side `family_id` and role boundaries.
 
 ## Google authentication and scopes
 

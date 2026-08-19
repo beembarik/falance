@@ -18,6 +18,7 @@ Implementasi saat ini berfokus pada identitas Telegram, pembuatan keluarga, unda
 | Revokasi invitation | `OWNER` dan `ADMIN` dapat mencabut invitation berstatus `PENDING` dari keluarganya melalui `/revokeinvite`. | Tersedia |
 | Manajemen role | `OWNER` dapat mempromosikan atau menurunkan anggota aktif antara `MEMBER` dan `ADMIN` melalui `/changerole`. | Tersedia |
 | Deactivation anggota | `OWNER` dapat menonaktifkan anggota non-OWNER secara soft-state menjadi `SUSPENDED` melalui `/deactivate` dengan konfirmasi eksplisit. | Tersedia |
+| Reactivation anggota | `OWNER` dapat mengaktifkan kembali membership `SUSPENDED` melalui `/reactivate` dengan `member_id` lama dan konfirmasi eksplisit. | Tersedia |
 | Isolasi keluarga | `family_id` selalu ditentukan server dari membership aktif atau invitation yang telah divalidasi. | Tersedia |
 | Registry Google Sheets | Satu registry pusat menggunakan worksheet `Settings`, `Families`, `Members`, `Invitations`, dan `Pending Family Creations`. | Tersedia |
 | Diagnostik aman | Error Google Sheets dicatat menggunakan operation label dan path yang telah direduksi; token, credential, spreadsheet ID, Telegram ID, dan data baris tidak dicatat. | Tersedia |
@@ -36,6 +37,7 @@ Pesan dan error yang dikirim bot kepada pengguna menggunakan Bahasa Indonesia.
 | `/revokeinvite <code>` | `OWNER`, `ADMIN` | Mengubah invitation `PENDING` milik keluarga actor menjadi `REVOKED`. Invitation yang sudah digunakan, kedaluwarsa, atau berasal dari keluarga lain ditolak. |
 | `/changerole <member_id_atau_username> <ADMIN\|MEMBER>` | `OWNER` | Mengubah role anggota aktif antara `MEMBER` dan `ADMIN`. Target dapat dipilih menggunakan `Member ID` dari `/members` atau username Telegram. Role `OWNER` tidak dapat diubah. |
 | `/deactivate <member_id_atau_username> CONFIRM` | `OWNER` | Mengubah status anggota aktif non-OWNER menjadi `SUSPENDED` tanpa hard deletion. Target dipilih dari keluarga actor dan token `CONFIRM` wajib diberikan. |
+| `/reactivate <member_id> CONFIRM` | `OWNER` | Mengubah membership `SUSPENDED` menjadi `ACTIVE` menggunakan row dan `Member ID` yang sama. Target harus berasal dari keluarga actor dan token `CONFIRM` wajib diberikan. |
 
 Contoh penggunaan role management:
 
@@ -60,6 +62,7 @@ Role disimpan pada worksheet `Members` dan divalidasi pada service layer. Pembat
 | Menjadi target perubahan role | Tidak untuk perubahan role langsung | Ya, dapat diubah menjadi `MEMBER` | Ya, dapat diubah menjadi `ADMIN` |
 | Mengubah role `OWNER` | Tidak | Tidak | Tidak |
 | Menonaktifkan anggota non-OWNER | Ya | Tidak | Tidak |
+| Mengaktifkan kembali anggota `SUSPENDED` | Ya | Tidak | Tidak |
 
 Pada tahap laporan yang direncanakan, `OWNER` dan `ADMIN` akan memiliki akses export CSV, print, dan PDF. `MEMBER` hanya akan dapat melihat laporan melalui Telegram atau Mini App; fitur tersebut belum tersedia pada versi saat ini.
 
@@ -125,6 +128,7 @@ Falancé menerapkan batas keamanan berikut:
 - `OWNER` tidak dapat diubah melalui role-management flow.
 - Target perubahan role atau deactivation harus merupakan anggota aktif dari keluarga actor.
 - Deactivation menggunakan soft-state `SUSPENDED`, bukan hard deletion, dan membutuhkan `CONFIRM`.
+- Reactivation hanya dapat dilakukan OWNER terhadap row `SUSPENDED`, menggunakan `member_id` lama, dan membutuhkan `CONFIRM`.
 - Error log tidak boleh memuat spreadsheet ID, bearer token, private key, Telegram user ID, family name, row value, atau request body.
 - Password PDF yang direncanakan pada milestone laporan harus digunakan secara ephemeral di server dan tidak disimpan atau dicatat.
 
@@ -171,7 +175,7 @@ npm run build
 git diff --check
 ```
 
-Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, perlindungan role `OWNER`, explicit confirmation, redacted Google diagnostics, registry initialization caching, dan perlindungan agar Telegram user ID tidak muncul pada output `/members`.
+Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, member reactivation with identity preservation, perlindungan role `OWNER`, explicit confirmation, redacted Google diagnostics, registry initialization caching, dan perlindungan agar Telegram user ID tidak muncul pada output `/members`.
 
 ## Roadmap Saat Ini
 
