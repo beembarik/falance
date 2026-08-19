@@ -3,6 +3,69 @@ import test from "node:test";
 
 import { GoogleSheetsClient } from "../src/lib/google/sheets-client";
 
+test("logs a redacted operation label when a Google Sheets write fails", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalConsoleError = console.error;
+  const originalEnvironment = {
+    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    privateKey: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+  };
+  const logs: unknown[][] = [];
+  process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL = "service-account@example.iam.gserviceaccount.com";
+  process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY = await createPrivateKeyPem();
+  console.error = (...args: unknown[]) => logs.push(args);
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url === "https://oauth2.googleapis.com/token") {
+      return jsonResponse({ access_token: "test-access-token", expires_in: 3600 });
+    }
+    return new Response(JSON.stringify({
+      error: {
+        code: 403,
+        message: "The service-account@example.iam.gserviceaccount.com caller does not have permission.",
+        status: "PERMISSION_DENIED",
+        errors: [{ reason: "PERMISSION_DENIED" }],
+      },
+    }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await assert.rejects(
+      new GoogleSheetsClient().appendRows(
+        "central-registry-id",
+        "Members",
+        [["member-secret", "family-secret"]],
+        "createMember",
+      ),
+    );
+    assert.equal(logs.length, 1);
+    const [label, details] = logs[0] as [string, Record<string, unknown>];
+    assert.equal(label, "[Google] request failed");
+    assert.deepEqual(details, {
+      operation: "createMember",
+      method: "POST",
+      path: "/v4/spreadsheets/[redacted]/values/Members:append",
+      status: 403,
+      code: 403,
+      reason: "PERMISSION_DENIED",
+      statusText: "PERMISSION_DENIED",
+      message: "The [redacted-email] caller does not have permission.",
+    });
+    assert.equal(JSON.stringify(logs).includes("central-registry-id"), false);
+    assert.equal(JSON.stringify(logs).includes("member-secret"), false);
+    assert.equal(JSON.stringify(logs).includes("family-secret"), false);
+    assert.equal(JSON.stringify(logs).includes("service-account@example.iam.gserviceaccount.com"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalConsoleError;
+    restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_EMAIL", originalEnvironment.email);
+    restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY", originalEnvironment.privateKey);
+  }
+});
+
 test("initializes the single central registry without Drive or spreadsheet creation calls", async () => {
   const originalFetch = globalThis.fetch;
   const originalEnvironment = {

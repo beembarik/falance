@@ -7,7 +7,10 @@ export class GoogleSheetsClient {
   private accessToken: string | null = null;
   private accessTokenExpiresAt = 0;
 
-  async ensureRegistry(spreadsheetId: string): Promise<void> {
+  async ensureRegistry(
+    spreadsheetId: string,
+    operation: GoogleOperation = "ensureRegistry",
+  ): Promise<void> {
     let metadata = await this.request<SpreadsheetMetadata>(
       `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}?fields=sheets.properties`,
     );
@@ -31,9 +34,12 @@ export class GoogleSheetsClient {
             })),
           }),
         },
+        operation,
       );
       metadata = await this.request<SpreadsheetMetadata>(
         `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}?fields=sheets.properties`,
+        {},
+        operation,
       );
     }
 
@@ -46,7 +52,7 @@ export class GoogleSheetsClient {
     );
 
     for (const sheet of REGISTRY_SHEETS) {
-      const values = await this.getValues(spreadsheetId, `${sheet.name}!1:1`);
+      const values = await this.getValues(spreadsheetId, `${sheet.name}!1:1`, operation);
       const header = values[0] ?? [];
       if (sheet.name === "Families" && header.includes("spreadsheet_id")) {
         const sheetId = currentSheets.get(sheet.name);
@@ -68,14 +74,20 @@ export class GoogleSheetsClient {
         }
       }
       if (header.length === 0 || header.includes("spreadsheet_id")) {
-        await this.updateValues(spreadsheetId, `${sheet.name}!A1`, [sheet.headers]);
+        await this.updateValues(spreadsheetId, `${sheet.name}!A1`, [sheet.headers], operation);
       }
     }
   }
 
-  async getValues(spreadsheetId: string, range: string): Promise<string[][]> {
+  async getValues(
+    spreadsheetId: string,
+    range: string,
+    operation?: GoogleOperation,
+  ): Promise<string[][]> {
     const data = await this.request<{ values?: string[][] }>(
       `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}`,
+      {},
+      operation,
     );
     return data.values ?? [];
   }
@@ -97,10 +109,12 @@ export class GoogleSheetsClient {
     spreadsheetId: string,
     range: string,
     values: readonly (readonly string[])[],
+    operation?: GoogleOperation,
   ): Promise<void> {
     await this.request(
       `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
       { method: "PUT", body: JSON.stringify({ values }) },
+      operation,
     );
   }
 
@@ -139,10 +153,23 @@ export class GoogleSheetsClient {
     const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replaceAll("\\n", "\n");
     if (!email || !privateKey) {
+      logGoogleFailure(
+        operation,
+        "https://oauth2.googleapis.com/token",
+        "POST",
+        undefined,
+        new Error("Google service account is not configured."),
+      );
       throw new GoogleConfigurationError("Google service account is not configured.");
     }
 
-    const assertion = await createServiceAccountAssertion(email, privateKey);
+    let assertion: string;
+    try {
+      assertion = await createServiceAccountAssertion(email, privateKey);
+    } catch (error) {
+      logGoogleFailure(operation, "https://oauth2.googleapis.com/token", "POST", undefined, error);
+      throw new GoogleConfigurationError("Google service account private key is invalid.");
+    }
     let response: Response;
     try {
       response = await fetch("https://oauth2.googleapis.com/token", {
@@ -171,7 +198,19 @@ export class GoogleSheetsClient {
   }
 }
 
-type GoogleOperation = "migrateFamiliesSchema";
+export type GoogleOperation =
+  | "ensureRegistry"
+  | "readFamilies"
+  | "readMembers"
+  | "readInvitations"
+  | "readPendingFamilyCreations"
+  | "createFamily"
+  | "createMember"
+  | "createInvitation"
+  | "createPendingFamilyCreation"
+  | "markInvitationUsed"
+  | "completePendingFamilyCreation"
+  | "migrateFamiliesSchema";
 
 function logGoogleFailure(
   operation: GoogleOperation | undefined,
@@ -183,9 +222,10 @@ function logGoogleFailure(
   if (!operation) return;
 
   const details = getSafeGoogleErrorDetails(error);
-  console.error(`[Google] ${operation} failed`, {
+  console.error("[Google] request failed", {
+    operation,
     method: method ?? "GET",
-    path: new URL(url).pathname,
+    path: redactGooglePath(url),
     status,
     ...details,
   });
@@ -193,7 +233,7 @@ function logGoogleFailure(
 
 function getSafeGoogleErrorDetails(error: unknown): Record<string, string | number | undefined> {
   if (error instanceof Error) {
-    return { message: error.message };
+    return { message: redactLogText(error.message) };
   }
   if (typeof error !== "object" || error === null || !("error" in error)) {
     return {};
@@ -212,8 +252,20 @@ function getSafeGoogleErrorDetails(error: unknown): Record<string, string | numb
     code: typeof details.code === "number" ? details.code : undefined,
     reason: typeof details.errors?.[0]?.reason === "string" ? details.errors[0].reason : undefined,
     statusText: typeof details.status === "string" ? details.status : undefined,
-    message: typeof details.message === "string" ? details.message : undefined,
+    message: typeof details.message === "string" ? redactLogText(details.message) : undefined,
   };
+}
+
+function redactGooglePath(url: string): string {
+  const path = new URL(url).pathname;
+  return path.replace(/(\/spreadsheets\/)[^/]+/, "$1[redacted]");
+}
+
+function redactLogText(value: string): string {
+  return value
+    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[redacted-email]")
+    .replace(/\b[A-Za-z0-9_-]{20,}\b/g, "[redacted-id]");
 }
 
 async function createServiceAccountAssertion(email: string, privateKey: string): Promise<string> {
