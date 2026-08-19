@@ -6,6 +6,7 @@ import {
 import { GoogleSheetsFamilyRepository } from "@/lib/family/google-sheets-repository";
 import { FamilyService } from "@/lib/family/service";
 import { handleTelegramTextMessage } from "@/lib/telegram/command-handler";
+import { usesTelegramHtml } from "@/lib/telegram/html";
 
 interface TelegramUpdate {
   update_id: number;
@@ -61,6 +62,7 @@ export async function POST(request: Request): Promise<Response> {
     await sendTelegramMessage({
       chatId,
       text: responseText,
+      ...(usesTelegramHtml(responseText) ? { parseMode: "HTML" as const } : {}),
     });
 
     return Response.json({ ok: true });

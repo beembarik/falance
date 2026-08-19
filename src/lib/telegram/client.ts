@@ -7,6 +7,7 @@ interface TelegramApiResponse {
 interface SendTelegramMessageOptions {
   chatId: number;
   text: string;
+  parseMode?: "HTML";
 }
 
 export class TelegramConfigurationError extends Error {}
@@ -16,6 +17,7 @@ export class TelegramApiError extends Error {}
 export async function sendTelegramMessage({
   chatId,
   text,
+  parseMode,
 }: SendTelegramMessageOptions): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
 
@@ -31,7 +33,11 @@ export async function sendTelegramMessage({
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ chat_id: chatId, text }),
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        ...(parseMode ? { parse_mode: parseMode } : {}),
+      }),
     });
   } catch {
     throw new TelegramApiError("Telegram API request failed.");

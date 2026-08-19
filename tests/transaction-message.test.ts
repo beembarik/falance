@@ -57,6 +57,7 @@ test("formats cumulative balance by currency and excludes VOID transactions", ()
   assert.match(response, /IDR\n  Pemasukan  : IDR 5\.000\.000\n  Pengeluaran: IDR 2\.000\.000\n  Saldo      : IDR 3\.000\.000/);
   assert.match(response, /USD\n  Pemasukan  : USD 100\n  Pengeluaran: USD 0\n  Saldo      : USD 100/);
   assert.match(response, /🧾 DAFTAR TRANSAKSI/);
+  assert.match(response, /ID: <code>txn_1<\/code>/);
   assert.doesNotMatch(response, /Tidak boleh dihitung/);
 });
 

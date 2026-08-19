@@ -1,11 +1,12 @@
 import type { Family, Transaction } from "../family/types";
+import { telegramCode } from "./html";
 
 export function formatTransactionCreatedMessage(transaction: Transaction): string {
   const label = transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran";
   return [
     `✅ ${label} berhasil dicatat.`,
     "",
-    `ID: ${transaction.transactionId}`,
+    `ID: ${telegramCode(transaction.transactionId)}`,
     `Jumlah: ${formatAmount(transaction.amountMinor, transaction.currency)}`,
     `Tanggal: ${formatDate(transaction.transactionDate)}`,
     `Deskripsi: ${transaction.description}`,
@@ -28,7 +29,7 @@ export function formatTransactionsMessage(family: Family, transactions: Transact
       return [
         `• ${label}: ${formatAmount(transaction.amountMinor, transaction.currency)}`,
         `  ${formatDate(transaction.transactionDate)} — ${transaction.description}`,
-        `  ID: ${transaction.transactionId}`,
+        `  ID: ${telegramCode(transaction.transactionId)}`,
       ].join("\n");
     });
 

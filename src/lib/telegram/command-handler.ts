@@ -16,6 +16,7 @@ import type { FamilyMember, MemberRole, TelegramUser } from "../family/types";
 import { formatMembersMessage } from "./member-message";
 import { formatTransactionCreatedMessage, formatTransactionsMessage } from "./transaction-message";
 import { parseEditTransactionCommand, parseManualTransactionCommand, TransactionCommandError } from "./transaction-command";
+import { telegramCode } from "./html";
 
 const UNREGISTERED_START = `👋 Halo! Selamat datang di Falancé.
 
@@ -46,7 +47,7 @@ export async function handleTelegramTextMessage(
     }
     if (command === "/invite") {
       const invitation = await service.createInvitation(user);
-      return `✅ Invitation berhasil dibuat.\n\nKode: ${invitation.code}\nBerlaku sampai: ${new Date(invitation.expiresAt).toLocaleString("id-ID")}`;
+      return `✅ Invitation berhasil dibuat.\n\nKode: ${telegramCode(invitation.code)}\nBerlaku sampai: ${new Date(invitation.expiresAt).toLocaleString("id-ID")}`;
     }
     if (command === "/members") {
       const family = await service.getActiveFamily(user.telegramUserId);
@@ -73,14 +74,14 @@ export async function handleTelegramTextMessage(
     if (command.startsWith("/edittransaction")) {
       const { transactionId, input } = parseEditTransactionCommand(command);
       const transaction = await service.updateTransaction(user, transactionId, input);
-      return `✅ Transaksi ${transaction.transactionId} berhasil diperbarui.`;
+      return `✅ Transaksi ${telegramCode(transaction.transactionId)} berhasil diperbarui.`;
     }
     if (command.startsWith("/voidtransaction") || command.startsWith("/canceltransaction")) {
       const prefix = command.startsWith("/voidtransaction") ? "/voidtransaction" : "/canceltransaction";
       const transactionId = command.slice(prefix.length).trim();
       if (!transactionId) return `Format tidak valid. Gunakan: ${prefix} <transaction_id>`;
       await service.requestTransactionVoid(user, transactionId);
-      return `⚠️ Apakah kamu ingin membatalkan transaksi ${transactionId}?\n\nBalas Y untuk melanjutkan atau N untuk membatalkan. Konfirmasi berlaku 5 menit.`;
+      return `⚠️ Apakah kamu ingin membatalkan transaksi ${telegramCode(transactionId)}?\n\nBalas Y untuk melanjutkan atau N untuk membatalkan. Konfirmasi berlaku 5 menit.`;
     }
     if (command.startsWith("/revokeinvite")) {
       const code = command.slice("/revokeinvite".length).trim();

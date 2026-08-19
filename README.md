@@ -12,16 +12,16 @@ Implementasi saat ini mencakup identitas Telegram, pembuatan keluarga, undangan,
 | --- | --- | --- |
 | Webhook Telegram | Menerima update melalui `POST /api/telegram/webhook` dan menyediakan health check melalui `GET /api/telegram/webhook`. | Tersedia |
 | Pembuatan keluarga | Pengguna tanpa membership aktif dapat membuat keluarga melalui alur `/createfamily` dan menjadi `OWNER`. | Tersedia |
-| Invitation | `OWNER` dan `ADMIN` dapat membuat invitation code yang terikat ke keluarga actor dan memiliki masa berlaku. | Tersedia |
+| Invitation | `OWNER` dan `ADMIN` dapat membuat invitation code yang terikat ke keluarga actor dan memiliki masa berlaku. Code ditampilkan sebagai inline code agar mudah disalin. | Tersedia |
 | Join keluarga | Pengguna dapat bergabung menggunakan invitation code yang valid, belum digunakan, belum dicabut, dan belum kedaluwarsa. | Tersedia |
-| Daftar anggota | Pengguna aktif dapat melihat nama keluarga dan daftar anggota aktif dari keluarganya sendiri melalui `/members`. Output menampilkan `Member ID` opaque, bukan Telegram user ID. | Tersedia |
+| Daftar anggota | Pengguna aktif dapat melihat nama keluarga dan daftar anggota aktif dari keluarganya sendiri melalui `/members`. Output menampilkan `Member ID` opaque sebagai inline code, bukan Telegram user ID. | Tersedia |
 | Revokasi invitation | `OWNER` dan `ADMIN` dapat mencabut invitation berstatus `PENDING` dari keluarganya melalui `/revokeinvite`. | Tersedia |
 | Manajemen role | `OWNER` dapat mempromosikan atau menurunkan anggota aktif antara `MEMBER` dan `ADMIN` melalui `/changerole`. | Tersedia |
 | Deactivation anggota | `OWNER` dapat menonaktifkan anggota non-OWNER secara soft-state menjadi `SUSPENDED` melalui `/deactivate`, lalu mengonfirmasi dengan balasan `Y` atau membatalkan dengan `N`. | Tersedia |
 | Reactivation anggota | `OWNER` dapat mengaktifkan kembali membership `SUSPENDED` melalui `/reactivate` dengan `member_id` lama dan konfirmasi eksplisit. | Tersedia |
 | Penggantian nama keluarga | `OWNER` dapat mengganti nama keluarga melalui `/renamefamily`; nama dinormalisasi dan dibatasi 1–80 karakter. | Tersedia |
 | Fondasi transaksi | Service dan repository menyimpan transaksi `INCOME`/`EXPENSE` ke worksheet `Transactions`, dengan validasi amount/date/currency/description, soft status, audit creation, dan family isolation. | Tersedia |
-| Input transaksi terstruktur | `/addincome`, `/addexpense`, `/transactions`, `/edittransaction`, dan `/voidtransaction` tersedia melalui Telegram; `/transactions` menampilkan saldo kumulatif per currency dan daftar transaksi aktif. Natural-language input masih direncanakan pada Milestone 6. | Tersedia |
+| Input transaksi terstruktur | `/addincome`, `/addexpense`, `/transactions`, `/edittransaction`, dan `/voidtransaction` tersedia melalui Telegram; `/transactions` menampilkan saldo kumulatif per currency dan daftar transaksi aktif. Identifier invitation, member, dan transaksi ditampilkan sebagai inline code agar mudah disalin. Natural-language input masih direncanakan pada Milestone 6. | Tersedia |
 | Isolasi keluarga | `family_id` selalu ditentukan server dari membership aktif atau invitation yang telah divalidasi. | Tersedia |
 | Registry Google Sheets | Satu registry pusat menggunakan delapan worksheet: `Settings`, `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, `Audit Log`, dan `Transactions`. | Tersedia |
 | Diagnostik aman | Error Google Sheets dicatat menggunakan operation label dan path yang telah direduksi; token, credential, spreadsheet ID, Telegram ID, dan data baris tidak dicatat. | Tersedia |
@@ -34,14 +34,14 @@ Pesan dan error yang dikirim bot kepada pengguna menggunakan Bahasa Indonesia.
 | --- | --- | --- |
 | `/start` | Semua pengguna | Menampilkan status registrasi dan role pengguna. Pengguna tanpa membership diarahkan untuk membuat keluarga atau bergabung menggunakan invitation code. |
 | `/createfamily` | Pengguna tanpa membership aktif | Memulai pending request selama 15 menit. Pesan teks berikutnya digunakan sebagai nama keluarga. Pembuat keluarga otomatis menjadi `OWNER`. |
-| `/invite` | `OWNER`, `ADMIN` | Membuat invitation code baru untuk keluarga actor. Masa berlaku default adalah 24 jam dan dapat dikonfigurasi melalui environment variable. |
+| `/invite` | `OWNER`, `ADMIN` | Membuat invitation code baru untuk keluarga actor. Kode ditampilkan sebagai inline code agar mudah disalin. Masa berlaku default adalah 24 jam dan dapat dikonfigurasi melalui environment variable. |
 | `/join <code>` | Pengguna tanpa membership aktif | Memvalidasi invitation code, membuat membership sebagai `MEMBER`, lalu menandai invitation sebagai `USED`. |
-| `/members` | `OWNER`, `ADMIN`, `MEMBER` aktif | Menampilkan anggota aktif dari keluarga actor, termasuk `Member ID`, role, status, username jika ada, dan tanggal bergabung. |
-| `/addincome <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Semua anggota aktif | Mencatat pemasukan ke keluarga yang di-resolve server. Currency default `IDR`; amount mendukung digit biasa atau pemisah ribuan tiga digit. |
-| `/addexpense <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Semua anggota aktif | Mencatat pengeluaran ke keluarga yang di-resolve server. |
-| `/transactions` | Semua anggota aktif | Menampilkan ringkasan saldo kumulatif per currency serta maksimal 50 transaksi `ACTIVE` terbaru dari keluarga actor. Transaksi `VOID` dikecualikan. |
-| `/edittransaction <transaction_id> <INCOME|EXPENSE> <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Semua anggota aktif | Memperbarui transaksi aktif dalam keluarga actor tanpa mengganti transaction ID, family ID, creator member ID, atau created timestamp. |
-| `/voidtransaction <transaction_id>` atau `/canceltransaction <transaction_id>` lalu `Y`/`N` | Semua anggota aktif | Meminta konfirmasi interaktif lalu mengubah status transaksi menjadi `VOID` tanpa menghapus row. |
+| `/members` | `OWNER`, `ADMIN`, `MEMBER` aktif | Menampilkan anggota aktif dari keluarga actor, termasuk `Member ID` dalam inline code, role, status, username jika ada, dan tanggal bergabung. |
+| `/addincome <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Semua anggota aktif | Mencatat pemasukan ke keluarga yang di-resolve server. Currency default `IDR`; amount mendukung digit biasa atau pemisah ribuan tiga digit. Transaction ID pada response ditampilkan sebagai inline code. |
+| `/addexpense <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Semua anggota aktif | Mencatat pengeluaran ke keluarga yang di-resolve server. Transaction ID pada response ditampilkan sebagai inline code. |
+| `/transactions` | Semua anggota aktif | Menampilkan ringkasan saldo kumulatif per currency serta maksimal 50 transaksi `ACTIVE` terbaru dari keluarga actor. Transaction ID ditampilkan sebagai inline code dan transaksi `VOID` dikecualikan. |
+| `/edittransaction <transaction_id> <INCOME|EXPENSE> <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Semua anggota aktif | Memperbarui transaksi aktif dalam keluarga actor tanpa mengganti transaction ID, family ID, creator member ID, atau created timestamp. Transaction ID pada response ditampilkan sebagai inline code. |
+| `/voidtransaction <transaction_id>` atau `/canceltransaction <transaction_id>` lalu `Y`/`N` | Semua anggota aktif | Meminta konfirmasi interaktif; transaction ID pada prompt ditampilkan sebagai inline code, lalu status transaksi diubah menjadi `VOID` tanpa menghapus row. |
 | `/revokeinvite <code>` lalu `Y`/`N` | `OWNER`, `ADMIN` | Meminta konfirmasi interaktif sebelum mengubah invitation `PENDING` menjadi `REVOKED`. Balasan `Y` menjalankan aksi, sedangkan `N` membatalkan. |
 | `/changerole <member_id_atau_username> <ADMIN\|MEMBER>` | `OWNER` | Mengubah role anggota aktif antara `MEMBER` dan `ADMIN`. Target dapat dipilih menggunakan `Member ID` dari `/members` atau username Telegram. Role `OWNER` tidak dapat diubah. |
 | `/deactivate <member_id_atau_username>` lalu `Y`/`N` | `OWNER` | Menampilkan target dan meminta konfirmasi interaktif sebelum mengubah status menjadi `SUSPENDED`. Balasan `Y` menjalankan aksi, sedangkan `N` membatalkan. |

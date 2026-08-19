@@ -1,4 +1,5 @@
-import type { FamilyMember } from "@/lib/family/types";
+import type { FamilyMember } from "../family/types";
+import { telegramCode } from "./html";
 
 export function formatMembersMessage(familyName: string, members: FamilyMember[]): string {
   const heading = `👥 Keluarga: ${familyName}`;
@@ -7,7 +8,7 @@ export function formatMembersMessage(familyName: string, members: FamilyMember[]
   const lines = members.map((member, index) => {
     const username = member.username ? `@${member.username}` : "tanpa username";
     const joinedAt = new Date(member.joinedAt).toLocaleDateString("id-ID");
-    return `${index + 1}. ${member.name} (${username})\n   Member ID: ${member.memberId}\n   Role: ${member.role}\n   Status: ${member.status}\n   Bergabung: ${joinedAt}`;
+    return `${index + 1}. ${member.name} (${username})\n   Member ID: ${telegramCode(member.memberId)}\n   Role: ${member.role}\n   Status: ${member.status}\n   Bergabung: ${joinedAt}`;
   });
 
   return `${heading}\n\n${lines.join("\n\n")}`;

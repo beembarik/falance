@@ -7,6 +7,16 @@ import type { Family, TelegramUser, Transaction } from "../src/lib/family/types"
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
 
+test("formats an invitation code as inline code", async () => {
+  const service = fakeService({
+    createInvitation: async () => ({ code: "FAL-ABC123", expiresAt: "2026-08-20T00:00:00.000Z" }),
+  });
+
+  const response = await handleTelegramTextMessage(service, owner, "/invite");
+
+  assert.match(response, /Kode: <code>FAL-ABC123<\/code>/);
+});
+
 test("adds an expense through the service and formats the Indonesian response", async () => {
   let receivedInput: unknown;
   const transaction: Transaction = {
@@ -38,7 +48,7 @@ test("adds an expense through the service and formats the Indonesian response", 
     description: "Makan siang",
   });
   assert.match(response, /Pengeluaran berhasil dicatat/);
-  assert.match(response, /txn_1/);
+  assert.match(response, /ID: <code>txn_1<\/code>/);
 });
 
 test("lists transactions through the requester’s server-resolved family", async () => {
@@ -71,7 +81,7 @@ test("lists transactions through the requester’s server-resolved family", asyn
 
   assert.match(response, /Keluarga Owner/);
   assert.match(response, /Gaji/);
-  assert.match(response, /txn_1/);
+  assert.match(response, /ID: <code>txn_1<\/code>/);
 });
 
 test("edits a transaction through the service", async () => {
@@ -99,7 +109,7 @@ test("edits a transaction through the service", async () => {
     transactionDate: "2026-08-20",
     description: "Belanja baru",
   });
-  assert.match(response, /Transaksi txn_1 berhasil diperbarui/);
+  assert.match(response, /Transaksi <code>txn_1<\/code> berhasil diperbarui/);
 });
 
 test("requests transaction void with an interactive confirmation prompt", async () => {
@@ -114,7 +124,7 @@ test("requests transaction void with an interactive confirmation prompt", async 
   const response = await handleTelegramTextMessage(service, owner, "/voidtransaction txn_1");
 
   assert.equal(requestedId, "txn_1");
-  assert.match(response, /membatalkan transaksi txn_1/);
+  assert.match(response, /membatalkan transaksi <code>txn_1<\/code>/);
   assert.match(response, /Balas Y/);
 });
 

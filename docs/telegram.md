@@ -12,14 +12,14 @@ Telegram credentials remain server-only. The bot token must not be exposed to br
 | --- | --- |
 | `/start` | Returns the existing welcome response. |
 | `/createfamily` | Starts or replaces a 15-minute pending family creation request. A user with active membership is rejected. The next text message supplies the family name. Family and OWNER membership writes are retried idempotently, and pending state is completed only after both writes succeed. |
-| `/invite` | Requires an active `OWNER` or `ADMIN` membership. The generated code is bound to that member’s server-resolved `family_id`. |
+| `/invite` | Requires an active `OWNER` or `ADMIN` membership. The generated code is bound to that member’s server-resolved `family_id` and displayed as inline code for easy copying. |
 | `/join <code>` | Resolves the invitation by code, validates status and expiry, rejects an already-active member, creates membership for the invitation’s family, and consumes the code. |
 
 ## Milestone 3 commands
 
 | Command | Behavior |
 | --- | --- |
-| `/members` | Lists the server-resolved family name and active members, including each opaque `member_id` needed for administrative targeting, without exposing the central spreadsheet or Telegram user IDs. Available to active OWNER, ADMIN, and MEMBER users. |
+| `/members` | Lists the server-resolved family name and active members, including each opaque `member_id` needed for administrative targeting. Each member ID is displayed as inline code for easy copying, without exposing the central spreadsheet or Telegram user IDs. Available to active OWNER, ADMIN, and MEMBER users. |
 | `/revokeinvite <code>` then `Y`/`N` | Revokes a `PENDING` invitation belonging to the requester’s family after an interactive confirmation. Available only to `OWNER` and `ADMIN`; `Y` confirms and `N` cancels. |
 | `/changerole <member_id_or_username> <ADMIN|MEMBER>` | Changes an active member’s role between `MEMBER` and `ADMIN`. Available only to the family `OWNER`; the target is resolved from the OWNER’s server-resolved family. `OWNER` cannot be changed. |
 | `/deactivate <member_id_or_username>` then `Y`/`N` | Soft-deactivates an active non-OWNER member by changing status to `SUSPENDED` after an interactive confirmation. Available only to `OWNER`; `Y` confirms and `N` cancels. |
@@ -57,14 +57,14 @@ Structured transaction commands are introduced in the Milestone 5 section below.
 
 | Command | Behavior |
 | --- | --- |
-| `/addincome <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Creates an `INCOME` transaction for the requester’s server-resolved family. The amount may use plain digits or unambiguous three-digit separators such as `150.000`; currency defaults to `IDR`. |
-| `/addexpense <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Creates an `EXPENSE` transaction for the requester’s server-resolved family using the same validation rules. |
-| `/transactions` | Shows a readable balance summary grouped by currency, then lists up to the 50 most recent `ACTIVE` transactions belonging to the requester’s server-resolved family, including opaque transaction IDs. `VOID` transactions are excluded from both the summary and list. |
-| `/edittransaction <transaction_id> <INCOME|EXPENSE> <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Updates an active transaction in place after resolving and validating the transaction within the requester’s server-resolved family. The original transaction ID, family ID, creator member ID, and creation timestamp are preserved. |
-| `/voidtransaction <transaction_id>` | Requests persisted Y/N confirmation, then changes the active transaction status to `VOID` without deleting its row. |
+| `/addincome <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Creates an `INCOME` transaction for the requester’s server-resolved family. The amount may use plain digits or unambiguous three-digit separators such as `150.000`; currency defaults to `IDR`. The created transaction ID is displayed as inline code. |
+| `/addexpense <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Creates an `EXPENSE` transaction for the requester’s server-resolved family using the same validation rules. The created transaction ID is displayed as inline code. |
+| `/transactions` | Shows a readable balance summary grouped by currency, then lists up to the 50 most recent `ACTIVE` transactions belonging to the requester’s server-resolved family, including opaque transaction IDs displayed as inline code. `VOID` transactions are excluded from both the summary and list. |
+| `/edittransaction <transaction_id> <INCOME|EXPENSE> <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Updates an active transaction in place after resolving and validating the transaction within the requester’s server-resolved family. The original transaction ID, family ID, creator member ID, and creation timestamp are preserved, and the resulting ID is displayed as inline code. |
+| `/voidtransaction <transaction_id>` | Requests persisted Y/N confirmation, then changes the active transaction status to `VOID` without deleting its row. The transaction ID in the prompt is displayed as inline code. |
 | `/canceltransaction <transaction_id>` | Alias for `/voidtransaction`. |
 
-The command layer never accepts `family_id`; `FamilyService` resolves both `family_id` and `created_by_member_id` from the active membership. Invalid amount, date, currency, or description input is rejected in Indonesian. The service records successful creation in the append-only `Audit Log`. The balance summary is cumulative across all active transactions, does not reset monthly, excludes `VOID`, and never converts or mixes different currencies.
+The command layer never accepts `family_id`; `FamilyService` resolves both `family_id` and `created_by_member_id` from the active membership. Invalid amount, date, currency, or description input is rejected in Indonesian. The service records successful creation in the append-only `Audit Log`. The balance summary is cumulative across all active transactions, does not reset monthly, excludes `VOID`, and never converts or mixes different currencies. Identifier values use Telegram HTML inline-code formatting, and dynamic content is HTML-escaped before sending.
 
 Natural-language transaction input remains planned for Milestone 6. Edit and soft-cancellation operations are family-scoped, record `UPDATE_TRANSACTION` or `VOID_TRANSACTION` in the append-only `Audit Log`, and never perform hard deletion. Confirmation state is stored server-side with the existing five-minute expiry.
 
