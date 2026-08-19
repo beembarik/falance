@@ -39,3 +39,11 @@ A `/createfamily` request is retained for 15 minutes. A new request replaces the
 **Status:** Planned.
 
 Supabase is the planned future storage implementation. Milestone 2 deliberately does not introduce Supabase, transactions, financial parsing, AI, dashboards, Mini App functionality, payment, or subscription systems.
+
+## ADR-007: Quota-aware registry initialization and safe diagnostics
+
+**Status:** Accepted for Milestone 2.
+
+The central registry must not be reinitialized on every repository operation. `GoogleSheetsClient` caches the in-flight and completed initialization promise per spreadsheet ID for the lifetime of a client instance. Failed initialization is removed from the cache so a later request can retry. This reduces repeated metadata and worksheet-header reads while preserving correct initialization on serverless cold starts.
+
+The decision responds to a production `429 RESOURCE_EXHAUSTED` failure caused by repeated Google Sheets read requests. The repository keeps the existing one-spreadsheet architecture and does not add a second data store or bypass authorization. Google failures use labeled, redacted server-side diagnostics containing only the operation, method, redacted path, status, and safe error details; request bodies and credentials are never logged.

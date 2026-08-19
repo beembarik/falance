@@ -99,7 +99,11 @@ test("initializes the single central registry without Drive or spreadsheet creat
   };
 
   try {
-    await new GoogleSheetsClient().ensureRegistry("central-registry-id");
+    const client = new GoogleSheetsClient();
+    await client.ensureRegistry("central-registry-id");
+    const requestCountAfterInitialization = requests.length;
+    await client.ensureRegistry("central-registry-id");
+    assert.equal(requests.length, requestCountAfterInitialization);
     assert.ok(requests.some((request) => request.url.includes("/spreadsheets/central-registry-id")));
     assert.equal(requests.some((request) => request.url.includes("www.googleapis.com/drive")), false);
     assert.equal(requests.some((request) => request.url.includes("drive/v3/files")), false);

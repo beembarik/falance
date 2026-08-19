@@ -6,10 +6,30 @@ export class GoogleApiError extends Error {}
 export class GoogleSheetsClient {
   private accessToken: string | null = null;
   private accessTokenExpiresAt = 0;
+  private readonly registryInitialization = new Map<string, Promise<void>>();
 
   async ensureRegistry(
     spreadsheetId: string,
     operation: GoogleOperation = "ensureRegistry",
+  ): Promise<void> {
+    const existing = this.registryInitialization.get(spreadsheetId);
+    if (existing) return existing;
+
+    const initialization = this.initializeRegistry(spreadsheetId, operation);
+    this.registryInitialization.set(spreadsheetId, initialization);
+    try {
+      await initialization;
+    } catch (error) {
+      if (this.registryInitialization.get(spreadsheetId) === initialization) {
+        this.registryInitialization.delete(spreadsheetId);
+      }
+      throw error;
+    }
+  }
+
+  private async initializeRegistry(
+    spreadsheetId: string,
+    operation: GoogleOperation,
   ): Promise<void> {
     let metadata = await this.request<SpreadsheetMetadata>(
       `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}?fields=sheets.properties`,

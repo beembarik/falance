@@ -20,6 +20,14 @@ The current Milestone 2 foundation creates or verifies only the following sheets
 
 `Transactions`, `Categories`, `Accounts`, and `Audit Log` are reserved schema boundaries for future milestones and are not initialized by Milestone 2.
 
+## Registry initialization and quota protection
+
+The repository verifies the central registry through `GoogleSheetsClient.ensureRegistry()`. The client caches the in-flight and completed initialization promise per spreadsheet ID, so one client instance does not repeatedly read all five worksheet headers for every repository operation. If initialization fails, its failed cache entry is removed so a later request can retry initialization.
+
+This cache is intentionally scoped to a client instance rather than treated as durable application state. A serverless cold start may initialize the registry again, but operations within the same warm request instance reuse the completed initialization. Registry initialization must remain lightweight because Google Sheets enforces per-user read quotas; repeated metadata and header reads can produce `429 RESOURCE_EXHAUSTED` errors.
+
+Google API failures are logged server-side with a labeled operation, HTTP method, redacted path, status, and safe error reason. Request bodies, spreadsheet IDs, access tokens, service-account credentials, Telegram identifiers, and family data are never logged.
+
 ## Family isolation
 
 `family_id` is the mandatory tenant and partition key for every family-owned table. The server resolves the Telegram identity to an active membership, obtains that membership’s `family_id`, and uses that value for all authorized operations.
