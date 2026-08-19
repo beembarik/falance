@@ -4,12 +4,17 @@ import type {
   Invitation,
   MemberRole,
   MemberStatus,
+  PendingConfirmation,
   PendingFamilyCreation,
 } from "./types";
 
 export interface FamilyRepository {
   createFamily(family: Family): Promise<void>;
   updateFamilyName(familyId: string, familyName: string): Promise<void>;
+  updateFamilyStatus(familyId: string, status: Family["status"]): Promise<void>;
+  createPendingConfirmation(confirmation: PendingConfirmation): Promise<void>;
+  findPendingConfirmation(telegramUserId: string): Promise<PendingConfirmation | null>;
+  updatePendingConfirmationStatus(confirmationId: string, status: PendingConfirmation["status"]): Promise<void>;
   findFamilyById(familyId: string): Promise<Family | null>;
   findFamilyByCreatedBy(telegramUserId: string): Promise<Family | null>;
   createMember(member: FamilyMember): Promise<void>;

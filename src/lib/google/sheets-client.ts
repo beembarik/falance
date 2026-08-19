@@ -226,6 +226,10 @@ export type GoogleOperation =
   | "readPendingFamilyCreations"
   | "createFamily"
   | "updateFamilyName"
+  | "updateFamilyStatus"
+  | "readPendingConfirmations"
+  | "createPendingConfirmation"
+  | "updatePendingConfirmation"
   | "createMember"
   | "updateMemberRole"
   | "updateMemberStatus"
@@ -340,6 +344,7 @@ const REGISTRY_SHEETS = [
   { name: "Members", headers: ["member_id", "family_id", "telegram_user_id", "name", "username", "role", "status", "joined_at"] },
   { name: "Invitations", headers: ["invitation_id", "family_id", "code", "created_by", "created_at", "expires_at", "used_at", "used_by", "status"] },
   { name: "Pending Family Creations", headers: ["telegram_user_id", "family_name", "created_at", "expires_at", "status"] },
+  { name: "Pending Confirmations", headers: ["confirmation_id", "telegram_user_id", "family_id", "action", "target", "created_at", "expires_at", "status"] },
 ] as const;
 
 interface SpreadsheetMetadata {

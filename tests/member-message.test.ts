@@ -16,8 +16,9 @@ test("member listing includes member ID without exposing Telegram user ID", () =
     joinedAt: "2026-01-01T00:00:00.000Z",
   };
 
-  const message = formatMembersMessage([member]);
+  const message = formatMembersMessage("Keluarga Falancé", [member]);
 
+  assert.match(message, /Keluarga Falancé/);
   assert.match(message, /Member ID: mem_example123/);
   assert.doesNotMatch(message, /telegram-secret-100/);
   assert.match(message, /tanpa username/);

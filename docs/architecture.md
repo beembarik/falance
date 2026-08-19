@@ -17,6 +17,7 @@ The current Milestone 2 foundation creates or verifies only the following sheets
 | `Members` | Active and historical family memberships. |
 | `Invitations` | Family-bound, one-time invitation records. |
 | `Pending Family Creations` | Short-lived `/createfamily` requests. |
+| `Pending Confirmations` | Server-persisted five-minute Y/N confirmations for destructive administrative operations. |
 
 `Transactions`, `Categories`, `Accounts`, and `Audit Log` are reserved schema boundaries for future milestones and are not initialized by Milestone 2.
 
@@ -54,7 +55,7 @@ No Drive API call, spreadsheet creation request, spreadsheet ID generation, or p
 
 The system preserves the three roles `OWNER`, `ADMIN`, and `MEMBER`. Owners and admins can create invitations. Members cannot create invitations. Joining resolves the family only from the invitation record, verifies that the invitation is pending and unexpired, rejects an already-active member, creates membership using the invitation’s `family_id`, and marks the code used. Current Milestone 3 administration also provides active-member listing, pending-invitation revocation, OWNER-only MEMBER↔ADMIN role changes, and OWNER-only soft member deactivation.
 
-Member deactivation changes an active non-OWNER row to `SUSPENDED` rather than deleting it. The operation requires explicit `CONFIRM`, resolves the target from the OWNER’s server-resolved family, and rejects OWNER, inactive, and cross-family targets. A `SUSPENDED` membership can be reactivated by the OWNER with `/reactivate <member_id_or_username> CONFIRM`; this changes the existing row back to `ACTIVE`, preserves the original `member_id`, and rejects duplicate active membership. The OWNER can update the family name with `/renamefamily <nama_baru>`; the service normalizes and validates the name before rewriting only the family-name column in the server-resolved family row. Family archival and broader audit fields remain future work. Every lifecycle operation must preserve the same server-side `family_id` and role boundaries.
+Member deactivation changes an active non-OWNER row to `SUSPENDED` rather than deleting it. The operation creates a server-persisted pending confirmation with a five-minute expiry; `Y` executes it and `N` cancels it. A `SUSPENDED` membership can be reactivated by the OWNER with `/reactivate <member_id_or_username> CONFIRM`; this changes the existing row back to `ACTIVE`, preserves the original `member_id`, and rejects duplicate active membership. The OWNER can update the family name with `/renamefamily <nama_baru>`; the service normalizes and validates the name before rewriting only the family-name column in the server-resolved family row. Family archival uses the existing family status `SUSPENDED`, creates the same server-persisted Y/N confirmation, preserves the family and member rows, and blocks normal active-family operations. The original OWNER can restore the family with `/reactivatefamily CONFIRM`, which changes only the family status back to `ACTIVE`. Every lifecycle operation must preserve the same server-side `family_id` and role boundaries.
 
 
 ## Google authentication and scopes

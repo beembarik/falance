@@ -19,14 +19,16 @@ Telegram credentials remain server-only. The bot token must not be exposed to br
 
 | Command | Behavior |
 | --- | --- |
-| `/members` | Lists active members of the requester’s server-resolved family, including each opaque `member_id` needed for administrative targeting, without exposing the central spreadsheet or Telegram user IDs. Available to active OWNER, ADMIN, and MEMBER users. |
-| `/revokeinvite <code>` | Revokes a `PENDING` invitation belonging to the requester’s family. Available only to `OWNER` and `ADMIN`. |
+| `/members` | Lists the server-resolved family name and active members, including each opaque `member_id` needed for administrative targeting, without exposing the central spreadsheet or Telegram user IDs. Available to active OWNER, ADMIN, and MEMBER users. |
+| `/revokeinvite <code>` then `Y`/`N` | Revokes a `PENDING` invitation belonging to the requester’s family after an interactive confirmation. Available only to `OWNER` and `ADMIN`; `Y` confirms and `N` cancels. |
 | `/changerole <member_id_or_username> <ADMIN|MEMBER>` | Changes an active member’s role between `MEMBER` and `ADMIN`. Available only to the family `OWNER`; the target is resolved from the OWNER’s server-resolved family. `OWNER` cannot be changed. |
-| `/deactivate <member_id_or_username> CONFIRM` | Soft-deactivates an active non-OWNER member by changing status to `SUSPENDED`. Available only to `OWNER`; explicit `CONFIRM` is required and the target must belong to the OWNER’s server-resolved family. |
+| `/deactivate <member_id_or_username>` then `Y`/`N` | Soft-deactivates an active non-OWNER member by changing status to `SUSPENDED` after an interactive confirmation. Available only to `OWNER`; `Y` confirms and `N` cancels. |
 | `/reactivate <member_id_or_username> CONFIRM` | Reactivates a `SUSPENDED` membership by changing its status to `ACTIVE` without creating a new row or member ID. Available only to `OWNER`; explicit `CONFIRM` is required and the target must belong to the OWNER’s server-resolved family. |
 | `/renamefamily <nama_baru>` | Updates the family name for the OWNER’s server-resolved family. Repeated whitespace is normalized and the name must contain 1–80 characters. |
+| `/archivefamily` then `Y`/`N` | Changes the family status to `SUSPENDED` without deleting the family row or data after an interactive confirmation. Available only to `OWNER`; `Y` confirms and `N` cancels. Normal family commands are blocked until reactivation. |
+| `/reactivatefamily CONFIRM` | Changes a `SUSPENDED` family back to `ACTIVE` without creating a new family ID. Available only to the original active membership OWNER. |
 
-The command list is updated only after the handler and authorization tests are implemented. Future administrative commands must preserve the same server-side family boundary. Role and member-lifecycle commands accept a member ID shown by `/members` or a Telegram username where supported, but never a client-supplied `family_id`.
+The command list is updated only after the handler and authorization tests are implemented. Destructive commands create a server-persisted pending confirmation with a five-minute expiry; only `Y` or `N` from the same Telegram user can resolve it. Future administrative commands must preserve the same server-side family boundary. Role and member-lifecycle commands accept a member ID shown by `/members` or a Telegram username where supported, but never a client-supplied `family_id`.
 
 ## Identity and authorization
 
@@ -52,8 +54,8 @@ If a user requests a password-protected PDF, the password must be collected thro
 
 ## Roles
 
-`OWNER` and `ADMIN` may create or revoke invitations. Only `OWNER` may change an active member between `MEMBER` and `ADMIN`; the `OWNER` role is immutable through role management. Only `OWNER` may deactivate an active non-OWNER member, and the operation requires explicit `CONFIRM`; deactivation writes soft-state `SUSPENDED` rather than deleting the row. Only `OWNER` may reactivate a `SUSPENDED` membership, also with explicit `CONFIRM`; reactivation restores the original row and `member_id`. Only `OWNER` may rename the family, and the name is validated by the service before the Families-sheet write. `MEMBER` may use normal family features but cannot create invitations, change roles, deactivate members, reactivate memberships, or rename the family. These checks are enforced in the family service rather than trusted to Telegram message wording or a future client interface.
+`OWNER` and `ADMIN` may create invitations. Invitation revocation is available to both roles and uses a server-persisted Y/N confirmation that expires after five minutes. Only `OWNER` may change an active member between `MEMBER` and `ADMIN`; the `OWNER` role is immutable through role management. Only `OWNER` may deactivate an active non-OWNER member, and the operation uses the same Y/N confirmation flow; deactivation writes soft-state `SUSPENDED` rather than deleting the row. Only `OWNER` may reactivate a `SUSPENDED` membership, with explicit `CONFIRM`; reactivation restores the original row and `member_id`. Only `OWNER` may rename, archive, or reactivate the family. Family archival writes status `SUSPENDED` while retaining the family and member rows; normal commands are blocked until `/reactivatefamily CONFIRM`. `MEMBER` may use normal family features but cannot create invitations, change roles, deactivate members, reactivate memberships, rename the family, or manage family archival. These checks are enforced in the family service rather than trusted to Telegram message wording or a future client interface.
 
 ## Out of scope
 
-Financial transactions, receipt OCR, AI categorization and summaries, budgets, dashboards, the Telegram Mini App, payments, subscriptions, and Supabase are not implemented in Milestone 2. Member removal, family renaming, and family archival remain outside Milestone 2 and are planned for Milestone 3.
+Financial transactions, receipt OCR, AI categorization and summaries, budgets, dashboards, the Telegram Mini App, payments, subscriptions, and Supabase are not implemented in Milestone 2. The current Milestone 3 administration flows cover member lifecycle, family naming, and soft family archival; audit fields and transaction features remain future work.

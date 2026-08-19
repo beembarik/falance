@@ -18,7 +18,8 @@ Status: COMPLETE in this implementation; production validation remains manual.
 
 Milestone 2 uses one Google Spreadsheet per Falancé deployment. The central spreadsheet contains all families. `family_id` is the server-side tenant boundary, and no spreadsheet is created when a family registers.
 
-The completed foundation includes Telegram identity resolution, `OWNER`, `ADMIN`, and `MEMBER` roles, central `Families`, `Members`, `Invitations`, `Pending Family Creations`, and `Settings` sheets, one-time expiring family-bound invitations, server-side family isolation, service-account authentication, the Sheets-only OAuth scope, retry-safe pending family creation, per-client registry initialization caching to avoid repeated Google Sheets quota usage, redacted server-side Google diagnostics, and automated coverage for authorization, failure behavior, and initialization caching.
+The completed foundation includes Telegram identity resolution, `OWNER`, `ADMIN`, and `MEMBER` roles, central `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, and `Settings` sheets, one-time expiring family-bound invitations, server-side family isolation, service-account authentication, the Sheets-only OAuth scope, retry-safe pending family creation, per-client registry initialization caching to avoid repeated Google Sheets quota usage, redacted server-side
+ Google diagnostics, and automated coverage for authorization, failure behavior, and initialization caching.
 
 The following are explicitly outside this milestone: member listing and administration, role promotion or demotion, member removal, invitation revocation, family renaming, family archival or deactivation, transactions, receipt OCR, AI categorization, AI summaries, budgets, dashboards, Mini App functionality, payment, subscriptions, and Supabase implementation.
 
@@ -35,13 +36,13 @@ This milestone turns the Milestone 2 membership and invitation foundation into a
 - [x] Safe member removal or deactivation with server-side family authorization
 - [x] Owner/admin revocation of pending invitations
 - [x] Owner-controlled family-name update
-- [ ] Safe family archival or deactivation rather than irreversible hard deletion
-- [ ] Explicit confirmation for destructive or privilege-changing operations
+- [x] Safe family archival or deactivation rather than irreversible hard deletion
+- [x] Interactive Y/N confirmation for destructive operations
 - [ ] Invariants preventing removal of the last OWNER or unauthorized cross-family changes
 - [ ] Audit fields or an audit-log boundary for administrative changes
 - [ ] Tests for role permissions, member lifecycle, invitation revocation, family lifecycle, and cross-family rejection
 
-Role management is implemented through `/changerole <member_id_or_username> <ADMIN|MEMBER>`. Safe member deactivation is implemented through `/deactivate <member_id_or_username> CONFIRM`, which changes an active non-OWNER member to `SUSPENDED` without hard deletion. Reactivation is implemented through `/reactivate <member_id_or_username> CONFIRM`, which restores the existing `SUSPENDED` row to `ACTIVE` without generating a new `member_id`. Family-name updates are implemented through `/renamefamily <nama_baru>`, available only to OWNER with service-side normalization and validation. The service resolves the actor’s active family server-side, permits only the OWNER to change roles, deactivate, reactivate, or rename the family, rejects OWNER and cross-family targets, prevents duplicate active membership, and requires explicit confirmation for deactivation and reactivation. Archival, broader destructive-operation confirmation, and administrative audit fields remain outstanding.
+Role management is implemented through `/changerole <member_id_or_username> <ADMIN|MEMBER>`. Safe member deactivation is implemented through `/deactivate <member_id_or_username>`, which creates a five-minute pending confirmation; `Y` changes an active non-OWNER member to `SUSPENDED` without hard deletion and `N` cancels. Reactivation is implemented through `/reactivate <member_id_or_username> CONFIRM`, which restores the existing `SUSPENDED` row to `ACTIVE` without generating a new `member_id`. Family-name updates are implemented through `/renamefamily <nama_baru>`, available only to OWNER with service-side normalization and validation. Family archival is implemented through `/archivefamily`, which creates the same Y/N confirmation before changing family status to `SUSPENDED` without deleting rows or data; `/reactivatefamily CONFIRM` restores the family to `ACTIVE`. Destructive invitation revocation also uses the pending Y/N confirmation flow. The service resolves the actor’s active family or original OWNER membership server-side, preserves family isolation, prevents duplicate active membership, expires pending confirmations after five minutes, and blocks normal family operations while archived. Administrative audit fields remain outstanding.
 
 
 Permanent hard deletion of a family and irreversible deletion of financial history are intentionally excluded until retention, backup, recovery, and ownership-transfer rules are defined. Those operations may require a later production-hardening decision.

@@ -73,13 +73,26 @@ There is deliberately no `spreadsheet_id` column. The central spreadsheet ID bel
 | `expires_at` | Request expiry, currently 15 minutes after creation. |
 | `status` | `PENDING` or `COMPLETED`. |
 
+### Pending Confirmations
+
+| Column | Meaning |
+| --- | --- |
+| `confirmation_id` | Server-generated pending confirmation identifier. |
+| `telegram_user_id` | Telegram identity that created the pending action. |
+| `family_id` | Server-resolved family boundary for the action. |
+| `action` | `REVOKE_INVITATION`, `DEACTIVATE_MEMBER`, or `ARCHIVE_FAMILY`. |
+| `target` | Server-resolved invitation code, member ID, or family ID required to complete the action. |
+| `created_at` | ISO-8601 creation timestamp. |
+| `expires_at` | Confirmation expiry, currently five minutes after creation. |
+| `status` | `PENDING`, `COMPLETED`, `CANCELLED`, or `EXPIRED`. |
+
 ## Isolation rule
 
 Every future family-owned table must include `family_id` as a mandatory partition key. For example, a future transaction table must begin with `transaction_id` and `family_id`. The application must obtain this value from a server-side membership or validated invitation lookup, never from untrusted Telegram request data.
 
 ## Family-management boundary
 
-Milestone 2 stores the membership and invitation records needed for authorization and joining. It does not yet define the complete lifecycle behavior for member removal, role changes, invitation revocation, family renaming, or family archival. Those operations are planned for Milestone 3 and must use server-side membership authorization, preserve `family_id`, and record enough state to support recovery and auditing.
+The registry stores the membership, invitation, and pending-confirmation records needed for authorization and administration. Milestone 3 lifecycle operations use server-side membership authorization, preserve `family_id`, and record enough state to support recovery; audit fields remain a future boundary.
 
 Hard deletion of a family or irreversible deletion of its financial history is not part of the current schema contract. A future implementation should prefer explicit lifecycle statuses and retention rules until backup, recovery, ownership transfer, and audit requirements are settled.
 

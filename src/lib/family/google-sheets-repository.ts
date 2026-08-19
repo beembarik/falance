@@ -4,7 +4,7 @@ import {
   type GoogleOperation,
 } from "../google/sheets-client";
 import type { FamilyRepository } from "./repository";
-import type { Family, FamilyMember, Invitation, PendingFamilyCreation } from "./types";
+import type { Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation } from "./types";
 
 /**
  * Repository backed by the single Falancé database spreadsheet configured for
@@ -36,6 +36,55 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     await this.client.updateValues(this.registryId(), `Families!A${index + 2}`, [[
       row[0], familyName, ...row.slice(2),
     ]], "updateFamilyName");
+  }
+
+  async updateFamilyStatus(familyId: string, status: Family["status"]): Promise<void> {
+    const rows = await this.rows("Families", "updateFamilyStatus");
+    const index = rows.findIndex((row) => row[0] === familyId);
+    if (index < 0) throw new GoogleConfigurationError("Family registry record is missing.");
+    const row = rows[index];
+    if (row[2] === status) return;
+    await this.client.updateValues(this.registryId(), `Families!A${index + 2}`, [[
+      row[0], row[1], status, ...row.slice(3),
+    ]], "updateFamilyStatus");
+  }
+
+  async createPendingConfirmation(confirmation: PendingConfirmation): Promise<void> {
+    const existing = await this.findPendingConfirmation(confirmation.telegramUserId);
+    if (existing) {
+      await this.updatePendingConfirmationStatus(existing.confirmationId, "CANCELLED");
+    }
+    await this.append("Pending Confirmations", [
+      confirmation.confirmationId,
+      confirmation.telegramUserId,
+      confirmation.familyId,
+      confirmation.action,
+      confirmation.target,
+      confirmation.createdAt,
+      confirmation.expiresAt,
+      confirmation.status,
+    ], "createPendingConfirmation");
+  }
+
+  async findPendingConfirmation(telegramUserId: string): Promise<PendingConfirmation | null> {
+    const row = (await this.rows("Pending Confirmations", "readPendingConfirmations")).find(
+      (value) => value[1] === telegramUserId && value[7] === "PENDING",
+    );
+    return row ? pendingConfirmationFromRow(row) : null;
+  }
+
+  async updatePendingConfirmationStatus(
+    confirmationId: string,
+    status: PendingConfirmation["status"],
+  ): Promise<void> {
+    const rows = await this.rows("Pending Confirmations", "updatePendingConfirmation");
+    const index = rows.findIndex((row) => row[0] === confirmationId);
+    if (index < 0) throw new GoogleConfigurationError("Pending confirmation record is missing.");
+    const row = rows[index];
+    if (row[7] === status) return;
+    await this.client.updateValues(this.registryId(), `Pending Confirmations!A${index + 2}`, [[
+      ...row.slice(0, 7), status,
+    ]], "updatePendingConfirmation");
   }
 
   async findFamilyById(familyId: string): Promise<Family | null> {
@@ -181,6 +230,19 @@ function memberFromRow(row: string[]): FamilyMember {
     memberId: row[0], familyId: row[1], telegramUserId: row[2], name: row[3],
     username: row[4] || null, role: row[5] as FamilyMember["role"],
     status: row[6] as FamilyMember["status"], joinedAt: row[7],
+  };
+}
+
+function pendingConfirmationFromRow(row: string[]): PendingConfirmation {
+  return {
+    confirmationId: row[0],
+    telegramUserId: row[1],
+    familyId: row[2],
+    action: row[3] as PendingConfirmation["action"],
+    target: row[4],
+    createdAt: row[5],
+    expiresAt: row[6],
+    status: row[7] as PendingConfirmation["status"],
   };
 }
 

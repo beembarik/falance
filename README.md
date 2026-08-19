@@ -14,14 +14,14 @@ Implementasi saat ini berfokus pada identitas Telegram, pembuatan keluarga, unda
 | Pembuatan keluarga | Pengguna tanpa membership aktif dapat membuat keluarga melalui alur `/createfamily` dan menjadi `OWNER`. | Tersedia |
 | Invitation | `OWNER` dan `ADMIN` dapat membuat invitation code yang terikat ke keluarga actor dan memiliki masa berlaku. | Tersedia |
 | Join keluarga | Pengguna dapat bergabung menggunakan invitation code yang valid, belum digunakan, belum dicabut, dan belum kedaluwarsa. | Tersedia |
-| Daftar anggota | Pengguna aktif dapat melihat anggota aktif dari keluarganya sendiri melalui `/members`. Output menampilkan `Member ID` opaque, bukan Telegram user ID. | Tersedia |
+| Daftar anggota | Pengguna aktif dapat melihat nama keluarga dan daftar anggota aktif dari keluarganya sendiri melalui `/members`. Output menampilkan `Member ID` opaque, bukan Telegram user ID. | Tersedia |
 | Revokasi invitation | `OWNER` dan `ADMIN` dapat mencabut invitation berstatus `PENDING` dari keluarganya melalui `/revokeinvite`. | Tersedia |
 | Manajemen role | `OWNER` dapat mempromosikan atau menurunkan anggota aktif antara `MEMBER` dan `ADMIN` melalui `/changerole`. | Tersedia |
-| Deactivation anggota | `OWNER` dapat menonaktifkan anggota non-OWNER secara soft-state menjadi `SUSPENDED` melalui `/deactivate` dengan konfirmasi eksplisit. | Tersedia |
+| Deactivation anggota | `OWNER` dapat menonaktifkan anggota non-OWNER secara soft-state menjadi `SUSPENDED` melalui `/deactivate`, lalu mengonfirmasi dengan balasan `Y` atau membatalkan dengan `N`. | Tersedia |
 | Reactivation anggota | `OWNER` dapat mengaktifkan kembali membership `SUSPENDED` melalui `/reactivate` dengan `member_id` lama dan konfirmasi eksplisit. | Tersedia |
 | Penggantian nama keluarga | `OWNER` dapat mengganti nama keluarga melalui `/renamefamily`; nama dinormalisasi dan dibatasi 1–80 karakter. | Tersedia |
 | Isolasi keluarga | `family_id` selalu ditentukan server dari membership aktif atau invitation yang telah divalidasi. | Tersedia |
-| Registry Google Sheets | Satu registry pusat menggunakan worksheet `Settings`, `Families`, `Members`, `Invitations`, dan `Pending Family Creations`. | Tersedia |
+| Registry Google Sheets | Satu registry pusat menggunakan worksheet `Settings`, `Families`, `Members`, `Invitations`, `Pending Family Creations`, dan `Pending Confirmations`. | Tersedia |
 | Diagnostik aman | Error Google Sheets dicatat menggunakan operation label dan path yang telah direduksi; token, credential, spreadsheet ID, Telegram ID, dan data baris tidak dicatat. | Tersedia |
 
 ## Telegram Commands
@@ -35,11 +35,13 @@ Pesan dan error yang dikirim bot kepada pengguna menggunakan Bahasa Indonesia.
 | `/invite` | `OWNER`, `ADMIN` | Membuat invitation code baru untuk keluarga actor. Masa berlaku default adalah 24 jam dan dapat dikonfigurasi melalui environment variable. |
 | `/join <code>` | Pengguna tanpa membership aktif | Memvalidasi invitation code, membuat membership sebagai `MEMBER`, lalu menandai invitation sebagai `USED`. |
 | `/members` | `OWNER`, `ADMIN`, `MEMBER` aktif | Menampilkan anggota aktif dari keluarga actor, termasuk `Member ID`, role, status, username jika ada, dan tanggal bergabung. |
-| `/revokeinvite <code>` | `OWNER`, `ADMIN` | Mengubah invitation `PENDING` milik keluarga actor menjadi `REVOKED`. Invitation yang sudah digunakan, kedaluwarsa, atau berasal dari keluarga lain ditolak. |
+| `/revokeinvite <code>` lalu `Y`/`N` | `OWNER`, `ADMIN` | Meminta konfirmasi interaktif sebelum mengubah invitation `PENDING` menjadi `REVOKED`. Balasan `Y` menjalankan aksi, sedangkan `N` membatalkan. |
 | `/changerole <member_id_atau_username> <ADMIN\|MEMBER>` | `OWNER` | Mengubah role anggota aktif antara `MEMBER` dan `ADMIN`. Target dapat dipilih menggunakan `Member ID` dari `/members` atau username Telegram. Role `OWNER` tidak dapat diubah. |
-| `/deactivate <member_id_atau_username> CONFIRM` | `OWNER` | Mengubah status anggota aktif non-OWNER menjadi `SUSPENDED` tanpa hard deletion. Target dipilih dari keluarga actor dan token `CONFIRM` wajib diberikan. |
+| `/deactivate <member_id_atau_username>` lalu `Y`/`N` | `OWNER` | Menampilkan target dan meminta konfirmasi interaktif sebelum mengubah status menjadi `SUSPENDED`. Balasan `Y` menjalankan aksi, sedangkan `N` membatalkan. |
 | `/reactivate <member_id_atau_username> CONFIRM` | `OWNER` | Mengubah membership `SUSPENDED` menjadi `ACTIVE` menggunakan row dan `Member ID` yang sama. Target dapat dipilih melalui `Member ID` atau username Telegram, harus berasal dari keluarga actor, dan token `CONFIRM` wajib diberikan. |
 | `/renamefamily <nama_baru>` | `OWNER` | Mengganti nama keluarga pada row keluarga actor. Spasi berulang dinormalisasi dan nama harus berisi 1–80 karakter. |
+| `/archivefamily` lalu `Y`/`N` | `OWNER` | Meminta konfirmasi interaktif sebelum mengubah status keluarga menjadi `SUSPENDED` tanpa menghapus row atau data. Balasan `Y` menjalankan aksi, sedangkan `N` membatalkan. |
+| `/reactivatefamily CONFIRM` | `OWNER` | Mengubah status keluarga `SUSPENDED` kembali menjadi `ACTIVE` tanpa membuat family ID baru. |
 
 Contoh penggunaan role management dan member lifecycle:
 
@@ -47,8 +49,13 @@ Contoh penggunaan role management dan member lifecycle:
 /members
 /changerole mem_abc123 ADMIN
 /changerole @nama_pengguna MEMBER
-/deactivate mem_abc123 CONFIRM
+/deactivate mem_abc123
+Y
 /reactivate @nama_pengguna CONFIRM
+/renamefamily Keluarga Baru
+/archivefamily
+Y
+/reactivatefamily CONFIRM
 ```
 
 `Member ID` adalah identifier internal opaque yang digunakan untuk memilih anggota tanpa menampilkan Telegram user ID. Untuk anggota yang tidak memiliki username Telegram, gunakan `Member ID` yang ditampilkan oleh `/members`.
@@ -66,7 +73,9 @@ Role disimpan pada worksheet `Members` dan divalidasi pada service layer. Pembat
 | Menjadi target perubahan role | Tidak untuk perubahan role langsung | Ya, dapat diubah menjadi `MEMBER` | Ya, dapat diubah menjadi `ADMIN` |
 | Mengubah role `OWNER` | Tidak | Tidak | Tidak |
 | Menonaktifkan anggota non-OWNER | Ya | Tidak | Tidak |
+| Mengarsipkan sementara keluarga | Ya | Tidak | Tidak |
 | Mengaktifkan kembali anggota `SUSPENDED` | Ya | Tidak | Tidak |
+| Mengaktifkan kembali keluarga `SUSPENDED` | Ya | Tidak | Tidak |
 | Mengubah nama keluarga | Ya | Tidak | Tidak |
 
 Pada tahap laporan yang direncanakan, `OWNER` dan `ADMIN` akan memiliki akses export CSV, print, dan PDF. `MEMBER` hanya akan dapat melihat laporan melalui Telegram atau Mini App; fitur tersebut belum tersedia pada versi saat ini.
@@ -92,6 +101,7 @@ Lapisan domain bergantung pada kontrak `FamilyRepository`. Implementasi saat ini
 | `Members` | Membership aktif maupun historis, termasuk `member_id`, `family_id`, Telegram identity, role, status, dan waktu bergabung. |
 | `Invitations` | Invitation code yang terikat ke `family_id`, status, masa berlaku, serta informasi penggunaan. |
 | `Pending Family Creations` | Pending request sementara untuk alur pembuatan keluarga. |
+| `Pending Confirmations` | Pending Y/N confirmation untuk operasi destruktif; status dan expiry disimpan server-side agar aman pada webhook stateless. |
 
 `Transactions`, `Categories`, `Accounts`, dan `Audit Log` belum dibuat pada milestone saat ini.
 
@@ -132,7 +142,9 @@ Falancé menerapkan batas keamanan berikut:
 - Role check dilakukan di `FamilyService`, bukan hanya pada command handler.
 - `OWNER` tidak dapat diubah melalui role-management flow.
 - Target perubahan role atau deactivation harus merupakan anggota aktif dari keluarga actor.
-- Deactivation menggunakan soft-state `SUSPENDED`, bukan hard deletion, dan membutuhkan `CONFIRM`.
+- Deactivation menggunakan soft-state `SUSPENDED`, bukan hard deletion, dan membutuhkan konfirmasi interaktif `Y`/`N`.
+- Revokasi invitation dan archival keluarga juga menggunakan pending confirmation interaktif `Y`/`N` dengan masa berlaku lima menit.
+- Archival keluarga menggunakan status `SUSPENDED`, mempertahankan row dan seluruh data, serta dapat dipulihkan OWNER dengan `/reactivatefamily CONFIRM`.
 - Reactivation hanya dapat dilakukan OWNER terhadap row `SUSPENDED`, menggunakan `member_id` lama, dan membutuhkan `CONFIRM`.
 - Penggantian nama keluarga hanya dapat dilakukan OWNER; `family_id` tetap ditentukan dari membership actor dan nama dinormalisasi dengan batas 80 karakter.
 - Error log tidak boleh memuat spreadsheet ID, bearer token, private key, Telegram user ID, family name, row value, atau request body.
@@ -181,15 +193,13 @@ npm run build
 git diff --check
 ```
 
-Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, member reactivation with identity preservation, family-name update authorization and persistence, perlindungan role `OWNER`, explicit confirmation, redacted Google diagnostics, registry initialization caching, dan perlindungan agar Telegram user ID tidak muncul pada output `/members`.
+Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, member reactivation with identity preservation, family-name update authorization and persistence, soft family archival/reactivation, pending Y/N confirmation, cancellation, no-pending guard, perlindungan role `OWNER`, redacted Google diagnostics, registry initialization caching, dan perlindungan agar Telegram user ID tidak muncul pada output `/members`.
 
 ## Roadmap Saat Ini
 
 Milestone 3 — **Family Management and Administration** — masih berjalan. Fitur yang masih direncanakan meliputi:
 
-- penggantian nama keluarga oleh OWNER;
-- archival atau deactivation keluarga tanpa hard deletion;
-- konfirmasi eksplisit untuk operasi destruktif atau perubahan privilege;
+- konfirmasi lengkap untuk seluruh operasi privilege-changing;
 - invariants lengkap untuk lifecycle anggota dan OWNER terakhir;
 - audit fields atau audit-log boundary.
 

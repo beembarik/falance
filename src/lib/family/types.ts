@@ -4,8 +4,17 @@ export type MemberRole = (typeof MEMBER_ROLES)[number];
 export const MEMBER_STATUSES = ["ACTIVE", "SUSPENDED", "LEFT"] as const;
 export type MemberStatus = (typeof MEMBER_STATUSES)[number];
 
+export const FAMILY_STATUSES = ["ACTIVE", "SUSPENDED"] as const;
+export type FamilyStatus = (typeof FAMILY_STATUSES)[number];
+
 export const INVITATION_STATUSES = ["PENDING", "USED", "EXPIRED", "REVOKED"] as const;
 export type InvitationStatus = (typeof INVITATION_STATUSES)[number];
+
+export const CONFIRMATION_ACTIONS = ["REVOKE_INVITATION", "DEACTIVATE_MEMBER", "ARCHIVE_FAMILY"] as const;
+export type ConfirmationAction = (typeof CONFIRMATION_ACTIONS)[number];
+
+export const CONFIRMATION_STATUSES = ["PENDING", "COMPLETED", "CANCELLED", "EXPIRED"] as const;
+export type ConfirmationStatus = (typeof CONFIRMATION_STATUSES)[number];
 
 export interface TelegramUser {
   telegramUserId: string;
@@ -16,7 +25,7 @@ export interface TelegramUser {
 export interface Family {
   familyId: string;
   familyName: string;
-  status: "ACTIVE" | "SUSPENDED";
+  status: FamilyStatus;
   createdAt: string;
   createdBy: string;
   plan: string;
@@ -40,6 +49,17 @@ export interface Invitation {
   status: InvitationStatus;
   usedBy: string | null;
   usedAt: string | null;
+}
+
+export interface PendingConfirmation {
+  confirmationId: string;
+  telegramUserId: string;
+  familyId: string;
+  action: ConfirmationAction;
+  target: string;
+  createdAt: string;
+  expiresAt: string;
+  status: ConfirmationStatus;
 }
 
 export interface PendingFamilyCreation {

@@ -4,13 +4,15 @@ import test from "node:test";
 import type { FamilyRepository } from "../src/lib/family/repository";
 import {
   AlreadyRegisteredError,
+  ConfirmationError,
+  FamilyLifecycleError,
   FamilyNameError,
   FamilyService,
   InvitationError,
   MemberManagementError,
   UnauthorizedError,
 } from "../src/lib/family/service";
-import type { Family, FamilyMember, Invitation, PendingFamilyCreation, TelegramUser } from "../src/lib/family/types";
+import type { Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, TelegramUser } from "../src/lib/family/types";
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
 const member: TelegramUser = { telegramUserId: "200", name: "Member", username: null };
@@ -59,6 +61,44 @@ test("rejects family-name updates by non-OWNER and invalid names", async () => {
     new FamilyService(setupMember("OWNER")).updateFamilyName(owner, "x".repeat(81)),
     FamilyNameError,
   );
+});
+
+test("OWNER can archive and reactivate a family without deleting its row", async () => {
+  const repository = setupMember("OWNER");
+  const service = new FamilyService(repository);
+
+  const pendingArchive = await service.requestFamilyArchive(owner);
+  assert.equal(pendingArchive.status, "PENDING");
+  const archivedResult = await service.confirmPendingAction(owner);
+  assert.equal(archivedResult.action, "ARCHIVE_FAMILY");
+  const archived = repository.families[0];
+  assert.equal(archived.status, "SUSPENDED");
+  assert.equal(repository.families[0].status, "SUSPENDED");
+  await assert.rejects(service.listFamilyMembers(owner.telegramUserId), UnauthorizedError);
+
+  const reactivated = await service.reactivateFamily(owner, "confirm");
+  assert.equal(reactivated.status, "ACTIVE");
+  assert.equal(repository.families[0].status, "ACTIVE");
+  assert.deepEqual((await service.listFamilyMembers(owner.telegramUserId)).map((value) => value.memberId), ["mem_100"]);
+});
+
+test("rejects unsafe family archival and reactivation attempts", async () => {
+  await assert.rejects(
+    new FamilyService(setupMember("ADMIN")).requestFamilyArchive(owner),
+    UnauthorizedError,
+  );
+  await assert.rejects(
+    new FamilyService(setupMember("OWNER")).confirmPendingAction(owner),
+    ConfirmationError,
+  );
+
+  const repository = setupMember("OWNER");
+  const service = new FamilyService(repository);
+  await assert.rejects(service.reactivateFamily(owner, "CONFIRM"), FamilyLifecycleError);
+  await service.requestFamilyArchive(owner);
+  await service.cancelPendingConfirmation(owner);
+  assert.equal(repository.confirmations[0].status, "CANCELLED");
+  assert.equal(repository.families[0].status, "ACTIVE");
 });
 
 test("OWNER and ADMIN can create invitations but MEMBER cannot", async () => {
@@ -124,7 +164,7 @@ test("rejects a foreign family_id at the service authorization boundary", async 
     service.requireAuthorizedFamily(member.telegramUserId, "fam_2"),
     UnauthorizedError,
   );
-  assert.deepEqual(repository.familyLookupIds, []);
+  assert.deepEqual(repository.familyLookupIds, ["fam_1", "fam_1"]);
 
   assert.equal(
     (await service.requireAuthorizedFamily(owner.telegramUserId, "fam_1")).familyId,
@@ -146,7 +186,8 @@ test("OWNER and ADMIN can revoke only pending invitations in their own family", 
     const service = new FamilyService(repository);
     const created = await service.createInvitation(owner);
 
-    await service.revokeInvitation(owner, created.code);
+    await service.requestInvitationRevocation(owner, created.code);
+    await service.confirmPendingAction(owner);
 
     assert.equal(repository.invitations[0].status, "REVOKED");
   }
@@ -154,7 +195,7 @@ test("OWNER and ADMIN can revoke only pending invitations in their own family", 
   const memberRepository = setupMember("MEMBER");
   memberRepository.invitations.push(invitation("FAL-MEMBER-REV", "PENDING"));
   await assert.rejects(
-    new FamilyService(memberRepository).revokeInvitation(owner, "FAL-MEMBER-REV"),
+    new FamilyService(memberRepository).requestInvitationRevocation(owner, "FAL-MEMBER-REV"),
     UnauthorizedError,
   );
   assert.equal(memberRepository.invitations[0].status, "PENDING");
@@ -217,11 +258,26 @@ test("OWNER can deactivate an active non-OWNER member using explicit confirmatio
   );
   const service = new FamilyService(repository);
 
-  await service.deactivateMember(owner, "mem_200", "confirm");
+  await service.requestMemberDeactivation(owner, "mem_200");
+  const result = await service.confirmPendingAction(owner);
 
+  assert.equal(result.action, "DEACTIVATE_MEMBER");
   assert.equal(repository.members.find((value) => value.memberId === "mem_200")?.status, "SUSPENDED");
   assert.equal(await service.getActiveMembership(member.telegramUserId), null);
   assert.deepEqual((await service.listFamilyMembers(owner.telegramUserId)).map((value) => value.memberId), ["mem_100"]);
+});
+
+test("expires pending member deactivation without changing member status", async () => {
+  const repository = setupMember("OWNER");
+  repository.members.push(activeMember("fam_1", member, "MEMBER"));
+  const service = new FamilyService(repository);
+
+  await service.requestMemberDeactivation(owner, "mem_200");
+  repository.confirmations[0].expiresAt = "2020-01-01T00:00:00.000Z";
+
+  await assert.rejects(service.confirmPendingAction(owner), ConfirmationError);
+  assert.equal(repository.confirmations[0].status, "EXPIRED");
+  assert.equal(repository.members.find((value) => value.memberId === "mem_200")?.status, "ACTIVE");
 });
 
 test("rejects unsafe member deactivation targets and missing confirmation", async () => {
@@ -237,20 +293,19 @@ test("rejects unsafe member deactivation targets and missing confirmation", asyn
   );
   const service = new FamilyService(repository);
 
+  await service.requestMemberDeactivation(owner, "mem_200");
+  await service.cancelPendingConfirmation(owner);
+  assert.equal(repository.members.find((value) => value.memberId === "mem_200")?.status, "ACTIVE");
   await assert.rejects(
-    service.deactivateMember(owner, "mem_200", "REMOVE"),
+    service.requestMemberDeactivation(owner, "mem_100"),
     MemberManagementError,
   );
   await assert.rejects(
-    service.deactivateMember(owner, "mem_100", "CONFIRM"),
-    MemberManagementError,
-  );
-  await assert.rejects(
-    service.deactivateMember(member, "mem_200", "CONFIRM"),
+    service.requestMemberDeactivation(member, "mem_200"),
     UnauthorizedError,
   );
   await assert.rejects(
-    service.deactivateMember(owner, "mem_400", "CONFIRM"),
+    service.requestMemberDeactivation(owner, "mem_400"),
     MemberManagementError,
   );
 
@@ -319,12 +374,12 @@ test("rejects revoking a foreign or already-consumed invitation", async () => {
   repository.invitations.push({ ...invitation("FAL-FOREIGN", "PENDING"), familyId: "fam_2" });
   const service = new FamilyService(repository);
 
-  await assert.rejects(service.revokeInvitation(owner, "FAL-FOREIGN"), InvitationError);
+  await assert.rejects(service.requestInvitationRevocation(owner, "FAL-FOREIGN"), InvitationError);
   assert.equal(repository.invitations.at(-1)?.status, "PENDING");
 
   const used = await service.createInvitation(owner);
   used.status = "USED";
-  await assert.rejects(service.revokeInvitation(owner, used.code), InvitationError);
+  await assert.rejects(service.requestInvitationRevocation(owner, used.code), InvitationError);
 });
 
 test("joins a valid invitation once and marks it used", async () => {
@@ -415,6 +470,7 @@ class FakeFamilyRepository implements FamilyRepository {
   members: FamilyMember[] = [];
   invitations: Invitation[] = [];
   pending: Array<PendingFamilyCreation & { status: "PENDING" | "COMPLETED" }> = [];
+  confirmations: PendingConfirmation[] = [];
   failMemberCreation = false;
   spreadsheetCreationCalls = 0;
 
@@ -424,6 +480,21 @@ class FakeFamilyRepository implements FamilyRepository {
   async updateFamilyName(familyId: string, familyName: string) {
     const value = this.families.find((familyValue) => familyValue.familyId === familyId);
     if (value) value.familyName = familyName;
+  }
+  async updateFamilyStatus(familyId: string, status: Family["status"]) {
+    const value = this.families.find((familyValue) => familyValue.familyId === familyId);
+    if (value) value.status = status;
+  }
+  async createPendingConfirmation(value: PendingConfirmation) {
+    this.confirmations = this.confirmations.filter((candidate) => candidate.telegramUserId !== value.telegramUserId);
+    this.confirmations.push(value);
+  }
+  async findPendingConfirmation(telegramUserId: string) {
+    return this.confirmations.find((value) => value.telegramUserId === telegramUserId && value.status === "PENDING") ?? null;
+  }
+  async updatePendingConfirmationStatus(confirmationId: string, status: PendingConfirmation["status"]) {
+    const value = this.confirmations.find((candidate) => candidate.confirmationId === confirmationId);
+    if (value) value.status = status;
   }
   async findFamilyById(id: string) {
     this.familyLookupIds.push(id);

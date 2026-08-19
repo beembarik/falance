@@ -2,10 +2,12 @@ import { randomUUID } from "node:crypto";
 
 import type { FamilyRepository } from "./repository";
 import type {
+  ConfirmationAction,
   Family,
   FamilyMember,
   Invitation,
   MemberRole,
+  PendingConfirmation,
   TelegramUser,
 } from "./types";
 
@@ -19,6 +21,14 @@ export class UnauthorizedError extends FamilyServiceError {}
 export class InvitationError extends FamilyServiceError {}
 export class MemberManagementError extends FamilyServiceError {}
 export class FamilyNameError extends FamilyServiceError {}
+export class ConfirmationError extends FamilyServiceError {}
+export class FamilyLifecycleError extends FamilyServiceError {}
+
+export interface ConfirmationResult {
+  action: ConfirmationAction;
+  targetName?: string;
+  familyName?: string;
+}
 
 export class FamilyService {
   private readonly repository: FamilyRepository;
@@ -29,6 +39,15 @@ export class FamilyService {
 
   async getActiveMembership(telegramUserId: string): Promise<FamilyMember | null> {
     return this.repository.findActiveMemberByTelegramUserId(telegramUserId);
+  }
+
+  async getActiveFamily(telegramUserId: string): Promise<Family> {
+    const member = await this.requireActiveMember(telegramUserId);
+    const family = await this.repository.findFamilyById(member.familyId);
+    if (!family || family.status !== "ACTIVE") {
+      throw new UnauthorizedError("Family is unavailable.");
+    }
+    return family;
   }
 
   async beginFamilyCreation(user: TelegramUser): Promise<void> {
@@ -167,7 +186,7 @@ export class FamilyService {
     return invitation;
   }
 
-  async revokeInvitation(user: TelegramUser, code: string): Promise<void> {
+  async requestInvitationRevocation(user: TelegramUser, code: string): Promise<PendingConfirmation> {
     const member = await this.requireActiveMember(user.telegramUserId);
     if (member.role !== "OWNER" && member.role !== "ADMIN") {
       throw new UnauthorizedError("Only owners and admins can revoke invitations.");
@@ -181,7 +200,59 @@ export class FamilyService {
       throw new InvitationError("Only pending invitations can be revoked.");
     }
 
+    return this.createPendingConfirmation(user, member.familyId, "REVOKE_INVITATION", invitation.code);
+  }
+
+  private async revokeInvitationDirect(user: TelegramUser, code: string): Promise<void> {
+    const member = await this.requireActiveMember(user.telegramUserId);
+    if (member.role !== "OWNER" && member.role !== "ADMIN") {
+      throw new UnauthorizedError("Only owners and admins can revoke invitations.");
+    }
+    const invitation = await this.repository.findInvitationByCode(normalizeInvitationCode(code));
+    if (!invitation || invitation.familyId !== member.familyId || invitation.status !== "PENDING") {
+      throw new InvitationError("Invitation is invalid.");
+    }
     await this.repository.revokeInvitation(invitation.invitationId);
+  }
+
+  async hasPendingConfirmation(telegramUserId: string): Promise<boolean> {
+    const pending = await this.repository.findPendingConfirmation(telegramUserId);
+    return Boolean(pending && new Date(pending.expiresAt) > new Date());
+  }
+
+  async cancelPendingConfirmation(user: TelegramUser): Promise<void> {
+    const pending = await this.repository.findPendingConfirmation(user.telegramUserId);
+    if (!pending) throw new ConfirmationError("No pending confirmation exists.");
+    await this.repository.updatePendingConfirmationStatus(pending.confirmationId, "CANCELLED");
+  }
+
+  async confirmPendingAction(user: TelegramUser): Promise<ConfirmationResult> {
+    const pending = await this.repository.findPendingConfirmation(user.telegramUserId);
+    if (!pending) throw new ConfirmationError("No pending confirmation exists.");
+    if (new Date(pending.expiresAt) <= new Date()) {
+      await this.repository.updatePendingConfirmationStatus(pending.confirmationId, "EXPIRED");
+      throw new ConfirmationError("The pending confirmation has expired.");
+    }
+
+    const member = await this.requireMember(user.telegramUserId);
+    if (member.familyId !== pending.familyId) {
+      throw new UnauthorizedError("Confirmation family does not match the active membership.");
+    }
+
+    let result: ConfirmationResult;
+    if (pending.action === "REVOKE_INVITATION") {
+      await this.revokeInvitationDirect(user, pending.target);
+      result = { action: pending.action };
+    } else if (pending.action === "DEACTIVATE_MEMBER") {
+      const target = await this.deactivateMemberDirect(user, pending.target);
+      result = { action: pending.action, targetName: target.name };
+    } else {
+      const family = await this.archiveFamilyDirect(user);
+      result = { action: pending.action, familyName: family.familyName };
+    }
+
+    await this.repository.updatePendingConfirmationStatus(pending.confirmationId, "COMPLETED");
+    return result;
   }
 
   async changeMemberRole(
@@ -219,35 +290,66 @@ export class FamilyService {
     await this.repository.updateMemberRole(target.memberId, newRole);
   }
 
-  async deactivateMember(
-    actor: TelegramUser,
-    targetMemberId: string,
-    confirmation: string,
-  ): Promise<void> {
+  async requestMemberDeactivation(actor: TelegramUser, targetMemberId: string): Promise<PendingConfirmation> {
     const actorMember = await this.requireActiveMember(actor.telegramUserId);
     if (actorMember.role !== "OWNER") {
       throw new UnauthorizedError("Only the owner can deactivate members.");
     }
+    const family = await this.requireActiveFamily(actorMember.familyId);
+    const target = (await this.repository.findMembersByFamilyId(family.familyId)).find(
+      (candidate) => candidate.memberId === targetMemberId && candidate.status === "ACTIVE",
+    );
+    if (!target) throw new MemberManagementError("Member is not found in the active family.");
+    if (target.role === "OWNER") throw new MemberManagementError("The OWNER role cannot be deactivated.");
+    return this.createPendingConfirmation(actor, family.familyId, "DEACTIVATE_MEMBER", target.memberId);
+  }
+
+  private async deactivateMemberDirect(actor: TelegramUser, targetMemberId: string): Promise<FamilyMember> {
+    const actorMember = await this.requireActiveMember(actor.telegramUserId);
+    if (actorMember.role !== "OWNER") throw new UnauthorizedError("Only the owner can deactivate members.");
+    const family = await this.requireActiveFamily(actorMember.familyId);
+    const target = (await this.repository.findMembersByFamilyId(family.familyId)).find(
+      (candidate) => candidate.memberId === targetMemberId && candidate.status === "ACTIVE",
+    );
+    if (!target) throw new MemberManagementError("Member is not found in the active family.");
+    if (target.role === "OWNER") throw new MemberManagementError("The OWNER role cannot be deactivated.");
+    await this.repository.updateMemberStatus(target.memberId, "SUSPENDED");
+    return target;
+  }
+
+  async requestFamilyArchive(actor: TelegramUser): Promise<PendingConfirmation> {
+    const actorMember = await this.requireMember(actor.telegramUserId);
+    if (actorMember.role !== "OWNER") {
+      throw new UnauthorizedError("Only the owner can archive the family.");
+    }
+    const family = await this.requireActiveFamily(actorMember.familyId);
+    return this.createPendingConfirmation(actor, family.familyId, "ARCHIVE_FAMILY", family.familyId);
+  }
+
+  private async archiveFamilyDirect(actor: TelegramUser): Promise<Family> {
+    const actorMember = await this.requireMember(actor.telegramUserId);
+    if (actorMember.role !== "OWNER") throw new UnauthorizedError("Only the owner can archive the family.");
+    const family = await this.requireActiveFamily(actorMember.familyId);
+    await this.repository.updateFamilyStatus(family.familyId, "SUSPENDED");
+    return { ...family, status: "SUSPENDED" };
+  }
+
+  async reactivateFamily(actor: TelegramUser, confirmation: string): Promise<Family> {
+    const actorMember = await this.requireMember(actor.telegramUserId);
+    if (actorMember.role !== "OWNER") {
+      throw new UnauthorizedError("Only the owner can reactivate the family.");
+    }
     if (confirmation.trim().toUpperCase() !== "CONFIRM") {
-      throw new MemberManagementError("Explicit confirmation is required.");
+      throw new ConfirmationError("Explicit confirmation is required.");
     }
 
     const family = await this.repository.findFamilyById(actorMember.familyId);
-    if (!family || family.status !== "ACTIVE") {
-      throw new UnauthorizedError("Family is unavailable.");
+    if (!family || family.status !== "SUSPENDED") {
+      throw new FamilyLifecycleError("Suspended family is not found.");
     }
 
-    const target = (await this.repository.findMembersByFamilyId(actorMember.familyId)).find(
-      (candidate) => candidate.memberId === targetMemberId && candidate.status === "ACTIVE",
-    );
-    if (!target) {
-      throw new MemberManagementError("Member is not found in the active family.");
-    }
-    if (target.role === "OWNER") {
-      throw new MemberManagementError("The OWNER role cannot be deactivated.");
-    }
-
-    await this.repository.updateMemberStatus(target.memberId, "SUSPENDED");
+    await this.repository.updateFamilyStatus(actorMember.familyId, "ACTIVE");
+    return { ...family, status: "ACTIVE" };
   }
 
   async reactivateMember(
@@ -323,10 +425,48 @@ export class FamilyService {
     return family;
   }
 
-  private async requireActiveMember(telegramUserId: string): Promise<FamilyMember> {
+  private async createPendingConfirmation(
+    user: TelegramUser,
+    familyId: string,
+    action: ConfirmationAction,
+    target: string,
+  ): Promise<PendingConfirmation> {
+    const createdAt = new Date();
+    const pending: PendingConfirmation = {
+      confirmationId: createId("confirm"),
+      telegramUserId: user.telegramUserId,
+      familyId,
+      action,
+      target,
+      createdAt: createdAt.toISOString(),
+      expiresAt: new Date(createdAt.getTime() + 5 * 60 * 1000).toISOString(),
+      status: "PENDING",
+    };
+    await this.repository.createPendingConfirmation(pending);
+    return pending;
+  }
+
+  private async requireActiveFamily(familyId: string): Promise<Family> {
+    const family = await this.repository.findFamilyById(familyId);
+    if (!family || family.status !== "ACTIVE") {
+      throw new UnauthorizedError("Family is unavailable.");
+    }
+    return family;
+  }
+
+  private async requireMember(telegramUserId: string): Promise<FamilyMember> {
     const member = await this.getActiveMembership(telegramUserId);
     if (!member) {
       throw new UnauthorizedError("User is not an active member.");
+    }
+    return member;
+  }
+
+  private async requireActiveMember(telegramUserId: string): Promise<FamilyMember> {
+    const member = await this.requireMember(telegramUserId);
+    const family = await this.repository.findFamilyById(member.familyId);
+    if (!family || family.status !== "ACTIVE") {
+      throw new UnauthorizedError("Family is unavailable.");
     }
     return member;
   }
@@ -355,6 +495,7 @@ function createId(prefix: string): string {
 function createInvitationCode(): string {
   return `FAL-${randomUUID().replaceAll("-", "").slice(0, 6).toUpperCase()}`;
 }
+
 
 function normalizeFamilyName(value: string): string {
   const name = value.trim().replaceAll(/\s+/g, " ");

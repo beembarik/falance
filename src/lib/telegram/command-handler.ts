@@ -1,13 +1,16 @@
 import {
   AlreadyRegisteredError,
   FamilyService,
+  type ConfirmationResult,
+  ConfirmationError,
+  FamilyLifecycleError,
   FamilyNameError,
   FamilyServiceError,
   InvitationError,
   MemberManagementError,
   UnauthorizedError,
-} from "@/lib/family/service";
-import type { FamilyMember, MemberRole, TelegramUser } from "@/lib/family/types";
+} from "../family/service";
+import type { FamilyMember, MemberRole, TelegramUser } from "../family/types";
 import { formatMembersMessage } from "./member-message";
 
 const UNREGISTERED_START = `👋 Halo! Selamat datang di Falancé.
@@ -26,6 +29,13 @@ export async function handleTelegramTextMessage(
   const command = text.trim();
   try {
     if (command === "/start") return startMessage(await service.getActiveMembership(user.telegramUserId));
+    if ((command.toUpperCase() === "Y" || command.toUpperCase() === "N") && await service.hasPendingConfirmation(user.telegramUserId)) {
+      if (command.toUpperCase() === "Y") {
+        return confirmationResultMessage(await service.confirmPendingAction(user));
+      }
+      await service.cancelPendingConfirmation(user);
+      return "✅ Operasi dibatalkan.";
+    }
     if (command === "/createfamily") {
       await service.beginFamilyCreation(user);
       return "🏠 Mari buat keluarga baru.\n\nSilakan kirim nama keluarga.";
@@ -35,13 +45,14 @@ export async function handleTelegramTextMessage(
       return `✅ Invitation berhasil dibuat.\n\nKode: ${invitation.code}\nBerlaku sampai: ${new Date(invitation.expiresAt).toLocaleString("id-ID")}`;
     }
     if (command === "/members") {
-      return formatMembersMessage(await service.listFamilyMembers(user.telegramUserId));
+      const family = await service.getActiveFamily(user.telegramUserId);
+      return formatMembersMessage(family.familyName, await service.listFamilyMembers(user.telegramUserId));
     }
     if (command.startsWith("/revokeinvite")) {
       const code = command.slice("/revokeinvite".length).trim();
       if (!code) return "Format tidak valid. Gunakan: /revokeinvite FAL-XXXXXX";
-      await service.revokeInvitation(user, code);
-      return "✅ Invitation berhasil dicabut.";
+      await service.requestInvitationRevocation(user, code);
+      return "⚠️ Apakah kamu ingin mencabut invitation ini?\n\nBalas Y untuk melanjutkan atau N untuk membatalkan. Konfirmasi berlaku 5 menit.";
     }
     if (command.startsWith("/changerole")) {
       const args = command.slice("/changerole".length).trim().split(/\s+/).filter(Boolean);
@@ -59,13 +70,28 @@ export async function handleTelegramTextMessage(
     }
     if (command.startsWith("/deactivate")) {
       const args = command.slice("/deactivate".length).trim().split(/\s+/).filter(Boolean);
-      if (args.length !== 2) return "Format tidak valid. Gunakan: /deactivate <member_id_atau_username> CONFIRM";
+      if (args.length !== 1) return "Format tidak valid. Gunakan: /deactivate <member_id_atau_username>";
 
       const target = await findRoleChangeTarget(service, user, args[0]);
       if (!target) return "Anggota tidak ditemukan dalam keluarga aktif kamu.";
 
-      await service.deactivateMember(user, target.memberId, args[1]);
-      return `✅ Anggota ${target.name} berhasil dinonaktifkan.`;
+      await service.requestMemberDeactivation(user, target.memberId);
+      return `⚠️ Apakah kamu ingin menonaktifkan anggota ${target.name}?\n\nBalas Y untuk melanjutkan atau N untuk membatalkan. Konfirmasi berlaku 5 menit.`;
+    }
+    if (command.startsWith("/archivefamily")) {
+      const args = command.slice("/archivefamily".length).trim().split(/\s+/).filter(Boolean);
+      if (args.length !== 0) return "Format tidak valid. Gunakan: /archivefamily";
+
+      const family = await service.getActiveFamily(user.telegramUserId);
+      await service.requestFamilyArchive(user);
+      return `⚠️ Apakah kamu ingin mengarsipkan keluarga ${family.familyName}?\n\nBalas Y untuk melanjutkan atau N untuk membatalkan. Konfirmasi berlaku 5 menit.`;
+    }
+    if (command.startsWith("/reactivatefamily")) {
+      const args = command.slice("/reactivatefamily".length).trim().split(/\s+/).filter(Boolean);
+      if (args.length !== 1) return "Format tidak valid. Gunakan: /reactivatefamily CONFIRM";
+
+      const family = await service.reactivateFamily(user, args[0]);
+      return `✅ Keluarga ${family.familyName} berhasil diaktifkan kembali.`;
     }
     if (command.startsWith("/reactivate")) {
       const args = command.slice("/reactivate".length).trim().split(/\s+/).filter(Boolean);
@@ -119,11 +145,19 @@ async function findRoleChangeTarget(
   ) ?? null;
 }
 
+function confirmationResultMessage(result: ConfirmationResult): string {
+  if (result.action === "REVOKE_INVITATION") return "✅ Invitation berhasil dicabut.";
+  if (result.action === "DEACTIVATE_MEMBER") return `✅ Anggota ${result.targetName ?? "target"} berhasil dinonaktifkan.`;
+  return `✅ Keluarga ${result.familyName ?? "target"} berhasil diarsipkan sementara.`;
+}
+
 function messageForError(error: unknown): string {
   if (error instanceof AlreadyRegisteredError) return "Kamu sudah terdaftar dalam keluarga aktif.";
   if (error instanceof UnauthorizedError) return "Kamu tidak memiliki izin untuk menjalankan perintah ini.";
   if (error instanceof InvitationError) return "Invitation tidak valid, sudah digunakan, dicabut, atau kedaluwarsa.";
   if (error instanceof FamilyNameError) return "Nama keluarga tidak valid. Gunakan nama 1–80 karakter.";
+  if (error instanceof ConfirmationError) return "Tidak ada konfirmasi pending yang dapat diproses, atau konfirmasi sudah kedaluwarsa.";
+  if (error instanceof FamilyLifecycleError) return "Status keluarga tidak memungkinkan operasi ini.";
   if (error instanceof MemberManagementError) return "Perubahan anggota tidak dapat diproses. Pastikan target memiliki status yang sesuai dan gunakan konfirmasi CONFIRM.";
   if (error instanceof FamilyServiceError) return "Permintaan tidak dapat diproses. Gunakan /createfamily untuk memulai kembali.";
   return "Terjadi gangguan saat memproses permintaan. Silakan coba lagi.";
