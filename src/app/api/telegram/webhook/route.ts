@@ -13,6 +13,7 @@ import {
 } from "@/lib/telegram/command-handler";
 import { usesTelegramHtml } from "@/lib/telegram/html";
 import type { TelegramPhotoSize } from "@/lib/telegram/client";
+import { logDuration, measureDuration } from "@/lib/observability/timing";
 
 interface TelegramUpdate {
   update_id: number;
@@ -50,6 +51,7 @@ export async function GET(): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const requestStartedAt = performance.now();
   let payload: unknown;
 
   try {
@@ -76,17 +78,25 @@ export async function POST(request: Request): Promise<Response> {
       callbackFrom &&
       typeof callbackFrom.id === "number"
     ) {
+      const handlerStartedAt = performance.now();
       const response = await handleTelegramCallbackQuery(
         service,
         toTelegramUser(callbackFrom),
         callback.data,
       );
+      const handlerDurationMs = measureDuration(handlerStartedAt);
+      const deliveryStartedAt = performance.now();
       await answerTelegramCallbackQuery(callback.id);
       await sendTelegramMessage({
         chatId: callbackChatId,
         text: response.text,
         ...(usesTelegramHtml(response.text) ? { parseMode: "HTML" as const } : {}),
         ...(response.replyMarkup ? { replyMarkup: response.replyMarkup } : {}),
+      });
+      logDuration("telegram.update", measureDuration(requestStartedAt), {
+        updateType: "callback_query",
+        handlerMs: handlerDurationMs,
+        deliveryMs: measureDuration(deliveryStartedAt),
       });
       return Response.json({ ok: true });
     }
@@ -105,39 +115,58 @@ export async function POST(request: Request): Promise<Response> {
           ? [{ fileId: item.file_id, width: item.width, height: item.height, ...(typeof item.file_size === "number" ? { fileSize: item.file_size } : {}) }]
           : []
       ));
+      const handlerStartedAt = performance.now();
       const response = await handleTelegramPhotoMessageResponse(
         service,
         toTelegramUser(from),
         photo,
         typeof caption === "string" ? caption : null,
       );
+      const handlerDurationMs = measureDuration(handlerStartedAt);
       const responseText = typeof response === "string" ? response : response.text;
+      const deliveryStartedAt = performance.now();
       await sendTelegramMessage({
         chatId,
         text: responseText,
         ...(usesTelegramHtml(responseText) ? { parseMode: "HTML" as const } : {}),
         ...(typeof response !== "string" && response.replyMarkup ? { replyMarkup: response.replyMarkup } : {}),
       });
+      logDuration("telegram.update", measureDuration(requestStartedAt), {
+        updateType: "photo",
+        handlerMs: handlerDurationMs,
+        deliveryMs: measureDuration(deliveryStartedAt),
+      });
       return Response.json({ ok: true });
     }
 
     if (typeof text !== "string") return Response.json({ ok: true, ignored: true });
 
+    const handlerStartedAt = performance.now();
     const response = await handleTelegramTextMessageResponse(
       service,
       toTelegramUser(from),
       text,
     );
+    const handlerDurationMs = measureDuration(handlerStartedAt);
     const responseText = typeof response === "string" ? response : response.text;
+    const deliveryStartedAt = performance.now();
     await sendTelegramMessage({
       chatId,
       text: responseText,
       ...(usesTelegramHtml(responseText) ? { parseMode: "HTML" as const } : {}),
       ...(typeof response !== "string" && response.replyMarkup ? { replyMarkup: response.replyMarkup } : {}),
     });
+    logDuration("telegram.update", measureDuration(requestStartedAt), {
+      updateType: "text",
+      handlerMs: handlerDurationMs,
+      deliveryMs: measureDuration(deliveryStartedAt),
+    });
 
     return Response.json({ ok: true });
   } catch (error) {
+    logDuration("telegram.update.error", measureDuration(requestStartedAt), {
+      errorType: error instanceof Error ? error.name : "unknown",
+    });
     if (error instanceof TelegramConfigurationError) {
       return Response.json({ error: "Service unavailable." }, { status: 503 });
     }

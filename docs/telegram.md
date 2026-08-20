@@ -72,9 +72,17 @@ Milestone 6 accepts non-command natural-language transaction text from active me
 
 Milestone 7 photo messages are accepted only from users with an active server-resolved membership. The webhook selects the largest valid Telegram photo size, validates dimensions and the configured `FALANCE_RECEIPT_MAX_BYTES` limit, calls Telegram `getFile`, and downloads the image server-side with a timeout. Supported formats are JPEG, PNG, and WebP. The image is passed to a server-only receipt parser configured with `FALANCE_AI_VISION_MODEL`; it is not written to Google Sheets. A successful extraction is converted into the same interactive draft flow, while unreadable receipts, unsupported images, missing configuration, provider failures, and download failures return Indonesian fallback messages.
 
+## Latency diagnosis
+
+The webhook currently waits for deterministic authorization, Google Sheets reads/writes, optional AI parsing, and the final Telegram response before returning `200`. This preserves the existing approval and persistence semantics; moving transaction processing into an untracked background task would risk Telegram retries and duplicate effects. Next.js `after()` is therefore reserved for non-critical side effects such as timing or analytics, not for transaction persistence.
+
+When diagnosing a slow response, temporarily set the server-only `FALANCE_TIMING_LOGS=true`. The webhook then records only update type and stage durations, while Google Sheets records operation, method, status, outcome, and duration, and AI records provider host, status, outcome, and duration. No Telegram user ID, message text, family ID, spreadsheet ID, token, private key, prompt, or receipt content is logged. Disable the flag after collecting a representative sample.
+
+The first latency slice applies request-scoped memoization to membership and family lookups. This reduces repeated reads within one webhook without changing server-side authorization or allowing a client-selected `family_id`. Production measurements must still determine whether the dominant delay is Google Sheets, provider inference, Telegram delivery, or cold-start initialization.
+
 ## Planned report access
 
-Milestone 8 will add authorized Telegram summaries as one of three report channels, alongside authenticated Mini App views and CSV, print, or PDF export. All active members may view reports through Telegram and the Mini App, but only `OWNER` and `ADMIN` may request or receive CSV, print, or PDF export artifacts. The exact report commands are not implemented in the current milestone. Any future report command must resolve the requester’s active membership and `family_id` server-side and must never expose the Google Spreadsheet directly.
+Milestone 9 will add authorized Telegram summaries as one of three report channels, alongside authenticated Mini App views and CSV, print, or PDF export. All active members may view reports through Telegram and the Mini App, but only `OWNER` and `ADMIN` may request or receive CSV, print, or PDF export artifacts. The exact report commands are not implemented in the current milestone. Any future report command must resolve the requester’s active membership and `family_id` server-side and must never expose the Google Spreadsheet directly.
 
 If a user requests a password-protected PDF, the password must be collected through a secure interaction, used only during server-side export, and excluded from Telegram logs, URLs, and persistent storage. The bot must not echo the password in a confirmation message.
 
@@ -85,4 +93,4 @@ If a user requests a password-protected PDF, the password must be collected thro
 
 ## Out of scope
 
-Receipt OCR, AI categorization and summaries, budgets, dashboards, the Telegram Mini App, payments, subscriptions, and Supabase are not implemented. Milestone 3 administration and Milestone 4 transaction foundation are complete, Milestone 5 structured transaction management is complete, and Milestone 6 interactive AI draft confirmation is in progress.
+AI categorization and summaries, budgets, dashboards, report commands, the Telegram Mini App, payments, subscriptions, and Supabase are not implemented. Receipt processing is available from Milestone 7, while Milestone 8 production hardening, Milestone 9 reports and exports, Milestone 10 Mini App expansion, Milestone 11 AI operations, Milestone 12 Supabase migration, and Milestone 13 monetization remain planned.

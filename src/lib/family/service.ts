@@ -51,18 +51,32 @@ export interface ConfirmationResult {
 
 export class FamilyService {
   private readonly repository: FamilyRepository;
+  private readonly activeMembershipLookups = new Map<string, Promise<FamilyMember | null>>();
+  private readonly familyLookups = new Map<string, Promise<Family | null>>();
 
   constructor(repository: FamilyRepository) {
     this.repository = repository;
   }
 
   async getActiveMembership(telegramUserId: string): Promise<FamilyMember | null> {
-    return this.repository.findActiveMemberByTelegramUserId(telegramUserId);
+    const existing = this.activeMembershipLookups.get(telegramUserId);
+    if (existing) return existing;
+
+    const lookup = this.repository.findActiveMemberByTelegramUserId(telegramUserId);
+    this.activeMembershipLookups.set(telegramUserId, lookup);
+    try {
+      return await lookup;
+    } catch (error) {
+      if (this.activeMembershipLookups.get(telegramUserId) === lookup) {
+        this.activeMembershipLookups.delete(telegramUserId);
+      }
+      throw error;
+    }
   }
 
   async getActiveFamily(telegramUserId: string): Promise<Family> {
     const member = await this.requireActiveMember(telegramUserId);
-    const family = await this.repository.findFamilyById(member.familyId);
+    const family = await this.findFamilyById(member.familyId);
     if (!family || family.status !== "ACTIVE") {
       throw new UnauthorizedError("Family is unavailable.");
     }
@@ -97,7 +111,7 @@ export class FamilyService {
     const normalizedName = normalizeFamilyName(familyName);
     const activeMembership = await this.getActiveMembership(user.telegramUserId);
     if (activeMembership) {
-      const activeFamily = await this.repository.findFamilyById(activeMembership.familyId);
+      const activeFamily = await this.findFamilyById(activeMembership.familyId);
       if (activeFamily?.createdBy === user.telegramUserId) {
         await this.repository.clearPendingFamilyCreation(user.telegramUserId);
         return activeFamily;
@@ -142,7 +156,7 @@ export class FamilyService {
       throw new UnauthorizedError("Only the owner can update the family name.");
     }
 
-    const family = await this.repository.findFamilyById(actorMember.familyId);
+    const family = await this.findFamilyById(actorMember.familyId);
     if (!family || family.status !== "ACTIVE") {
       throw new UnauthorizedError("Family is unavailable.");
     }
@@ -169,7 +183,7 @@ export class FamilyService {
       throw new UnauthorizedError("User is not authorized for this family.");
     }
 
-    const family = await this.repository.findFamilyById(member.familyId);
+    const family = await this.findFamilyById(member.familyId);
     if (!family || family.status !== "ACTIVE") {
       throw new UnauthorizedError("Family is unavailable.");
     }
@@ -182,7 +196,7 @@ export class FamilyService {
       throw new UnauthorizedError("Only owners and admins can create invitations.");
     }
 
-    const family = await this.repository.findFamilyById(member.familyId);
+    const family = await this.findFamilyById(member.familyId);
     if (!family || family.status !== "ACTIVE") {
       throw new FamilyServiceError("Family is unavailable.");
     }
@@ -290,7 +304,7 @@ export class FamilyService {
       throw new UnauthorizedError("Only the owner can change member roles.");
     }
 
-    const family = await this.repository.findFamilyById(actorMember.familyId);
+    const family = await this.findFamilyById(actorMember.familyId);
     if (!family || family.status !== "ACTIVE") {
       throw new UnauthorizedError("Family is unavailable.");
     }
@@ -378,7 +392,7 @@ export class FamilyService {
       throw new ConfirmationError("Explicit confirmation is required.");
     }
 
-    const family = await this.repository.findFamilyById(actorMember.familyId);
+    const family = await this.findFamilyById(actorMember.familyId);
     if (!family || family.status !== "SUSPENDED") {
       throw new FamilyLifecycleError("Suspended family is not found.");
     }
@@ -401,7 +415,7 @@ export class FamilyService {
       throw new MemberManagementError("Explicit confirmation is required.");
     }
 
-    const family = await this.repository.findFamilyById(actorMember.familyId);
+    const family = await this.findFamilyById(actorMember.familyId);
     if (!family || family.status !== "ACTIVE") {
       throw new UnauthorizedError("Family is unavailable.");
     }
@@ -618,7 +632,7 @@ export class FamilyService {
       throw new InvitationError("Invitation has expired.");
     }
 
-    const family = await this.repository.findFamilyById(invitation.familyId);
+    const family = await this.findFamilyById(invitation.familyId);
     if (!family || family.status !== "ACTIVE") {
       throw new InvitationError("Family is unavailable.");
     }
@@ -655,8 +669,24 @@ export class FamilyService {
     return pending;
   }
 
+  private async findFamilyById(familyId: string): Promise<Family | null> {
+    const existing = this.familyLookups.get(familyId);
+    if (existing) return existing;
+
+    const lookup = this.repository.findFamilyById(familyId);
+    this.familyLookups.set(familyId, lookup);
+    try {
+      return await lookup;
+    } catch (error) {
+      if (this.familyLookups.get(familyId) === lookup) {
+        this.familyLookups.delete(familyId);
+      }
+      throw error;
+    }
+  }
+
   private async requireActiveFamily(familyId: string): Promise<Family> {
-    const family = await this.repository.findFamilyById(familyId);
+    const family = await this.findFamilyById(familyId);
     if (!family || family.status !== "ACTIVE") {
       throw new UnauthorizedError("Family is unavailable.");
     }
@@ -700,7 +730,7 @@ export class FamilyService {
 
   private async requireActiveMember(telegramUserId: string): Promise<FamilyMember> {
     const member = await this.requireMember(telegramUserId);
-    const family = await this.repository.findFamilyById(member.familyId);
+    const family = await this.findFamilyById(member.familyId);
     if (!family || family.status !== "ACTIVE") {
       throw new UnauthorizedError("Family is unavailable.");
     }

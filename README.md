@@ -2,7 +2,7 @@
 
 Falancé adalah bot Telegram untuk pencatatan dan pengelolaan keuangan keluarga. Repository ini berisi fondasi aplikasi yang berjalan di Next.js, menerima update Telegram melalui webhook, dan menggunakan **satu Google Spreadsheet pusat untuk seluruh keluarga dalam satu deployment**.
 
-> **Status saat ini:** Milestone 0–7 selesai. AI parser, draft interaktif, receipt processing, approval, edit, pembatalan, validasi timezone, penanganan tanggal, category suggestion, dan description suggestion sudah tersedia. Laporan, Mini App, export, production hardening, dan Supabase migration masih berada pada milestone lanjutan.
+> **Status saat ini:** Milestone 0–7 selesai dan Milestone 8 sedang dimulai dari latency observability serta pengurangan read amplification yang aman. AI parser, draft interaktif, receipt processing, approval, edit, pembatalan, validasi timezone, penanganan tanggal, category suggestion, dan description suggestion sudah tersedia. Laporan, Mini App, hardening P0 lainnya, dan Supabase migration masih berada pada milestone lanjutan.
 
 ## Kemampuan yang Sudah Tersedia
 
@@ -189,6 +189,7 @@ Salin `.env.example` ke konfigurasi environment deployment dan isi nilai server-
 | `FALANCE_AI_MODEL` | Model AI text parser; default `gpt-5-mini`. | Tidak |
 | `FALANCE_AI_VISION_MODEL` | Model vision-capable untuk receipt parser; wajib jika receipt parsing diaktifkan. | Tidak |
 | `FALANCE_RECEIPT_MAX_BYTES` | Batas ukuran receipt yang diunduh dalam byte; default `10485760` (10 MiB). | Tidak |
+| `FALANCE_TIMING_LOGS` | Mengaktifkan log durasi aman untuk webhook, Google Sheets, dan provider AI; gunakan sementara saat diagnosis latency. | Tidak |
 
 Service account harus diberikan akses **Editor** pada Google Spreadsheet pusat. Spreadsheet tersebut tidak perlu dan tidak boleh dibagikan langsung kepada pengguna bot.
 
@@ -224,8 +225,11 @@ Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side f
 
 ## Roadmap Saat Ini
 
-Milestone 0–7 — **Project Setup, Telegram Webhook, Family and Authorization Foundation, Family Management, Transaction Foundation, Manual Transaction Input, AI Text Parser, dan Receipt Processing** — selesai secara fungsional. Milestone 6 telah diuji melalui Telegram, termasuk natural-language extraction, draft server-side, tombol `Ya, simpan`/`Edit`/`Batalkan`, manual `/editdraft`, expiry, callback authorization, future-date validation, configurable `FALANCE_TIME_ZONE`, today-default transparan untuk transaksi aktual tanpa tanggal, saran kategori terkontrol, saran deskripsi opsional, dan klarifikasi bahasa perencanaan. Milestone 7 telah divalidasi di production dengan OpenRouter menggunakan model text dan vision yang terpisah; photo receipt divalidasi, diunduh secara server-side, diproses melalui receipt parser vision, dan diarahkan ke draft interaktif yang sama. Provider free memiliki keterbatasan rate limit; usage tracking, quota, provider fallback, dan cost control tetap menjadi pekerjaan production-hardening lanjutan. Kemampuan natural-language yang lebih luas tetap dapat dikembangkan sebagai backlog lanjutan.
-Milestone berikutnya mencakup reports, Telegram Mini App, export CSV/print/PDF dengan opsi password PDF, production hardening, AI usage/quota, monetisasi, dan migrasi storage ke Supabase.
+Milestone 0–7 — **Project Setup, Telegram Webhook, Family and Authorization Foundation, Family Management, Transaction Foundation, Manual Transaction Input, AI Text Parser, dan Receipt Processing** — selesai secara fungsional. Milestone 6 telah diuji melalui Telegram, termasuk natural-language extraction, draft server-side, tombol `Ya, simpan`/`Edit`/`Batalkan`, manual `/editdraft`, expiry, callback authorization, future-date validation, configurable `FALANCE_TIME_ZONE`, today-default transparan untuk transaksi aktual tanpa tanggal, saran kategori terkontrol, saran deskripsi opsional, dan klarifikasi bahasa perencanaan. Milestone 7 telah divalidasi di production dengan OpenRouter menggunakan model text dan vision yang terpisah; photo receipt divalidasi, diunduh secara server-side, diproses melalui receipt parser vision, dan diarahkan ke draft interaktif yang sama.
+
+Prioritas setelah Milestone 7 adalah: **Milestone 8 — Production Reliability and Security Hardening (P0)**, kemudian **Milestone 9 — Reports, Multi-Channel Access, and Export (P1)**, **Milestone 10 — Telegram Mini App Expansion (P1)**, **Milestone 11 — AI Usage, Quota, and Provider Reliability (P2)**, **Milestone 12 — Supabase Migration (P2)**, dan **Milestone 13 — Monetization and Expansion (P3)**. Urutan ini mempertahankan fokus pada satu sampai dua keluarga terlebih dahulu, menempatkan hardening sebelum public beta, dan menunda usage tracking, quota, monetisasi, serta scale-out sampai kebutuhan operasionalnya terbukti.
+
+Detail scope, exit criteria, dan backlog eksperimen non-commitment tersedia di [`docs/milestones.md`](docs/milestones.md). Gemini Canvas tidak lagi menjadi numbered milestone karena bukan dependency produk Falancé.
 
 ## Dokumentasi Tambahan
 

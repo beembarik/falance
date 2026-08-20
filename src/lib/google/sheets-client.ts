@@ -1,3 +1,5 @@
+import { logDuration } from "../observability/timing";
+
 const GOOGLE_SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 
 export class GoogleConfigurationError extends Error {}
@@ -143,6 +145,7 @@ export class GoogleSheetsClient {
     init: RequestInit = {},
     operation?: GoogleOperation,
   ): Promise<T> {
+    const requestStartedAt = performance.now();
     const token = await this.getAccessToken(operation);
     let response: Response;
     try {
@@ -155,15 +158,33 @@ export class GoogleSheetsClient {
         },
       });
     } catch (error) {
+      logDuration("google.request", performance.now() - requestStartedAt, {
+        operation,
+        method: init.method ?? "GET",
+        outcome: "network_error",
+      });
       logGoogleFailure(operation, url, init.method, undefined, error);
       throw new GoogleApiError("Google API request failed.");
     }
     if (!response.ok) {
       const errorBody: unknown = await response.json().catch(() => null);
+      logDuration("google.request", performance.now() - requestStartedAt, {
+        operation,
+        method: init.method ?? "GET",
+        status: response.status,
+        outcome: "error",
+      });
       logGoogleFailure(operation, url, init.method, response.status, errorBody);
       throw new GoogleApiError("Google API returned an error response.");
     }
-    return (await response.json()) as T;
+    const data = (await response.json()) as T;
+    logDuration("google.request", performance.now() - requestStartedAt, {
+      operation,
+      method: init.method ?? "GET",
+      status: response.status,
+      outcome: "success",
+    });
+    return data;
   }
 
   private async getAccessToken(operation?: GoogleOperation): Promise<string> {

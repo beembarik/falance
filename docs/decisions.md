@@ -58,7 +58,7 @@ Hard deletion remains deferred until retention, backup, recovery, and ownership-
 
 ## ADR-009: Private multi-channel reporting and optional PDF protection
 
-**Status:** Planned for Milestone 8.
+**Status:** Planned for Milestone 9.
 
 The central Google Spreadsheet remains a private backend and is never shared directly with family members. Reports are delivered through three controlled channels: Telegram summaries, authenticated Mini App views, and per-request CSV, print, or PDF exports. All active members may view authorized reports through Telegram or the Mini App, but only `OWNER` and `ADMIN` may request export artifacts. Every channel must authorize the requester server-side and resolve the family from membership rather than client input.
 

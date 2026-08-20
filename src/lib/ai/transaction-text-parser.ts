@@ -1,6 +1,7 @@
 import type { CreateTransactionInput } from "../family/service";
 import type { TransactionType } from "../family/types";
 import { TransactionError, validateTransactionInput } from "../family/service";
+import { logDuration } from "../observability/timing";
 
 export type TransactionDraftConfidence = "HIGH" | "MEDIUM" | "LOW";
 
@@ -93,6 +94,7 @@ export class OpenAICompatibleTransactionTextParser implements TransactionTextPar
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
+    const providerStartedAt = performance.now();
     let response: Response;
     try {
       response = await fetch(`${baseUrl}/chat/completions`, {
@@ -133,11 +135,20 @@ export class OpenAICompatibleTransactionTextParser implements TransactionTextPar
         signal: controller.signal,
       });
     } catch {
+      logDuration("ai.text.request", performance.now() - providerStartedAt, {
+        provider: providerHost(baseUrl),
+        outcome: "error",
+      });
       throw new TransactionTextParserUnavailableError("AI transaction parser request failed.");
     } finally {
       clearTimeout(timeout);
     }
 
+    logDuration("ai.text.request", performance.now() - providerStartedAt, {
+      provider: providerHost(baseUrl),
+      status: response.status,
+      outcome: response.ok ? "success" : "error",
+    });
     if (!response.ok) {
       throw new TransactionTextParserUnavailableError("AI transaction parser returned an error.");
     }
@@ -226,6 +237,14 @@ function normalizeSuggestion(value: string | null | undefined, maxLength: number
 
 function looksLikePlannedTransaction(sourceText: string): boolean {
   return /\b(rencana|akan|nanti|terjadwal|rutin|recurring)\b/i.test(sourceText);
+}
+
+function providerHost(baseUrl: string): string {
+  try {
+    return new URL(baseUrl).host || "unknown";
+  } catch {
+    return "invalid";
+  }
 }
 
 function getMessageContent(payload: unknown): string | null {

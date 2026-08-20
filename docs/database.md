@@ -159,4 +159,4 @@ Export artifacts should be short-lived and cleaned up after delivery or expiry. 
 
 ## Future boundaries
 
-Receipt parsing, AI analysis, budgets, dashboards, Supabase storage, payments, and subscriptions are outside Milestone 2. The transaction foundation is implemented in Milestone 4, while transaction commands remain future work. Reports and exports are planned for Milestone 8, while the first authenticated Mini App report views are also delivered there; their eventual schemas and read models must preserve the `family_id` rule.
+Receipt parsing, AI analysis, budgets, dashboards, Supabase storage, payments, and subscriptions are outside Milestone 2. The transaction foundation is implemented in Milestone 4, transaction commands are implemented in Milestones 5–7, and reports and exports are planned for Milestone 9. The first authenticated Mini App report views are also delivered in Milestone 9, while broader Mini App expansion is planned for Milestone 10; all eventual schemas and read models must preserve the `family_id` rule.

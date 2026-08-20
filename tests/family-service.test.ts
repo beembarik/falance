@@ -41,6 +41,29 @@ test("rejects a duplicate family creation for an active member", async () => {
   await assert.rejects(new FamilyService(repository).beginFamilyCreation(owner), AlreadyRegisteredError);
 });
 
+test("memoizes membership and family lookups within one service request", async () => {
+  const repository = setupMember("OWNER");
+  let membershipLookups = 0;
+  let familyLookups = 0;
+  const findActiveMember = repository.findActiveMemberByTelegramUserId.bind(repository);
+  const findFamily = repository.findFamilyById.bind(repository);
+  repository.findActiveMemberByTelegramUserId = async (telegramUserId: string) => {
+    membershipLookups += 1;
+    return findActiveMember(telegramUserId);
+  };
+  repository.findFamilyById = async (familyId: string) => {
+    familyLookups += 1;
+    return findFamily(familyId);
+  };
+
+  const service = new FamilyService(repository);
+  await service.getActiveFamily(owner.telegramUserId);
+  await service.listTransactions(owner.telegramUserId);
+
+  assert.equal(membershipLookups, 1);
+  assert.equal(familyLookups, 1);
+});
+
 test("OWNER can update and normalize the family name", async () => {
   const repository = setupMember("OWNER");
   const service = new FamilyService(repository);
@@ -209,7 +232,7 @@ test("rejects a foreign family_id at the service authorization boundary", async 
     service.requireAuthorizedFamily(member.telegramUserId, "fam_2"),
     UnauthorizedError,
   );
-  assert.deepEqual(repository.familyLookupIds, ["fam_1", "fam_1"]);
+  assert.deepEqual(repository.familyLookupIds, ["fam_1"]);
 
   assert.equal(
     (await service.requireAuthorizedFamily(owner.telegramUserId, "fam_1")).familyId,

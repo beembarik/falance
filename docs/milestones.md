@@ -102,52 +102,118 @@ Milestone 7 reuses the Milestone 6 interactive draft and deterministic service b
 
 Production validation used OpenRouter with separate text and vision model configuration. The free provider path is suitable for limited validation, while provider rate limits and AI usage tracking remain future production-hardening concerns.
 
-## Milestone 8 — Reports, Multi-Channel Access, Export, and AI Analysis
+## Roadmap Prioritas Setelah Milestone 7
 
-Status: PLANNED
+Urutan berikut disusun berdasarkan keputusan terakhir: Falancé harus tetap fungsional untuk satu sampai dua keluarga terlebih dahulu, production hardening harus selesai sebelum public beta, dan fitur AI usage, monetisasi, serta migrasi storage dilakukan setelah kebutuhan operasionalnya terbukti.
+
+| Prioritas | Milestone | Fokus | Alasan urutan |
+| --- | --- | --- | --- |
+| P0 | Milestone 8 | Production Reliability and Security Hardening | Menutup risiko webhook, replay, konkurensi, quota, dan observability sebelum penggunaan lebih luas. |
+| P1 | Milestone 9 | Reports, Multi-Channel Access, and Export | Memberikan nilai produk utama melalui Telegram, Mini App, CSV, print, dan PDF tanpa membuka spreadsheet pusat. |
+| P1 | Milestone 10 | Telegram Mini App Expansion | Memperluas report surface menjadi workspace transaksi dan laporan mobile-first setelah boundary report stabil. |
+| P2 | Milestone 11 | AI Usage, Quota, and Provider Reliability | Menyiapkan AI agar dapat digunakan secara terukur dan aman sebelum skala pengguna atau monetisasi. |
+| P2 | Milestone 12 | Supabase Migration | Mengatasi bottleneck Google Sheets melalui migrasi repository yang kompatibel tanpa mengubah kontrak Telegram atau aturan `family_id`. |
+| P3 | Milestone 13 | Monetization and Expansion | Menambahkan plan, quota komersial, onboarding, public beta, dan ekspansi setelah reliability serta storage scale-out siap. |
+
+Milestone 8–13 di bawah ini adalah roadmap yang direncanakan, bukan pekerjaan yang sudah diimplementasikan. Setiap milestone harus mempertahankan satu deployment dengan isolasi server-side, role boundary yang sudah berlaku, soft-state untuk data penting, dan larangan membagikan Google Spreadsheet kepada pengguna.
+
+## Milestone 8 — Production Reliability and Security Hardening
+
+Status: IN PROGRESS — SLICE 1: latency observability dan safe read-amplification reduction
+
+Milestone ini menyelesaikan risiko yang dapat menyebabkan request Telegram diproses berulang, webhook dipanggil oleh pihak yang tidak berwenang, operasi keluarga mengalami race condition, atau provider AI vision digunakan tanpa guard dasar. Tidak ada item pada milestone ini yang boleh melemahkan resolusi server-side `family_id`.
+
+- [x] Timing log aman untuk webhook, Google Sheets, dan provider AI yang hanya aktif melalui `FALANCE_TIMING_LOGS`
+- [x] Request-scoped memoization untuk membership dan family lookup tanpa mengubah authorization boundary
+- [ ] Verifikasi `X-Telegram-Bot-Api-Secret-Token` pada webhook dengan konfigurasi server-only
+- [ ] Idempotensi `update_id` Telegram untuk mencegah transaksi atau command ganda akibat retry
+- [ ] Pengujian konkurensi untuk `/join`, invitation, pending confirmation, dan operasi lifecycle anggota/keluarga
+- [ ] Guard rate, ukuran, dan frekuensi untuk AI vision per user/family dengan fallback yang aman
+- [ ] Review authorization, callback/draft ownership, input validation, dan cross-family rejection
+- [ ] Monitoring operation label, error rate, latency, dan Google Sheets quota tanpa membocorkan credential atau data pengguna
+- [ ] Runbook backup, recovery, partial-write retry, dan integritas data registry pusat
+- [ ] Regression tests untuk webhook secret, replay, race condition, AI vision guard, dan privacy boundary
+
+Exit criterion milestone ini adalah deployment dapat menerima retry Telegram secara aman, menolak webhook tanpa secret yang valid, tidak membuat efek samping ganda, dan memiliki prosedur operasional yang dapat dijalankan sebelum public beta. Slice latency saat ini belum memenuhi exit criterion Milestone 8 secara keseluruhan; pengukuran production diperlukan untuk memisahkan waktu Google Sheets, provider AI, dan Telegram delivery sebelum optimasi lanjutan.
+
+## Milestone 9 — Reports, Multi-Channel Access, and Export
+
+Status: PLANNED — PRIORITAS P1 setelah hardening P0
 
 Reports must never expose the central Google Spreadsheet directly. Every report request resolves the user’s active membership and `family_id` server-side, then returns only data belonging to that family.
 
-Report access follows this role boundary: `OWNER` and `ADMIN` may view reports and request CSV, print, or PDF exports; `MEMBER` may view reports through Telegram and the authenticated Mini App but may not request or receive export artifacts.
+Report access follows this role boundary: all active roles may view reports through Telegram and the authenticated Mini App, while only `OWNER` and `ADMIN` may request or receive CSV, print, or PDF export artifacts.
 
 - [ ] Monthly and category summaries
 - [ ] Income, expense, balance, and family overview
-- [ ] Date filtering and authorized AI insights
-- [ ] Concise report and summary commands in Telegram
-- [ ] Report views in the authorized Telegram Mini App
+- [ ] Date filtering and concise report commands in Telegram
+- [ ] First authorized report views in the Telegram Mini App
 - [ ] CSV export for authorized family data
 - [ ] Print-friendly report view
 - [ ] PDF export generated per authorized request
 - [ ] Optional password protection selected before PDF export
 - [ ] Password supplied through a secure request body or form, never a URL or log
 - [ ] Password held ephemerally and never persisted in Sheets, logs, analytics, or download URLs
-- [ ] Planned transactions and recurring liabilities with a separate forecast boundary that does not affect actual balances before occurrence
 - [ ] Encrypted PDF validation, download expiry, and safe artifact cleanup
 - [ ] Tests proving Telegram and Mini App views are available to authorized members, exports are restricted to OWNER and ADMIN, and no output can cross family boundaries
 
-When password protection is selected, the backend must encrypt the PDF before delivery. The password must not be returned in the same download URL, stored with the report, or automatically echoed back to the user. The default unprotected PDF option remains available only after the user explicitly chooses it. The export authorization check must occur before report generation and before any artifact is created.
+Planned transactions and recurring liabilities remain a separate forecast boundary. They must not affect actual balances before occurrence. AI insights are optional after the deterministic report core and are not a completion blocker for the first usable report release.
 
-## Milestone 9 — Telegram Mini App Expansion
+When password protection is selected, the backend must encrypt the PDF before delivery. The password must not be returned in the same download URL, stored with the report, or automatically echoed back to the user. The export authorization check must occur before report generation and before any artifact is created.
 
-Milestone 8 includes the first authorized Mini App report views. This milestone expands the Mini App into a broader application experience.
+## Milestone 10 — Telegram Mini App Expansion
 
-- [ ] Telegram authentication hardening
+Status: PLANNED — PRIORITAS P1 setelah report surface Milestone 9 stabil
+
+This milestone expands the first authorized report views into a broader application experience.
+
+- [ ] Telegram authentication hardening beyond the initial report surface
 - [ ] Authorized mobile-first transaction workspace
-- [ ] Transactions, reports, and PWA support beyond the Milestone 8 report surface
+- [ ] Transactions, reports, and PWA support beyond the Milestone 9 report surface
 - [ ] Pagination, filters, and interaction patterns for larger datasets
+- [ ] Tests for session expiry, authorization, family isolation, and mobile interaction flows
 
-## Milestone 10 — Gemini Canvas Workflow
+## Milestone 11 — AI Usage, Quota, and Provider Reliability
 
-- [ ] Canvas experimentation and documentation
-- [ ] Evaluation of production suitability
+Status: PLANNED — PRIORITAS P2 sebelum scaling AI atau monetisasi
 
-## Milestone 11 — Production Hardening
+The text parser and receipt parser continue to use separate text and vision model configuration. This milestone adds operational controls without allowing AI to determine identity, authorization, `family_id`, or transaction status.
 
-- [ ] Security and authorization review
-- [ ] Input validation, rate limiting, logging, monitoring, backups, and recovery
-- [ ] Google Sheets quota and data-integrity review
+- [ ] Server-side AI usage tracking by user and family with privacy-safe aggregation
+- [ ] Configurable quotas and rate limits for text and vision workloads
+- [ ] Provider timeout, retry, fallback, and degraded-mode behavior
+- [ ] Cost and token observability without logging prompts, credentials, or sensitive receipt content
+- [ ] Clear Indonesian user feedback for quota exhaustion and provider unavailability
+- [ ] Tests proving quota isolation, provider failure safety, and no duplicate persistence
+- [ ] Optional authorized AI report insights after deterministic reports are stable
 
 ## Milestone 12 — Supabase Migration
 
-- [ ] Supabase schema and repository
-- [ ] Migration tooling, data migration, verification, and cutover
+Status: PLANNED — PRIORITAS P2 setelah bottleneck Google Sheets terbukti atau sebelum scale-out
+
+Supabase is the planned future storage implementation, not an immediate replacement. Google Sheets remains the active adapter until migration readiness is demonstrated for the current one-to-two-family operating scope.
+
+- [ ] Supabase schema preserving mandatory `family_id` tenant boundaries and soft-state semantics
+- [ ] Supabase repository implementing the existing business-facing repository contract
+- [ ] Migration tooling, data validation, and reconciliation from the central registry
+- [ ] Staged dual-read or shadow verification without changing Telegram authorization behavior
+- [ ] Cutover, rollback, backup, and recovery procedure
+- [ ] Production verification that Telegram commands, drafts, receipts, reports, and audit behavior remain compatible
+- [ ] Explicit deprecation plan for Google Sheets only after migration acceptance
+
+## Milestone 13 — Monetization and Expansion
+
+Status: PLANNED — PRIORITAS P3 setelah Milestone 8–12 yang relevan selesai
+
+Monetization and public expansion must not precede security hardening, usage controls, and a storage path suitable for growth.
+
+- [ ] Family plans and entitlement model
+- [ ] Monetization, billing, and subscription boundaries
+- [ ] Plan-aware AI and export quotas
+- [ ] Public beta onboarding, support, abuse prevention, and privacy operations
+- [ ] Usage analytics and product metrics that preserve family privacy
+- [ ] Expansion readiness across additional families and deployments
+
+## Backlog Eksperimen Non-Commitment
+
+Gemini Canvas Workflow dikeluarkan dari numbered milestone karena tidak merupakan dependency produk Falancé dan tidak boleh menggeser P0 production hardening, report delivery, AI reliability, atau Supabase migration. Eksperimen Canvas dapat dicatat terpisah bila ada kebutuhan produk yang jelas.

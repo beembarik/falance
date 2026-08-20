@@ -7,6 +7,7 @@ import {
   type TransactionTextParseResult,
 } from "./transaction-text-parser";
 import type { TelegramDownloadedImage } from "../telegram/client";
+import { logDuration } from "../observability/timing";
 
 export class ReceiptParserUnavailableError extends Error {}
 
@@ -73,6 +74,7 @@ export class OpenAICompatibleReceiptParser implements ReceiptParser {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
+    const providerStartedAt = performance.now();
     let response: Response;
     try {
       response = await fetch(`${baseUrl}/chat/completions`, {
@@ -126,11 +128,20 @@ export class OpenAICompatibleReceiptParser implements ReceiptParser {
         signal: controller.signal,
       });
     } catch {
+      logDuration("ai.vision.request", performance.now() - providerStartedAt, {
+        provider: providerHost(baseUrl),
+        outcome: "error",
+      });
       throw new ReceiptParserUnavailableError("Receipt parser request failed.");
     } finally {
       clearTimeout(timeout);
     }
 
+    logDuration("ai.vision.request", performance.now() - providerStartedAt, {
+      provider: providerHost(baseUrl),
+      status: response.status,
+      outcome: response.ok ? "success" : "error",
+    });
     if (!response.ok) throw new ReceiptParserUnavailableError("Receipt parser returned an error.");
     const payload = await response.json().catch(() => null) as unknown;
     const content = getMessageContent(payload);
@@ -144,6 +155,14 @@ export class OpenAICompatibleReceiptParser implements ReceiptParser {
     }
 
     return normalizeReceiptExtraction(extraction, today);
+  }
+}
+
+function providerHost(baseUrl: string): string {
+  try {
+    return new URL(baseUrl).host || "unknown";
+  } catch {
+    return "invalid";
   }
 }
 
