@@ -93,11 +93,12 @@ Status: IN PROGRESS
 
 Milestone 7 reuses the Milestone 6 interactive draft and deterministic service boundary. Receipt processing must accept Telegram images safely, extract transaction candidates through a server-side vision-capable provider, show a reviewable draft, and persist only after explicit user approval. The receipt parser must never determine `family_id`, member identity, authorization, or transaction status.
 
-- [ ] Telegram image handling with MIME, size, and processing-limit validation
-- [ ] Server-side receipt extraction and controlled category/description suggestions
-- [ ] Shared interactive draft preview, approval, edit, cancellation, and expiry
-- [ ] Persistence through the existing deterministic transaction service with family authorization
-- [ ] Tests for image validation, extraction fallback, approval, family isolation, and privacy-safe diagnostics
+- [x] Telegram image handling with MIME, size, dimension, signature, and processing-limit validation
+- [x] Server-side receipt extraction boundary and controlled category/description suggestions
+- [x] Shared interactive draft preview, approval, edit, cancellation, and expiry
+- [x] Persistence through the existing deterministic transaction service with family authorization
+- [x] Tests for image validation, extraction fallback, draft preview, and existing family isolation/privacy boundaries
+- [ ] Production Telegram validation with a configured vision-capable provider
 
 ## Milestone 8 — Reports, Multi-Channel Access, Export, and AI Analysis
 

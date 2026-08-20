@@ -14,12 +14,18 @@ import {
 } from "../family/service";
 import { getBusinessDate } from "../time/business-date";
 import type { FamilyMember, MemberRole, TelegramUser } from "../family/types";
-import type { TelegramReplyMarkup } from "./client";
+import {
+  downloadTelegramPhoto,
+  TelegramApiError,
+  type TelegramPhotoSize,
+  type TelegramReplyMarkup,
+} from "./client";
 import {
   createTransactionTextParser,
   TransactionTextParserUnavailableError,
   type TransactionTextParser,
 } from "../ai/transaction-text-parser";
+import { createReceiptParser, ReceiptParserUnavailableError, type ReceiptParser } from "../ai/receipt-parser";
 import { formatMembersMessage } from "./member-message";
 import { formatTransactionCreatedMessage, formatTransactionsMessage } from "./transaction-message";
 import { parseEditDraftCommand, parseEditTransactionCommand, parseManualTransactionCommand, TransactionCommandError } from "./transaction-command";
@@ -53,6 +59,40 @@ export async function handleTelegramTextMessage(
 ): Promise<string> {
   const response = await handleTelegramTextMessageResponse(service, user, text, transactionTextParser);
   return typeof response === "string" ? response : response.text;
+}
+
+export async function handleTelegramPhotoMessageResponse(
+  service: FamilyService,
+  user: TelegramUser,
+  photo: readonly TelegramPhotoSize[],
+  caption: string | null = null,
+  receiptParser: ReceiptParser = createReceiptParser(),
+  photoDownloader: typeof downloadTelegramPhoto = downloadTelegramPhoto,
+): Promise<TelegramHandlerResponse | string> {
+  try {
+    const membership = await service.getActiveMembership(user.telegramUserId);
+    if (!membership) return startMessage(null);
+    const image = await photoDownloader(photo);
+    const parsed = await receiptParser.parse(image, caption, getBusinessDate());
+    if (parsed.kind === "READY") {
+      const draft = await service.createPendingTransactionDraft(
+        user,
+        parsed.draft,
+        parsed.draft.confidence,
+        {
+          transactionDateInferred: parsed.draft.transactionDateInferred,
+          categorySuggestion: parsed.draft.categorySuggestion,
+          descriptionSuggestion: parsed.draft.descriptionSuggestion,
+        },
+      );
+      return { text: formatTransactionDraftMessage(draft), replyMarkup: formatDraftActionMarkup(draft.draftId, draft.status) };
+    }
+    if (parsed.kind === "NEEDS_CLARIFICATION") return `🤔 ${parsed.question}`;
+    return `🤔 ${parsed.reason}`;
+  } catch (error) {
+    if (error instanceof TelegramApiError) return { text: "Receipt tidak dapat diunduh atau format gambarnya tidak didukung. Pastikan foto jelas dan berukuran sesuai, lalu coba lagi." };
+    return { text: messageForError(error) };
+  }
 }
 
 export async function handleTelegramTextMessageResponse(
@@ -269,6 +309,7 @@ function confirmationResultMessage(result: ConfirmationResult): string {
 
 function messageForError(error: unknown): string {
   if (error instanceof TransactionCommandError) return error.message;
+  if (error instanceof ReceiptParserUnavailableError) return "Parser receipt belum tersedia. Coba lagi nanti atau gunakan input transaksi melalui teks.";
   if (error instanceof TransactionTextParserUnavailableError) return "Parser AI belum tersedia. Gunakan command transaksi terstruktur seperti /addincome atau /addexpense.";
   if (error instanceof AlreadyRegisteredError) return "Kamu sudah terdaftar dalam keluarga aktif.";
   if (error instanceof UnauthorizedError) return "Kamu tidak memiliki izin untuk menjalankan perintah ini.";

@@ -8,9 +8,11 @@ import { GoogleSheetsFamilyRepository } from "@/lib/family/google-sheets-reposit
 import { FamilyService } from "@/lib/family/service";
 import {
   handleTelegramCallbackQuery,
+  handleTelegramPhotoMessageResponse,
   handleTelegramTextMessageResponse,
 } from "@/lib/telegram/command-handler";
 import { usesTelegramHtml } from "@/lib/telegram/html";
+import type { TelegramPhotoSize } from "@/lib/telegram/client";
 
 interface TelegramUpdate {
   update_id: number;
@@ -26,6 +28,13 @@ interface TelegramUpdate {
     };
     from?: TelegramFrom;
     text?: string;
+    caption?: string;
+    photo?: Array<{
+      file_id?: string;
+      width?: number;
+      height?: number;
+      file_size?: number;
+    }>;
   };
 }
 
@@ -84,10 +93,35 @@ export async function POST(request: Request): Promise<Response> {
 
     const chatId = payload.message?.chat?.id;
     const text = payload.message?.text;
+    const caption = payload.message?.caption;
     const from = payload.message?.from;
-    if (typeof chatId !== "number" || typeof text !== "string" || !from || typeof from.id !== "number") {
+    if (typeof chatId !== "number" || !from || typeof from.id !== "number") {
       return Response.json({ ok: true, ignored: true });
     }
+
+    if (Array.isArray(payload.message?.photo)) {
+      const photo = payload.message.photo.flatMap((item): TelegramPhotoSize[] => (
+        typeof item.file_id === "string" && typeof item.width === "number" && typeof item.height === "number"
+          ? [{ fileId: item.file_id, width: item.width, height: item.height, ...(typeof item.file_size === "number" ? { fileSize: item.file_size } : {}) }]
+          : []
+      ));
+      const response = await handleTelegramPhotoMessageResponse(
+        service,
+        toTelegramUser(from),
+        photo,
+        typeof caption === "string" ? caption : null,
+      );
+      const responseText = typeof response === "string" ? response : response.text;
+      await sendTelegramMessage({
+        chatId,
+        text: responseText,
+        ...(usesTelegramHtml(responseText) ? { parseMode: "HTML" as const } : {}),
+        ...(typeof response !== "string" && response.replyMarkup ? { replyMarkup: response.replyMarkup } : {}),
+      });
+      return Response.json({ ok: true });
+    }
+
+    if (typeof text !== "string") return Response.json({ ok: true, ignored: true });
 
     const response = await handleTelegramTextMessageResponse(
       service,

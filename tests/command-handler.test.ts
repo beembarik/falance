@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { handleTelegramCallbackQuery, handleTelegramTextMessage } from "../src/lib/telegram/command-handler";
+import {
+  handleTelegramCallbackQuery,
+  handleTelegramPhotoMessageResponse,
+  handleTelegramTextMessage,
+} from "../src/lib/telegram/command-handler";
 import type { FamilyService, ConfirmationResult } from "../src/lib/family/service";
 import type { Family, TelegramUser, Transaction } from "../src/lib/family/types";
 import type { TransactionTextParser } from "../src/lib/ai/transaction-text-parser";
@@ -70,6 +74,77 @@ test("previews a natural-language transaction draft without persisting it", asyn
   assert.match(response, /Jika sudah benar, tekan tombol ✅ Ya, simpan/);
   assert.match(response, /Jika perlu perubahan, tekan tombol ✏️ Edit/);
   assert.doesNotMatch(response, /\/addexpense 35000 IDR 2026-08-20 Beli susu/);
+});
+
+test("previews an authorized receipt through the shared interactive draft flow", async () => {
+  let persisted = false;
+  const service = fakeService({
+    createPendingTransactionDraft: async () => ({
+      draftId: "draft_receipt_1",
+      telegramUserId: owner.telegramUserId,
+      familyId: "fam_1",
+      transactionType: "EXPENSE",
+      amountMinor: 45000,
+      currency: "IDR",
+      transactionDate: "2026-08-20",
+      description: "Makan siang",
+      categorySuggestion: "Makanan & Minuman",
+      confidence: "HIGH",
+      createdAt: "2026-08-20T00:00:00.000Z",
+      expiresAt: "2026-08-20T00:05:00.000Z",
+      status: "PENDING",
+    }),
+    createTransaction: async () => {
+      persisted = true;
+      throw new Error("must not persist during receipt preview");
+    },
+  });
+  const parser = {
+    parse: async () => ({
+      kind: "READY" as const,
+      draft: {
+        transactionType: "EXPENSE" as const,
+        amountMinor: 45000,
+        currency: "IDR",
+        transactionDate: "2026-08-20",
+        description: "Makan siang",
+        categorySuggestion: "Makanan & Minuman" as const,
+        confidence: "HIGH" as const,
+      },
+    }),
+  };
+
+  const response = await handleTelegramPhotoMessageResponse(
+    service,
+    owner,
+    [{ fileId: "photo_1", width: 1200, height: 1600 }],
+    "Makan siang",
+    parser,
+    async () => ({ data: new Uint8Array([1, 2, 3]), mimeType: "image/jpeg", filePath: "photos/receipt.jpg" }),
+  );
+
+  assert.equal(persisted, false);
+  assert.match(typeof response === "string" ? response : response.text, /DRAFT TRANSAKSI/);
+  assert.match(typeof response === "string" ? response : response.text, /Kategori   : Makanan & Minuman \(saran\)/);
+});
+
+test("rejects a receipt photo for an unregistered user before downloading it", async () => {
+  let downloaded = false;
+  const service = fakeService({ getActiveMembership: async () => null });
+  const response = await handleTelegramPhotoMessageResponse(
+    service,
+    owner,
+    [{ fileId: "photo_unauthorized", width: 1200, height: 1600 }],
+    null,
+    { parse: async () => { throw new Error("parser must not run"); } },
+    async () => {
+      downloaded = true;
+      throw new Error("download must not run");
+    },
+  );
+
+  assert.equal(downloaded, false);
+  assert.match(typeof response === "string" ? response : response.text, /belum terdaftar/);
 });
 
 test("draft Edit callback enters manual edit mode", async () => {
