@@ -669,6 +669,79 @@ test("joins a valid invitation once and marks it used", async () => {
   await assert.rejects(service.joinFamily({ ...member, telegramUserId: "300" }, invitation.code), InvitationError);
 });
 
+test("serializes concurrent joins so one invitation creates only one membership", async () => {
+  const repository = setupMember("OWNER");
+  const setupService = new FamilyService(repository);
+  const serviceA = new FamilyService(repository);
+  const serviceB = new FamilyService(repository);
+  const invitation = await setupService.createInvitation(owner);
+  const secondUser: TelegramUser = { telegramUserId: "301", name: "Second Member", username: "second" };
+
+  const results = await Promise.allSettled([
+    serviceA.joinFamily(member, invitation.code),
+    serviceB.joinFamily(secondUser, invitation.code),
+  ]);
+
+  assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(results.filter((result) => result.status === "rejected").length, 1);
+  assert.equal(repository.members.filter((value) => value.familyId === "fam_1").length, 2);
+  assert.equal(repository.invitations[0].status, "USED");
+});
+
+test("serializes concurrent confirmations so a destructive action runs once", async () => {
+  const repository = setupMember("OWNER");
+  repository.members.push(activeMember("fam_1", member, "MEMBER"));
+  const setupService = new FamilyService(repository);
+  const serviceA = new FamilyService(repository);
+  const serviceB = new FamilyService(repository);
+  await setupService.requestMemberDeactivation(owner, "mem_200");
+
+  const results = await Promise.allSettled([
+    serviceA.confirmPendingAction(owner),
+    serviceB.confirmPendingAction(owner),
+  ]);
+
+  assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(results.filter((result) => result.status === "rejected").length, 1);
+  assert.equal(repository.members.find((value) => value.memberId === "mem_200")?.status, "SUSPENDED");
+  assert.equal(repository.confirmations[0].status, "COMPLETED");
+  assert.equal(repository.auditLogs.filter((entry) => entry.action === "DEACTIVATE_MEMBER").length, 1);
+});
+
+test("serializes concurrent role changes on the same family member", async () => {
+  const repository = setupMember("OWNER");
+  repository.members.push(activeMember("fam_1", member, "MEMBER"));
+  const serviceA = new FamilyService(repository);
+  const serviceB = new FamilyService(repository);
+
+  const results = await Promise.allSettled([
+    serviceA.changeMemberRole(owner, "mem_200", "ADMIN"),
+    serviceB.changeMemberRole(owner, "mem_200", "ADMIN"),
+  ]);
+
+  assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(results.filter((result) => result.status === "rejected").length, 1);
+  assert.equal(repository.members.find((value) => value.memberId === "mem_200")?.role, "ADMIN");
+  assert.equal(repository.auditLogs.filter((entry) => entry.action === "CHANGE_MEMBER_ROLE").length, 1);
+});
+
+test("serializes concurrent reactivation of the same suspended member", async () => {
+  const repository = setupMember("OWNER");
+  repository.members.push({ ...activeMember("fam_1", member, "MEMBER"), status: "SUSPENDED" });
+  const serviceA = new FamilyService(repository);
+  const serviceB = new FamilyService(repository);
+
+  const results = await Promise.allSettled([
+    serviceA.reactivateMember(owner, "mem_200", "CONFIRM"),
+    serviceB.reactivateMember(owner, "mem_200", "CONFIRM"),
+  ]);
+
+  assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(results.filter((result) => result.status === "rejected").length, 1);
+  assert.equal(repository.members.find((value) => value.memberId === "mem_200")?.status, "ACTIVE");
+  assert.equal(repository.auditLogs.filter((entry) => entry.action === "REACTIVATE_MEMBER").length, 1);
+});
+
 test("rejects expired, reused, and revoked invitations", async () => {
   for (const status of ["USED", "REVOKED"] as const) {
     const repository = setupMember("OWNER");
