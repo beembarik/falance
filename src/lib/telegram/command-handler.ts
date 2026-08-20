@@ -195,7 +195,11 @@ export async function handleTelegramTextMessageResponse(
           user,
           parsed.draft,
           parsed.draft.confidence,
-          parsed.draft.transactionDateInferred,
+          {
+            transactionDateInferred: parsed.draft.transactionDateInferred,
+            categorySuggestion: parsed.draft.categorySuggestion,
+            descriptionSuggestion: parsed.draft.descriptionSuggestion,
+          },
         );
         return { text: formatTransactionDraftMessage(draft), replyMarkup: formatDraftActionMarkup(draft.draftId, draft.status) };
       }

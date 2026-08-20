@@ -457,7 +457,7 @@ export class FamilyService {
     user: TelegramUser,
     input: CreateTransactionInput,
     confidence: PendingTransactionDraft["confidence"],
-    transactionDateInferred = false,
+    metadata: Pick<PendingTransactionDraft, "transactionDateInferred" | "categorySuggestion" | "descriptionSuggestion"> = {},
   ): Promise<PendingTransactionDraft> {
     const member = await this.requireActiveMember(user.telegramUserId);
     validateTransactionInput(input);
@@ -472,7 +472,9 @@ export class FamilyService {
       transactionDate: input.transactionDate,
       description: normalizeTransactionDescription(input.description),
       confidence,
-      ...(transactionDateInferred ? { transactionDateInferred: true } : {}),
+      ...(metadata.transactionDateInferred ? { transactionDateInferred: true } : {}),
+      ...(metadata.categorySuggestion ? { categorySuggestion: metadata.categorySuggestion } : {}),
+      ...(metadata.descriptionSuggestion ? { descriptionSuggestion: metadata.descriptionSuggestion } : {}),
       createdAt: now.toISOString(),
       expiresAt: new Date(now.getTime() + 5 * 60 * 1000).toISOString(),
       status: "PENDING",
@@ -515,6 +517,9 @@ export class FamilyService {
       currency: normalizeCurrency(input.currency),
       transactionDate: input.transactionDate,
       description: normalizeTransactionDescription(input.description),
+      transactionDateInferred: undefined,
+      categorySuggestion: undefined,
+      descriptionSuggestion: undefined,
       status: "EDITING",
     };
     await this.repository.updatePendingTransactionDraft(updated);

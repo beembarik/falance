@@ -1,9 +1,20 @@
-import type { TransactionDraft } from "../ai/transaction-text-parser";
 import type { TelegramReplyMarkup } from "./client";
 import type { TransactionDraftStatus } from "../family/types";
 import { telegramCode } from "./html";
 
-export function formatTransactionDraftMessage(draft: TransactionDraft): string {
+type TransactionDraftMessageInput = {
+  transactionType: "INCOME" | "EXPENSE";
+  amountMinor: number;
+  currency: string;
+  transactionDate: string;
+  description: string;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  transactionDateInferred?: boolean;
+  categorySuggestion?: string;
+  descriptionSuggestion?: string;
+};
+
+export function formatTransactionDraftMessage(draft: TransactionDraftMessageInput): string {
   const label = draft.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran";
   const dateLabel = draft.transactionDateInferred
     ? `${formatDate(draft.transactionDate)} (diasumsikan hari ini)`
@@ -15,6 +26,8 @@ export function formatTransactionDraftMessage(draft: TransactionDraft): string {
     `Jumlah     : ${formatAmount(draft.amountMinor, draft.currency)}`,
     `Tanggal    : ${dateLabel}`,
     `Deskripsi  : ${draft.description}`,
+    ...(draft.categorySuggestion ? [`Kategori   : ${draft.categorySuggestion} (saran)`] : []),
+    ...(draft.descriptionSuggestion ? [`Saran deskripsi: ${draft.descriptionSuggestion}`] : []),
     `Keyakinan  : ${draft.confidence}`,
     "",
     "Draft belum disimpan. Jika sudah benar, tekan tombol ✅ Ya, simpan di bawah.",

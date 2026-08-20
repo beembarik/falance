@@ -4,6 +4,21 @@ import { TransactionError, validateTransactionInput } from "../family/service";
 
 export type TransactionDraftConfidence = "HIGH" | "MEDIUM" | "LOW";
 
+export const TRANSACTION_CATEGORY_SUGGESTIONS = [
+  "Makanan & Minuman",
+  "Belanja",
+  "Rumah Tangga",
+  "Tagihan & Utilitas",
+  "Transportasi",
+  "Kesehatan",
+  "Pendidikan",
+  "Hiburan",
+  "Gaji & Pendapatan",
+  "Lainnya",
+] as const;
+
+export type TransactionCategorySuggestion = (typeof TRANSACTION_CATEGORY_SUGGESTIONS)[number];
+
 export interface TransactionDraft {
   transactionType: TransactionType;
   amountMinor: number;
@@ -12,6 +27,8 @@ export interface TransactionDraft {
   description: string;
   confidence: TransactionDraftConfidence;
   transactionDateInferred?: boolean;
+  categorySuggestion?: TransactionCategorySuggestion;
+  descriptionSuggestion?: string;
 }
 
 export type TransactionTextParseResult =
@@ -31,6 +48,8 @@ interface ProviderExtraction {
   currency: string | null;
   transaction_date: string | null;
   description: string | null;
+  category_suggestion?: TransactionCategorySuggestion | null;
+  description_suggestion?: string | null;
   confidence: TransactionDraftConfidence;
 }
 
@@ -42,6 +61,8 @@ const TRANSACTION_EXTRACTION_SCHEMA = {
     currency: { anyOf: [{ type: "string" }, { type: "null" }] },
     transaction_date: { anyOf: [{ type: "string" }, { type: "null" }] },
     description: { anyOf: [{ type: "string" }, { type: "null" }] },
+    category_suggestion: { anyOf: [{ type: "string", enum: TRANSACTION_CATEGORY_SUGGESTIONS }, { type: "null" }] },
+    description_suggestion: { anyOf: [{ type: "string" }, { type: "null" }] },
     confidence: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
   },
   required: [
@@ -50,6 +71,8 @@ const TRANSACTION_EXTRACTION_SCHEMA = {
     "currency",
     "transaction_date",
     "description",
+    "category_suggestion",
+    "description_suggestion",
     "confidence",
   ],
   additionalProperties: false,
@@ -91,6 +114,8 @@ export class OpenAICompatibleTransactionTextParser implements TransactionTextPar
                 "Never infer family_id, member identity, permissions, or transaction status.",
                 `Today is ${today}. Resolve relative dates against this date.`,
                 "amount_minor is a positive integer in the smallest currency unit; for IDR, use whole rupiah.",
+                `category_suggestion must be null or one of: ${TRANSACTION_CATEGORY_SUGGESTIONS.join(", ")}.`,
+                "description_suggestion is an optional concise Indonesian description; return null when the original description is already clear.",
                 "If a required field is absent or ambiguous, return null for that field; the server may use today only when the message is not a planned transaction.",
               ].join(" "),
             },
@@ -153,6 +178,8 @@ function normalizeExtraction(extraction: ProviderExtraction, sourceText: string,
   }
 
   const transactionDateInferred = extraction.transaction_date === null;
+  const categorySuggestion = normalizeCategorySuggestion(extraction.category_suggestion);
+  const descriptionSuggestion = normalizeSuggestion(extraction.description_suggestion, 200);
   const input: CreateTransactionInput = {
     transactionType: extraction.transaction_type,
     amountMinor: extraction.amount_minor,
@@ -180,8 +207,21 @@ function normalizeExtraction(extraction: ProviderExtraction, sourceText: string,
       description: input.description.replace(/\s+/g, " ").trim(),
       confidence: extraction.confidence,
       ...(transactionDateInferred ? { transactionDateInferred: true } : {}),
+      ...(categorySuggestion ? { categorySuggestion } : {}),
+      ...(descriptionSuggestion ? { descriptionSuggestion } : {}),
     },
   };
+}
+
+function normalizeCategorySuggestion(value: string | null | undefined): TransactionCategorySuggestion | undefined {
+  return TRANSACTION_CATEGORY_SUGGESTIONS.includes(value as TransactionCategorySuggestion)
+    ? value as TransactionCategorySuggestion
+    : undefined;
+}
+
+function normalizeSuggestion(value: string | null | undefined, maxLength: number): string | undefined {
+  const normalized = value?.replace(/\s+/g, " ").trim();
+  return normalized && normalized.length <= maxLength ? normalized : undefined;
 }
 
 function looksLikePlannedTransaction(sourceText: string): boolean {

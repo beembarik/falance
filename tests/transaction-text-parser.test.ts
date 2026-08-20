@@ -91,6 +91,55 @@ test("clarifies planned language instead of creating an actual transaction", asy
   assert.match(result.question, /Transaksi terencana belum dapat disimpan/);
 });
 
+test("normalizes category and description suggestions for draft review", async () => {
+  configureProvider();
+  mockProviderResponse({
+    transaction_type: "EXPENSE",
+    amount_minor: 45000,
+    currency: "IDR",
+    transaction_date: "2026-08-20",
+    description: "Makan siang",
+    category_suggestion: "Makanan & Minuman",
+    description_suggestion: "Makan siang bersama keluarga",
+    confidence: "HIGH",
+  });
+
+  const result = await new OpenAICompatibleTransactionTextParser().parse("makan siang 45 ribu", "2026-08-20");
+
+  assert.deepEqual(result, {
+    kind: "READY",
+    draft: {
+      transactionType: "EXPENSE",
+      amountMinor: 45000,
+      currency: "IDR",
+      transactionDate: "2026-08-20",
+      description: "Makan siang",
+      categorySuggestion: "Makanan & Minuman",
+      descriptionSuggestion: "Makan siang bersama keluarga",
+      confidence: "HIGH",
+    },
+  });
+});
+
+test("ignores an unsupported category suggestion", async () => {
+  configureProvider();
+  mockProviderResponse({
+    transaction_type: "EXPENSE",
+    amount_minor: 45000,
+    currency: "IDR",
+    transaction_date: "2026-08-20",
+    description: "Makan siang",
+    category_suggestion: "Kategori Rahasia",
+    description_suggestion: null,
+    confidence: "HIGH",
+  });
+
+  const result = await new OpenAICompatibleTransactionTextParser().parse("makan siang 45 ribu", "2026-08-20");
+
+  assert.equal(result.kind, "READY");
+  assert.equal(result.draft.categorySuggestion, undefined);
+});
+
 test("asks for clarification when the provider cannot extract all required fields", async () => {
   configureProvider();
   mockProviderResponse({

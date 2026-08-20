@@ -120,7 +120,7 @@ Audit rows are appended only after the primary administrative write succeeds. Au
 | `expires_at` | Five-minute draft expiry timestamp. |
 | `status` | `PENDING`, `EDITING`, `COMPLETED`, `CANCELLED`, or `EXPIRED`. |
 
-Pending drafts are temporary server state. A natural-language message creates or replaces the user’s active draft; `Ya`/`Kirim draft` validates and persists a transaction, `Edit` changes the draft to manual-edit mode, and cancellation or expiry preserves the row without persisting a transaction. The draft repository filters by the server-resolved Telegram identity, and the service verifies the active family before any update or approval.
+Pending drafts are temporary server state. A natural-language message creates or replaces the user’s active draft; `Ya`/`Kirim draft` validates and persists a transaction, `Edit` changes the draft to manual-edit mode, and cancellation or expiry preserves the row without persisting a transaction. AI category and description suggestions are review-only metadata for the draft response; they are not authoritative transaction fields, are cleared by manual draft editing, and are not added to the final `Transactions` schema or actual balance calculation. The draft repository filters by the server-resolved Telegram identity, and the service verifies the active family before any update or approval.
 
 ### Transactions
 

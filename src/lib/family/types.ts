@@ -130,6 +130,8 @@ export interface PendingTransactionDraft {
   description: string;
   confidence: "HIGH" | "MEDIUM" | "LOW";
   transactionDateInferred?: boolean;
+  categorySuggestion?: string;
+  descriptionSuggestion?: string;
   createdAt: string;
   expiresAt: string;
   status: TransactionDraftStatus;

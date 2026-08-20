@@ -585,9 +585,14 @@ test("creates, edits, and approves an AI draft only through the service boundary
     currency: "IDR",
     transactionDate: "2026-08-19",
     description: "Beli susu",
-  }, "HIGH");
+  }, "HIGH", {
+    categorySuggestion: "Makanan & Minuman",
+    descriptionSuggestion: "Beli susu untuk sarapan",
+  });
 
   assert.equal(draft.familyId, "fam_1");
+  assert.equal(draft.categorySuggestion, "Makanan & Minuman");
+  assert.equal(draft.descriptionSuggestion, "Beli susu untuk sarapan");
   const edited = await service.updatePendingTransactionDraft(owner, {
     transactionType: "EXPENSE",
     amountMinor: 40000,
@@ -598,6 +603,8 @@ test("creates, edits, and approves an AI draft only through the service boundary
   const transaction = await service.approvePendingTransactionDraft(owner);
 
   assert.equal(edited.status, "EDITING");
+  assert.equal(edited.categorySuggestion, undefined);
+  assert.equal(edited.descriptionSuggestion, undefined);
   assert.equal(transaction.amountMinor, 40000);
   assert.equal(transaction.description, "Beli susu dan roti");
   assert.equal(repository.transactionDrafts[0]?.status, "COMPLETED");
