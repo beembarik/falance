@@ -11,10 +11,12 @@ import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmati
  * this deployment. Family isolation is enforced by filtering rows with the
  * server-resolved family_id; Telegram input never selects a spreadsheet.
  */
+const sharedGoogleSheetsClient = new GoogleSheetsClient();
+
 export class GoogleSheetsFamilyRepository implements FamilyRepository {
   private readonly client: GoogleSheetsClient;
 
-  constructor(client = new GoogleSheetsClient()) {
+  constructor(client = sharedGoogleSheetsClient) {
     this.client = client;
   }
 

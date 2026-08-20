@@ -143,19 +143,63 @@ export class OpenAICompatibleReceiptParser implements ReceiptParser {
       outcome: response.ok ? "success" : "error",
     });
     if (!response.ok) throw new ReceiptParserUnavailableError("Receipt parser returned an error.");
+    const responseParsingStartedAt = performance.now();
     const payload = await response.json().catch(() => null) as unknown;
     const content = getMessageContent(payload);
-    if (!content) throw new ReceiptParserUnavailableError("Receipt parser returned no content.");
-
-    let extraction: ReceiptExtraction;
-    try {
-      extraction = JSON.parse(content) as ReceiptExtraction;
-    } catch {
-      throw new ReceiptParserUnavailableError("Receipt parser returned invalid JSON.");
+    if (!content) {
+      logDuration("ai.vision.response", performance.now() - responseParsingStartedAt, {
+        provider: providerHost(baseUrl),
+        outcome: "no_content",
+      });
+      throw new ReceiptParserUnavailableError("Receipt parser returned no content.");
     }
 
-    return normalizeReceiptExtraction(extraction, today);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content) as unknown;
+    } catch {
+      logDuration("ai.vision.response", performance.now() - responseParsingStartedAt, {
+        provider: providerHost(baseUrl),
+        outcome: "invalid_json",
+      });
+      throw new ReceiptParserUnavailableError("Receipt parser returned invalid JSON.");
+    }
+    if (!isReceiptExtraction(parsed)) {
+      logDuration("ai.vision.response", performance.now() - responseParsingStartedAt, {
+        provider: providerHost(baseUrl),
+        outcome: "schema_invalid",
+      });
+      throw new ReceiptParserUnavailableError("Receipt parser returned an invalid schema.");
+    }
+
+    const result = normalizeReceiptExtraction(parsed, today);
+    logDuration("ai.vision.response", performance.now() - responseParsingStartedAt, {
+      provider: providerHost(baseUrl),
+      outcome: result.kind.toLowerCase(),
+    });
+    return result;
   }
+}
+
+function isReceiptExtraction(value: unknown): value is ReceiptExtraction {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  const transactionType = candidate.transaction_type;
+  const amountMinor = candidate.amount_minor;
+  const currency = candidate.currency;
+  const transactionDate = candidate.transaction_date;
+  const description = candidate.description;
+  const confidence = candidate.confidence;
+  const category = candidate.category_suggestion;
+  const descriptionSuggestion = candidate.description_suggestion;
+  return (transactionType === "INCOME" || transactionType === "EXPENSE" || transactionType === null)
+    && (amountMinor === null || Number.isSafeInteger(amountMinor))
+    && (currency === null || typeof currency === "string")
+    && (transactionDate === null || typeof transactionDate === "string")
+    && (description === null || typeof description === "string")
+    && (confidence === "HIGH" || confidence === "MEDIUM" || confidence === "LOW")
+    && (category === null || typeof category === "string" || category === undefined)
+    && (descriptionSuggestion === null || typeof descriptionSuggestion === "string" || descriptionSuggestion === undefined);
 }
 
 function providerHost(baseUrl: string): string {

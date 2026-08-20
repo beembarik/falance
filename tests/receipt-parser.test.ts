@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   OpenAICompatibleReceiptParser,
+  ReceiptParserUnavailableError,
   type ReceiptParser,
 } from "../src/lib/ai/receipt-parser";
 import type { TelegramDownloadedImage } from "../src/lib/telegram/client";
@@ -75,6 +76,25 @@ test("asks for clarification when a receipt is missing required fields", async (
     kind: "NEEDS_CLARIFICATION",
     question: "Receipt belum cukup jelas. Pastikan total, tanggal, dan keterangan transaksi terlihat, lalu coba lagi.",
   });
+});
+
+test("rejects receipt provider content with an invalid extraction schema", async () => {
+  configureProvider();
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    choices: [{ message: { content: JSON.stringify({
+      transaction_type: "EXPENSE",
+      amount_minor: "45000",
+      currency: "IDR",
+      transaction_date: "2026-08-20",
+      description: "Makan siang",
+      confidence: "HIGH",
+    }) } }],
+  }), { status: 200 });
+
+  await assert.rejects(
+    () => new OpenAICompatibleReceiptParser().parse(image, null, "2026-08-20"),
+    ReceiptParserUnavailableError,
+  );
 });
 
 test("fails safely when the receipt vision model is not configured", async () => {

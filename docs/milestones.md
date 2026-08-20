@@ -125,6 +125,8 @@ Milestone ini menyelesaikan risiko yang dapat menyebabkan request Telegram dipro
 
 - [x] Timing log aman untuk webhook, Google Sheets, dan provider AI yang hanya aktif melalui `FALANCE_TIMING_LOGS`
 - [x] Request-scoped memoization untuk membership dan family lookup tanpa mengubah authorization boundary
+- [x] Reuse `GoogleSheetsClient` pada warm serverless instance agar registry initialization dan access-token cache tidak dibuat ulang untuk setiap webhook
+- [x] AI response diagnostics untuk membedakan `no_content`, `invalid_json`, `schema_invalid`, `ready`, dan `needs_clarification` tanpa mencatat response content
 - [ ] Verifikasi `X-Telegram-Bot-Api-Secret-Token` pada webhook dengan konfigurasi server-only
 - [ ] Idempotensi `update_id` Telegram untuk mencegah transaksi atau command ganda akibat retry
 - [ ] Pengujian konkurensi untuk `/join`, invitation, pending confirmation, dan operasi lifecycle anggota/keluarga

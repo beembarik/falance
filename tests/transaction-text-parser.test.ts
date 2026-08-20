@@ -194,6 +194,37 @@ test("rejects a future AI transaction date as clarification", async () => {
   assert.match(result.question, /Tanggal transaksi tidak boleh lebih dari hari ini/);
 });
 
+test("rejects text provider content that is not JSON", async () => {
+  configureProvider();
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    choices: [{ message: { content: "```json {\\\"transaction_type\\\":\\\"EXPENSE\\\"} ```" } }],
+  }), { status: 200 });
+
+  await assert.rejects(
+    () => new OpenAICompatibleTransactionTextParser().parse("beli susu", "2026-08-20"),
+    TransactionTextParserUnavailableError,
+  );
+});
+
+test("rejects text provider content with an invalid extraction schema", async () => {
+  configureProvider();
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    choices: [{ message: { content: JSON.stringify({
+      transaction_type: "EXPENSE",
+      amount_minor: "35000",
+      currency: "IDR",
+      transaction_date: "2026-08-20",
+      description: "Beli susu",
+      confidence: "HIGH",
+    }) } }],
+  }), { status: 200 });
+
+  await assert.rejects(
+    () => new OpenAICompatibleTransactionTextParser().parse("beli susu", "2026-08-20"),
+    TransactionTextParserUnavailableError,
+  );
+});
+
 test("fails safely when the AI provider is not configured", async () => {
   delete process.env.FALANCE_AI_API_BASE;
   delete process.env.FALANCE_AI_API_KEY;

@@ -78,7 +78,9 @@ The webhook currently waits for deterministic authorization, Google Sheets reads
 
 When diagnosing a slow response, temporarily set the server-only `FALANCE_TIMING_LOGS=true`. The webhook then records only update type and stage durations, while Google Sheets records operation, method, status, outcome, and duration, and AI records provider host, status, outcome, and duration. No Telegram user ID, message text, family ID, spreadsheet ID, token, private key, prompt, or receipt content is logged. Disable the flag after collecting a representative sample.
 
-The first latency slice applies request-scoped memoization to membership and family lookups. This reduces repeated reads within one webhook without changing server-side authorization or allowing a client-selected `family_id`. Production measurements must still determine whether the dominant delay is Google Sheets, provider inference, Telegram delivery, or cold-start initialization.
+The first latency slice applies request-scoped memoization to membership and family lookups and reuses the default `GoogleSheetsClient` across warm serverless requests. This allows registry initialization and the Google access-token cache to survive between requests in the same warm instance, reducing repeated header reads without changing server-side authorization or allowing a client-selected `family_id`.
+
+AI diagnostics are split into request and response phases. `ai.text.request` and `ai.vision.request` measure the provider HTTP call; `ai.text.response` and `ai.vision.response` classify the post-response outcome as `no_content`, `invalid_json`, `schema_invalid`, `ready`, or `needs_clarification`. The diagnostics never record the model response, prompt, receipt image, or user data. Production measurements must still determine whether the dominant delay is Google Sheets, provider inference, Telegram delivery, or cold-start initialization.
 
 ## Planned report access
 
