@@ -75,7 +75,7 @@ Milestone 5 accepts structured amount, optional currency, `YYYY-MM-DD` date, and
 
 ## Milestone 6 — AI Text Parser
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 - [x] AI provider abstraction
 - [x] Transaction extraction and deterministic validation
@@ -89,11 +89,15 @@ The first Milestone 6 slice accepts natural-language text from an active Telegra
 
 ## Milestone 7 — Receipt Processing
 
-Status: PLANNED
+Status: IN PROGRESS
 
-- [ ] Telegram image handling
-- [ ] Receipt extraction and confirmation
-- [ ] Persistence with family authorization
+Milestone 7 reuses the Milestone 6 interactive draft and deterministic service boundary. Receipt processing must accept Telegram images safely, extract transaction candidates through a server-side vision-capable provider, show a reviewable draft, and persist only after explicit user approval. The receipt parser must never determine `family_id`, member identity, authorization, or transaction status.
+
+- [ ] Telegram image handling with MIME, size, and processing-limit validation
+- [ ] Server-side receipt extraction and controlled category/description suggestions
+- [ ] Shared interactive draft preview, approval, edit, cancellation, and expiry
+- [ ] Persistence through the existing deterministic transaction service with family authorization
+- [ ] Tests for image validation, extraction fallback, approval, family isolation, and privacy-safe diagnostics
 
 ## Milestone 8 — Reports, Multi-Channel Access, Export, and AI Analysis
 
