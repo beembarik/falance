@@ -58,7 +58,9 @@ test("previews a natural-language transaction draft without persisting it", asyn
 
   assert.equal(persisted, false);
   assert.match(response, /DRAFT TRANSAKSI/);
-  assert.match(response, /<code>\/addexpense 35000 IDR 2026-08-20 Beli susu<\/code>/);
+  assert.match(response, /Jika sudah benar, tekan tombol ✅ Ya, simpan/);
+  assert.match(response, /Jika perlu perubahan, tekan tombol ✏️ Edit/);
+  assert.doesNotMatch(response, /\/addexpense 35000 IDR 2026-08-20 Beli susu/);
 });
 
 test("draft Edit callback enters manual edit mode", async () => {

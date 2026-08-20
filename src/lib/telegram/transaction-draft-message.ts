@@ -5,15 +5,6 @@ import { telegramCode } from "./html";
 
 export function formatTransactionDraftMessage(draft: TransactionDraft): string {
   const label = draft.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran";
-  const command = draft.transactionType === "INCOME" ? "/addincome" : "/addexpense";
-  const structuredCommand = [
-    command,
-    String(draft.amountMinor),
-    draft.currency,
-    draft.transactionDate,
-    draft.description,
-  ].join(" ");
-
   return [
     "🧠 DRAFT TRANSAKSI",
     "",
@@ -23,8 +14,8 @@ export function formatTransactionDraftMessage(draft: TransactionDraft): string {
     `Deskripsi  : ${draft.description}`,
     `Keyakinan  : ${draft.confidence}`,
     "",
-    "Draft belum disimpan. Jika sudah benar, kirim command berikut:",
-    telegramCode(structuredCommand),
+    "Draft belum disimpan. Jika sudah benar, tekan tombol ✅ Ya, simpan di bawah.",
+    "Jika perlu perubahan, tekan tombol ✏️ Edit.",
   ].join("\n");
 }
 
