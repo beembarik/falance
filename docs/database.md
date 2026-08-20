@@ -86,6 +86,17 @@ There is deliberately no `spreadsheet_id` column. The central spreadsheet ID bel
 | `expires_at` | Confirmation expiry, currently five minutes after creation. |
 | `status` | `PENDING`, `COMPLETED`, `CANCELLED`, or `EXPIRED`. |
 
+### Processed Telegram Updates
+
+| Column | Meaning |
+| --- | --- |
+| `update_id` | Non-negative Telegram update identifier used as the global replay key for this bot deployment. |
+| `claimed_at` | Timestamp at which the webhook claimed the update for processing. |
+| `completed_at` | Timestamp at which handler effects and Telegram response delivery completed, when successful. |
+| `status` | `CLAIMED` while processing or within the five-minute lease, and `COMPLETED` after successful handling. |
+
+This worksheet is deployment-scoped and intentionally has no `family_id`, because Telegram `update_id` is global to the bot rather than family data. The webhook claims an update before dispatching to the command handler; a completed or non-stale claimed update is ignored. A stale claim may be reclaimed after five minutes. The in-process lock prevents concurrent duplicate claims within one warm instance; durable worksheet state protects retries across warm requests, while full cross-instance atomicity remains a future Google Sheets scalability boundary.
+
 ### Audit Log
 
 | Column | Meaning |

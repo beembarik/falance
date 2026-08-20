@@ -14,6 +14,7 @@ import {
 import { usesTelegramHtml } from "@/lib/telegram/html";
 import type { TelegramPhotoSize } from "@/lib/telegram/client";
 import { logDuration, measureDuration } from "@/lib/observability/timing";
+import { isTelegramUpdateId, verifyTelegramWebhookSecret } from "@/lib/telegram/webhook-security";
 
 interface TelegramUpdate {
   update_id: number;
@@ -52,6 +53,18 @@ export async function GET(): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   const requestStartedAt = performance.now();
+  const secretResult = verifyTelegramWebhookSecret(
+    request.headers.get("x-telegram-bot-api-secret-token"),
+    process.env.FALANCE_TELEGRAM_WEBHOOK_SECRET,
+  );
+  if (secretResult === "MISSING_CONFIGURATION") {
+    console.error("[Telegram] webhook secret is not configured");
+    return Response.json({ error: "Service unavailable." }, { status: 503 });
+  }
+  if (secretResult === "UNAUTHORIZED") {
+    return Response.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
   let payload: unknown;
 
   try {
@@ -64,9 +77,17 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
 
-  const service = new FamilyService(new GoogleSheetsFamilyRepository());
-
   try {
+    const repository = new GoogleSheetsFamilyRepository();
+    const claimed = await repository.claimTelegramUpdate(payload.update_id, new Date().toISOString());
+    if (!claimed) {
+      logDuration("telegram.update.duplicate", measureDuration(requestStartedAt), {
+        updateId: payload.update_id,
+      });
+      return Response.json({ ok: true, duplicate: true });
+    }
+
+    const service = new FamilyService(repository);
     const callback = payload.callback_query;
     const callbackChatId = callback?.message?.chat?.id;
     const callbackFrom = callback?.from;
@@ -93,6 +114,7 @@ export async function POST(request: Request): Promise<Response> {
         ...(usesTelegramHtml(response.text) ? { parseMode: "HTML" as const } : {}),
         ...(response.replyMarkup ? { replyMarkup: response.replyMarkup } : {}),
       });
+      await repository.completeTelegramUpdate(payload.update_id, new Date().toISOString());
       logDuration("telegram.update", measureDuration(requestStartedAt), {
         updateType: "callback_query",
         handlerMs: handlerDurationMs,
@@ -106,6 +128,7 @@ export async function POST(request: Request): Promise<Response> {
     const caption = payload.message?.caption;
     const from = payload.message?.from;
     if (typeof chatId !== "number" || !from || typeof from.id !== "number") {
+      await repository.completeTelegramUpdate(payload.update_id, new Date().toISOString());
       return Response.json({ ok: true, ignored: true });
     }
 
@@ -131,6 +154,7 @@ export async function POST(request: Request): Promise<Response> {
         ...(usesTelegramHtml(responseText) ? { parseMode: "HTML" as const } : {}),
         ...(typeof response !== "string" && response.replyMarkup ? { replyMarkup: response.replyMarkup } : {}),
       });
+      await repository.completeTelegramUpdate(payload.update_id, new Date().toISOString());
       logDuration("telegram.update", measureDuration(requestStartedAt), {
         updateType: "photo",
         handlerMs: handlerDurationMs,
@@ -139,7 +163,10 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json({ ok: true });
     }
 
-    if (typeof text !== "string") return Response.json({ ok: true, ignored: true });
+    if (typeof text !== "string") {
+      await repository.completeTelegramUpdate(payload.update_id, new Date().toISOString());
+      return Response.json({ ok: true, ignored: true });
+    }
 
     const handlerStartedAt = performance.now();
     const response = await handleTelegramTextMessageResponse(
@@ -156,6 +183,7 @@ export async function POST(request: Request): Promise<Response> {
       ...(usesTelegramHtml(responseText) ? { parseMode: "HTML" as const } : {}),
       ...(typeof response !== "string" && response.replyMarkup ? { replyMarkup: response.replyMarkup } : {}),
     });
+    await repository.completeTelegramUpdate(payload.update_id, new Date().toISOString());
     logDuration("telegram.update", measureDuration(requestStartedAt), {
       updateType: "text",
       handlerMs: handlerDurationMs,
@@ -192,6 +220,6 @@ function isTelegramUpdate(value: unknown): value is TelegramUpdate {
     typeof value === "object" &&
     value !== null &&
     "update_id" in value &&
-    typeof value.update_id === "number"
+    isTelegramUpdateId(value.update_id)
   );
 }

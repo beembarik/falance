@@ -15,7 +15,7 @@ import {
   TransactionError,
   UnauthorizedError,
 } from "../src/lib/family/service";
-import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, TelegramUser, Transaction } from "../src/lib/family/types";
+import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, ProcessedTelegramUpdate, TelegramUser, Transaction } from "../src/lib/family/types";
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
 const member: TelegramUser = { telegramUserId: "200", name: "Member", username: null };
@@ -769,6 +769,7 @@ class FakeFamilyRepository implements FamilyRepository {
   auditLogs: AuditLogEntry[] = [];
   transactions: Transaction[] = [];
   transactionDrafts: PendingTransactionDraft[] = [];
+  processedUpdates: ProcessedTelegramUpdate[] = [];
   failAuditLog = false;
   failMemberCreation = false;
   spreadsheetCreationCalls = 0;
@@ -848,6 +849,24 @@ class FakeFamilyRepository implements FamilyRepository {
   async updatePendingTransactionDraft(value: PendingTransactionDraft) {
     const index = this.transactionDrafts.findIndex((draft) => draft.draftId === value.draftId);
     if (index >= 0) this.transactionDrafts[index] = value;
+  }
+  async claimTelegramUpdate(updateId: number, claimedAt: string) {
+    const existing = this.processedUpdates.find((update) => update.updateId === updateId);
+    if (existing?.status === "COMPLETED") return false;
+    if (existing) {
+      existing.claimedAt = claimedAt;
+      existing.completedAt = null;
+      existing.status = "CLAIMED";
+      return true;
+    }
+    this.processedUpdates.push({ updateId, claimedAt, completedAt: null, status: "CLAIMED" });
+    return true;
+  }
+  async completeTelegramUpdate(updateId: number, completedAt: string) {
+    const existing = this.processedUpdates.find((update) => update.updateId === updateId);
+    if (!existing) throw new Error("processed update missing");
+    existing.completedAt = completedAt;
+    existing.status = "COMPLETED";
   }
   async createPendingFamilyCreation(value: PendingFamilyCreation) {
     this.pending = this.pending.filter((pendingValue) => pendingValue.telegramUserId !== value.telegramUserId);

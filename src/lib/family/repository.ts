@@ -47,4 +47,6 @@ export interface FamilyRepository {
   createPendingTransactionDraft(draft: PendingTransactionDraft): Promise<void>;
   findPendingTransactionDraft(telegramUserId: string): Promise<PendingTransactionDraft | null>;
   updatePendingTransactionDraft(draft: PendingTransactionDraft): Promise<void>;
+  claimTelegramUpdate(updateId: number, claimedAt: string): Promise<boolean>;
+  completeTelegramUpdate(updateId: number, completedAt: string): Promise<void>;
 }

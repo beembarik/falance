@@ -122,6 +122,7 @@ test("initializes the single central registry without Drive or spreadsheet creat
       ["draft_id", "telegram_user_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "confidence", "created_at", "expires_at", "status"],
       ["audit_id", "family_id", "actor_member_id", "actor_role", "action", "target_type", "target_id", "previous_value", "new_value", "created_at"],
       ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"],
+      ["update_id", "claimed_at", "completed_at", "status"],
     ]);
   } finally {
     globalThis.fetch = originalFetch;
@@ -434,3 +435,72 @@ function restoreEnvironment(name: string, value: string | undefined): void {
     process.env[name] = value;
   }
 }
+
+test("claims a Telegram update once and suppresses it after completion", async () => {
+  const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
+  process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";
+  const rows: string[][] = [["update_id", "claimed_at", "completed_at", "status"]];
+  const updates: string[][] = [];
+  const client = {
+    ensureRegistry: async () => {},
+    getValues: async () => rows,
+    appendRows: async (
+      _spreadsheetId: string,
+      _sheetName: string,
+      values: readonly (readonly string[])[],
+    ) => rows.push(...values.map((value) => [...value])),
+    updateValues: async (
+      _spreadsheetId: string,
+      _range: string,
+      values: readonly (readonly string[])[],
+    ) => {
+      updates.push(...values.map((value) => [...value]));
+      rows[1] = [...values[0]];
+    },
+  } as unknown as GoogleSheetsClient;
+
+  try {
+    const repository = new GoogleSheetsFamilyRepository(client);
+    const parallelClaims = await Promise.all([
+      repository.claimTelegramUpdate(900001, "2026-08-21T00:00:00.000Z"),
+      repository.claimTelegramUpdate(900001, "2026-08-21T00:01:00.000Z"),
+    ]);
+    assert.deepEqual(parallelClaims.sort(), [false, true]);
+    await repository.completeTelegramUpdate(900001, "2026-08-21T00:02:00.000Z");
+    assert.equal(await repository.claimTelegramUpdate(900001, "2026-08-21T00:03:00.000Z"), false);
+    assert.deepEqual(rows[1], ["900001", "2026-08-21T00:00:00.000Z", "2026-08-21T00:02:00.000Z", "COMPLETED"]);
+    assert.deepEqual(updates, [["900001", "2026-08-21T00:00:00.000Z", "2026-08-21T00:02:00.000Z", "COMPLETED"]]);
+  } finally {
+    restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
+  }
+});
+
+test("reclaims a stale Telegram update claim after the five-minute lease", async () => {
+  const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
+  process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";
+  const rows: string[][] = [
+    ["update_id", "claimed_at", "completed_at", "status"],
+    ["900002", "2026-08-21T00:00:00.000Z", "", "CLAIMED"],
+  ];
+  const updates: string[][] = [];
+  const client = {
+    ensureRegistry: async () => {},
+    getValues: async () => rows,
+    updateValues: async (
+      _spreadsheetId: string,
+      _range: string,
+      values: readonly (readonly string[])[],
+    ) => {
+      updates.push(...values.map((value) => [...value]));
+      rows[1] = [...values[0]];
+    },
+  } as unknown as GoogleSheetsClient;
+
+  try {
+    const repository = new GoogleSheetsFamilyRepository(client);
+    assert.equal(await repository.claimTelegramUpdate(900002, "2026-08-21T00:05:00.000Z"), true);
+    assert.deepEqual(updates, [["900002", "2026-08-21T00:05:00.000Z", "", "CLAIMED"]]);
+  } finally {
+    restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
+  }
+});

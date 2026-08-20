@@ -12,6 +12,8 @@ import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmati
  * server-resolved family_id; Telegram input never selects a spreadsheet.
  */
 const sharedGoogleSheetsClient = new GoogleSheetsClient();
+const telegramUpdateClaimLocks = new Map<string, Promise<boolean>>();
+const TELEGRAM_UPDATE_CLAIM_LEASE_MS = 5 * 60 * 1000;
 
 export class GoogleSheetsFamilyRepository implements FamilyRepository {
   private readonly client: GoogleSheetsClient;
@@ -313,6 +315,49 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
         row[0], row[1], row[2], row[3], "COMPLETED",
       ]], "completePendingFamilyCreation");
     }
+  }
+
+  async claimTelegramUpdate(updateId: number, claimedAt: string): Promise<boolean> {
+    const lockKey = `${this.registryId()}:${updateId}`;
+    const previous = telegramUpdateClaimLocks.get(lockKey) ?? Promise.resolve(false);
+    const claim = previous.catch(() => false).then(() => this.claimTelegramUpdateWithoutLock(updateId, claimedAt));
+    const trackedClaim = claim.finally(() => {
+      if (telegramUpdateClaimLocks.get(lockKey) === trackedClaim) telegramUpdateClaimLocks.delete(lockKey);
+    });
+    telegramUpdateClaimLocks.set(lockKey, trackedClaim);
+    return trackedClaim;
+  }
+
+  async completeTelegramUpdate(updateId: number, completedAt: string): Promise<void> {
+    const rows = await this.rows("Processed Telegram Updates", "completeTelegramUpdate");
+    const index = rows.findIndex((row) => row[0] === String(updateId));
+    if (index < 0) throw new GoogleConfigurationError("Processed Telegram update record is missing.");
+    const row = rows[index];
+    if (row[3] === "COMPLETED") return;
+    await this.client.updateValues(this.registryId(), `Processed Telegram Updates!A${index + 2}`, [[
+      row[0], row[1], completedAt, "COMPLETED",
+    ]], "completeTelegramUpdate");
+  }
+
+  private async claimTelegramUpdateWithoutLock(updateId: number, claimedAt: string): Promise<boolean> {
+    const rows = await this.rows("Processed Telegram Updates", "claimTelegramUpdate");
+    const index = rows.findIndex((row) => row[0] === String(updateId));
+    if (index < 0) {
+      await this.append("Processed Telegram Updates", [String(updateId), claimedAt, "", "CLAIMED"], "claimTelegramUpdate");
+      return true;
+    }
+
+    const row = rows[index];
+    if (row[3] === "COMPLETED") return false;
+    const previousClaimedAt = Date.parse(row[1]);
+    const currentClaimedAt = Date.parse(claimedAt);
+    if (!Number.isNaN(previousClaimedAt) && !Number.isNaN(currentClaimedAt) && currentClaimedAt - previousClaimedAt >= TELEGRAM_UPDATE_CLAIM_LEASE_MS) {
+      await this.client.updateValues(this.registryId(), `Processed Telegram Updates!A${index + 2}`, [[
+        row[0], claimedAt, "", "CLAIMED",
+      ]], "claimTelegramUpdate");
+      return true;
+    }
+    return false;
   }
 
   private async rows(sheet: string, operation: GoogleOperation): Promise<string[][]> {

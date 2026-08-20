@@ -72,6 +72,14 @@ Milestone 6 accepts non-command natural-language transaction text from active me
 
 Milestone 7 photo messages are accepted only from users with an active server-resolved membership. The webhook selects the largest valid Telegram photo size, validates dimensions and the configured `FALANCE_RECEIPT_MAX_BYTES` limit, calls Telegram `getFile`, and downloads the image server-side with a timeout. Supported formats are JPEG, PNG, and WebP. The image is passed to a server-only receipt parser configured with `FALANCE_AI_VISION_MODEL`; it is not written to Google Sheets. A successful extraction is converted into the same interactive draft flow, while unreadable receipts, unsupported images, missing configuration, provider failures, and download failures return Indonesian fallback messages.
 
+## Webhook authentication and update idempotency
+
+Every `POST /api/telegram/webhook` request must include the `X-Telegram-Bot-Api-Secret-Token` header with the value configured in the server-only `FALANCE_TELEGRAM_WEBHOOK_SECRET` environment variable. The route fails closed with `503` when the server variable is missing and returns `401` for a missing or mismatched header. The `GET` health check remains available separately and does not process Telegram updates.
+
+Before dispatching a valid update to the command handler, the route claims its non-negative integer `update_id` in the deployment-scoped `Processed Telegram Updates` worksheet. A `COMPLETED` update or a non-stale `CLAIMED` update returns `200` with duplicate suppression and does not execute the command handler again. The claim lease is five minutes; a stale claim may be reclaimed after that period. The repository also serializes claims for the same update within one warm serverless instance. This is a replay boundary, not a replacement for family authorization: every command still resolves membership and `family_id` server-side.
+
+Before enabling the production bot after deployment, set `FALANCE_TELEGRAM_WEBHOOK_SECRET` in Vercel and configure Telegram using the same secret with `setWebhook`. The secret must never be placed in the client, Google Sheets, Telegram messages, or diagnostic logs. If the secret changes, update both Vercel and Telegram together.
+
 ## Latency diagnosis
 
 The webhook currently waits for deterministic authorization, Google Sheets reads/writes, optional AI parsing, and the final Telegram response before returning `200`. This preserves the existing approval and persistence semantics; moving transaction processing into an untracked background task would risk Telegram retries and duplicate effects. Next.js `after()` is therefore reserved for non-critical side effects such as timing or analytics, not for transaction persistence.

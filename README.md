@@ -2,7 +2,7 @@
 
 Falancé adalah bot Telegram untuk pencatatan dan pengelolaan keuangan keluarga. Repository ini berisi fondasi aplikasi yang berjalan di Next.js, menerima update Telegram melalui webhook, dan menggunakan **satu Google Spreadsheet pusat untuk seluruh keluarga dalam satu deployment**.
 
-> **Status saat ini:** Milestone 0–7 selesai dan Milestone 8 sedang dimulai dari latency observability serta pengurangan read amplification yang aman. AI parser, draft interaktif, receipt processing, approval, edit, pembatalan, validasi timezone, penanganan tanggal, category suggestion, dan description suggestion sudah tersedia. Laporan, Mini App, hardening P0 lainnya, dan Supabase migration masih berada pada milestone lanjutan.
+> **Status saat ini:** Milestone 0–7 selesai dan Milestone 8 sedang berjalan. Slice latency observability, pengurangan read amplification yang aman, verifikasi secret webhook, dan durable `update_id` idempotency sudah diimplementasikan di branch pengembangan ini. Sebelum deployment, `FALANCE_TELEGRAM_WEBHOOK_SECRET` harus diisi di Vercel dan secret yang sama harus dikonfigurasi pada Telegram `setWebhook`. AI parser, draft interaktif, receipt processing, approval, edit, pembatalan, validasi timezone, penanganan tanggal, category suggestion, dan description suggestion sudah tersedia. Laporan, Mini App, concurrency hardening lanjutan, AI usage controls, dan Supabase migration masih berada pada milestone lanjutan.
 
 ## Kemampuan yang Sudah Tersedia
 
@@ -25,7 +25,8 @@ Implementasi saat ini mencakup identitas Telegram, pembuatan keluarga, undangan,
 | AI text parser | Pesan natural-language dari anggota aktif diekstrak menjadi draft transaksi tervalidasi. Bot menampilkan rekap dengan tombol `Ya, simpan`, `Edit`, dan `Batalkan`; `Ya, simpan`/`Kirim draft` menyimpan melalui service deterministik, sedangkan `Edit` membuka format `/editdraft`. Tanggal transaksi biasa tidak boleh melewati tanggal hari ini pada zona waktu bisnis yang dikonfigurasi. Jika transaksi aktual tidak menyebut tanggal, draft menggunakan hari ini dan menampilkannya sebagai `(diasumsikan hari ini)`. Draft dapat menampilkan saran kategori terkontrol dan saran deskripsi opsional untuk ditinjau; bahasa perencanaan tidak disimpan sebagai transaksi aktual. | Tersedia; Milestone 6 selesai |
 | Receipt photo intake | Photo receipt dari anggota aktif divalidasi, diunduh melalui `getFile` secara server-side, lalu diarahkan ke receipt parser vision. Gambar tidak disimpan ke Google Sheets dan transaksi tidak dibuat sebelum approval draft. Production validation berhasil dengan OpenRouter menggunakan model text dan vision yang terpisah. | Tersedia; Milestone 7 selesai |
 | Isolasi keluarga | `family_id` selalu ditentukan server dari membership aktif atau invitation yang telah divalidasi. | Tersedia |
-| Registry Google Sheets | Satu registry pusat menggunakan sembilan worksheet: `Settings`, `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, `Pending Transaction Drafts`, `Audit Log`, dan `Transactions`. | Tersedia |
+| Registry Google Sheets | Satu registry pusat menggunakan sepuluh worksheet: `Settings`, `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, `Pending Transaction Drafts`, `Audit Log`, `Transactions`, dan `Processed Telegram Updates`. Worksheet terakhir menyimpan claim/completion state `update_id` untuk mencegah replay. | Tersedia |
+| Webhook security dan idempotency | POST webhook menolak request tanpa `FALANCE_TELEGRAM_WEBHOOK_SECRET` atau header `X-Telegram-Bot-Api-Secret-Token` yang cocok. `update_id` di-claim secara durable sebelum handler dijalankan dan duplicate update diabaikan. | Implemented; konfigurasi production wajib |
 | Diagnostik aman | Error Google Sheets dicatat menggunakan operation label dan path yang telah direduksi; token, credential, spreadsheet ID, Telegram ID, dan data baris tidak dicatat. | Tersedia |
 
 ## Telegram Commands
@@ -177,7 +178,8 @@ Salin `.env.example` ke konfigurasi environment deployment dan isi nilai server-
 
 | Variable | Kegunaan | Wajib |
 | --- | --- | :---: |
-| `TELEGRAM_BOT_TOKEN` | Credential Telegram Bot API. | Ya |
+| `TELEGRAM_BOT_TOKEN` | Token bot Telegram. | Ya |
+| `FALANCE_TELEGRAM_WEBHOOK_SECRET` | Secret server-only yang harus sama dengan secret pada Telegram `setWebhook`; request tanpa header yang cocok ditolak. | Ya |
 | `NEXT_PUBLIC_APP_URL` | URL publik deployment untuk kebutuhan link server-generated di masa depan. | Tidak untuk command saat ini |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Email service account Google. | Ya |
 | `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` | PKCS#8 private key service account. | Ya |
@@ -221,7 +223,7 @@ npm run build
 git diff --check
 ```
 
-Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, family reactivation, family-name update authorization and persistence, soft family archival/reactivation, pending Y/N confirmation, cancellation, no-pending guard, last-OWNER invariant, append-only Audit Log persistence, transaction creation, editing, family-scoped listing, soft void confirmation, balance aggregation, structured transaction command parsing and handler responses, natural-language draft extraction and fallback, interactive draft approval/edit/cancellation, stale and foreign callback rejection, deterministic AI validation, configurable business-date timezone, future-date rejection, transparent today-default for undated actual AI transactions, planned-language clarification, category normalization, description suggestion normalization, draft suggestion display, suggestion clearing after manual edit, Telegram getFile/photo download limits, image signature validation, receipt extraction fallback, and authorized receipt draft preview. Suite saat ini berisi 90 test.
+Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, family reactivation, family-name update authorization and persistence, soft family archival/reactivation, pending Y/N confirmation, cancellation, no-pending guard, last-OWNER invariant, append-only Audit Log persistence, transaction creation, editing, family-scoped listing, soft void confirmation, balance aggregation, structured transaction command parsing and handler responses, natural-language draft extraction and fallback, interactive draft approval/edit/cancellation, stale and foreign callback rejection, deterministic AI validation, configurable business-date timezone, future-date rejection, transparent today-default for undated actual AI transactions, planned-language clarification, category normalization, description suggestion normalization, draft suggestion display, suggestion clearing after manual edit, Telegram getFile/photo download limits, image signature validation, receipt extraction fallback, and authorized receipt draft preview. Suite saat ini berisi 99 test.
 
 ## Roadmap Saat Ini
 

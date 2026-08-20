@@ -16,6 +16,9 @@ export type ConfirmationAction = (typeof CONFIRMATION_ACTIONS)[number];
 export const TRANSACTION_DRAFT_STATUSES = ["PENDING", "EDITING", "COMPLETED", "CANCELLED", "EXPIRED"] as const;
 export type TransactionDraftStatus = (typeof TRANSACTION_DRAFT_STATUSES)[number];
 
+export const PROCESSED_TELEGRAM_UPDATE_STATUSES = ["CLAIMED", "COMPLETED"] as const;
+export type ProcessedTelegramUpdateStatus = (typeof PROCESSED_TELEGRAM_UPDATE_STATUSES)[number];
+
 export const CONFIRMATION_STATUSES = ["PENDING", "COMPLETED", "CANCELLED", "EXPIRED"] as const;
 export type ConfirmationStatus = (typeof CONFIRMATION_STATUSES)[number];
 
@@ -117,6 +120,13 @@ export interface PendingFamilyCreation {
   familyName: string | null;
   createdAt: string;
   expiresAt: string;
+}
+
+export interface ProcessedTelegramUpdate {
+  updateId: number;
+  claimedAt: string;
+  completedAt: string | null;
+  status: ProcessedTelegramUpdateStatus;
 }
 
 export interface PendingTransactionDraft {
