@@ -2,7 +2,7 @@
 
 Falancé adalah bot Telegram untuk pencatatan dan pengelolaan keuangan keluarga. Repository ini berisi fondasi aplikasi yang berjalan di Next.js, menerima update Telegram melalui webhook, dan menggunakan **satu Google Spreadsheet pusat untuk seluruh keluarga dalam satu deployment**.
 
-> **Status saat ini:** Milestone 3 selesai dan Milestone 4 (transaction foundation) selesai. Milestone 5 sedang berjalan dengan command terstruktur untuk menambah dan melihat transaksi; laporan, Mini App, export, serta edit/cancel transaksi belum diimplementasikan.
+> **Status saat ini:** Milestone 0–5 selesai. Milestone 6 sedang berjalan pada tahap lanjutan; alur inti AI parser, draft interaktif, approval, edit, pembatalan, validasi timezone, dan penanganan tanggal sudah tersedia. Category/description suggestions, receipt processing, laporan, Mini App, dan export masih belum diimplementasikan.
 
 ## Kemampuan yang Sudah Tersedia
 
@@ -22,7 +22,7 @@ Implementasi saat ini mencakup identitas Telegram, pembuatan keluarga, undangan,
 | Penggantian nama keluarga | `OWNER` dapat mengganti nama keluarga melalui `/renamefamily`; nama dinormalisasi dan dibatasi 1–80 karakter. | Tersedia |
 | Fondasi transaksi | Service dan repository menyimpan transaksi `INCOME`/`EXPENSE` ke worksheet `Transactions`, dengan validasi amount/date/currency/description, soft status, audit creation, dan family isolation. | Tersedia |
 | Input transaksi terstruktur | `/addincome`, `/addexpense`, `/transactions`, `/edittransaction`, dan `/voidtransaction` tersedia melalui Telegram; `/transactions` menampilkan saldo kumulatif per currency dan daftar transaksi aktif. Identifier invitation, member, dan transaksi ditampilkan sebagai inline code agar mudah disalin. | Tersedia |
-| AI text parser | Pesan natural-language dari anggota aktif diekstrak menjadi draft transaksi tervalidasi. Bot menampilkan rekap dengan tombol `Ya`, `Edit`, dan `Batalkan`; `Ya`/`Kirim draft` menyimpan melalui service deterministik, sedangkan `Edit` membuka format `/editdraft`. Tanggal transaksi biasa tidak boleh melewati tanggal hari ini pada zona waktu bisnis yang dikonfigurasi. Jika transaksi aktual tidak menyebut tanggal, draft menggunakan hari ini dan menandainya sebagai asumsi; bahasa perencanaan tidak disimpan sebagai transaksi aktual. | Tahap awal |
+| AI text parser | Pesan natural-language dari anggota aktif diekstrak menjadi draft transaksi tervalidasi. Bot menampilkan rekap dengan tombol `Ya, simpan`, `Edit`, dan `Batalkan`; `Ya, simpan`/`Kirim draft` menyimpan melalui service deterministik, sedangkan `Edit` membuka format `/editdraft`. Tanggal transaksi biasa tidak boleh melewati tanggal hari ini pada zona waktu bisnis yang dikonfigurasi. Jika transaksi aktual tidak menyebut tanggal, draft menggunakan hari ini dan menampilkannya sebagai `(diasumsikan hari ini)`; bahasa perencanaan tidak disimpan sebagai transaksi aktual. | Core flow tersedia; Milestone 6 masih berjalan |
 | Isolasi keluarga | `family_id` selalu ditentukan server dari membership aktif atau invitation yang telah divalidasi. | Tersedia |
 | Registry Google Sheets | Satu registry pusat menggunakan sembilan worksheet: `Settings`, `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, `Pending Transaction Drafts`, `Audit Log`, dan `Transactions`. | Tersedia |
 | Diagnostik aman | Error Google Sheets dicatat menggunakan operation label dan path yang telah direduksi; token, credential, spreadsheet ID, Telegram ID, dan data baris tidak dicatat. | Tersedia |
@@ -182,6 +182,10 @@ Salin `.env.example` ke konfigurasi environment deployment dan isi nilai server-
 | `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` | PKCS#8 private key service account. | Ya |
 | `GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID` | ID spreadsheet pusat registry Falancé. | Ya |
 | `FALANCE_INVITATION_EXPIRY_HOURS` | Masa berlaku invitation dalam jam; default `24`. | Tidak |
+| `FALANCE_TIME_ZONE` | Timezone IANA untuk tanggal bisnis, relative date AI, dan validasi tanggal masa depan; default `UTC`, misalnya `Asia/Jakarta`. | Tidak |
+| `FALANCE_AI_API_BASE` | Endpoint provider AI OpenAI-compatible; server-only dan wajib jika AI parser digunakan. | Tidak |
+| `FALANCE_AI_API_KEY` | API key provider AI; server-only dan tidak boleh dikirim ke client atau Telegram. | Tidak |
+| `FALANCE_AI_MODEL` | Model AI yang digunakan parser; default `gpt-5-mini`. | Tidak |
 
 Service account harus diberikan akses **Editor** pada Google Spreadsheet pusat. Spreadsheet tersebut tidak perlu dan tidak boleh dibagikan langsung kepada pengguna bot.
 
@@ -213,11 +217,11 @@ npm run build
 git diff --check
 ```
 
-Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, member reactivation with identity preservation, family-name update authorization and persistence, soft family archival/reactivation, pending Y/N confirmation, cancellation, no-pending guard, last-OWNER invariant, append-only Audit Log persistence, transaction creation, editing, family-scoped listing, soft void confirmation, balance aggregation, structured transaction command parsing and handler responses, natural-language draft extraction and fallback, deterministic AI validation, transaction input validation, transaction row persistence and replacement, audit privacy redaction, redacted Google diagnostics, registry initialization caching, dan perlindungan agar Telegram user ID tidak muncul pada output `/members`.
+Test saat ini mencakup pembuatan keluarga, membership, invitation, server-side family isolation, revokasi invitation, role management, soft member deactivation, family reactivation, family-name update authorization and persistence, soft family archival/reactivation, pending Y/N confirmation, cancellation, no-pending guard, last-OWNER invariant, append-only Audit Log persistence, transaction creation, editing, family-scoped listing, soft void confirmation, balance aggregation, structured transaction command parsing and handler responses, natural-language draft extraction and fallback, interactive draft approval/edit/cancellation, stale and foreign callback rejection, deterministic AI validation, configurable business-date timezone, future-date rejection, transparent today-default for undated actual AI transactions, planned-language clarification, transaction row persistence and replacement, audit privacy redaction, redacted Google diagnostics, registry initialization caching, dan perlindungan agar Telegram user ID tidak muncul pada output `/members`. Suite saat ini berisi 81 test.
 
 ## Roadmap Saat Ini
 
-Milestone 3 — **Family Management and Administration** — selesai. Milestone 4 — **Transaction Foundation** — selesai. Milestone 5 — **Manual Transaction Input** — selesai untuk command terstruktur, balance summary, edit, dan soft cancellation dengan konfirmasi Y/N. Milestone 6 — **AI Text Parser** — sedang berjalan; tahap awal menghasilkan draft transaksi dengan tombol `Ya`/`Edit`, server-persisted expiry, manual `/editdraft`, dan approval sebelum persistence, sedangkan kategori dan kemampuan natural-language yang lebih luas masih direncanakan.
+Milestone 0–5 — **Project Setup, Telegram Webhook, Family and Authorization Foundation, Family Management, Transaction Foundation, dan Manual Transaction Input** — selesai. Milestone 6 — **AI Text Parser** — masih berjalan pada tahap lanjutan. Alur inti sudah tervalidasi melalui Telegram: natural-language extraction, draft server-side, tombol `Ya, simpan`/`Edit`/`Batalkan`, manual `/editdraft`, expiry, callback authorization, future-date validation, configurable `FALANCE_TIME_ZONE`, today-default transparan untuk transaksi aktual tanpa tanggal, dan klarifikasi bahasa perencanaan. Category/description suggestions serta kemampuan natural-language yang lebih luas masih direncanakan.
  Milestone berikutnya juga mencakup receipt processing, reports, Telegram Mini App, export CSV/print/PDF dengan opsi password PDF, production hardening, dan migrasi storage ke Supabase.
 
 ## Dokumentasi Tambahan
