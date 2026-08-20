@@ -129,6 +129,7 @@ export interface PendingTransactionDraft {
   transactionDate: string;
   description: string;
   confidence: "HIGH" | "MEDIUM" | "LOW";
+  transactionDateInferred?: boolean;
   createdAt: string;
   expiresAt: string;
   status: TransactionDraftStatus;

@@ -457,6 +457,7 @@ export class FamilyService {
     user: TelegramUser,
     input: CreateTransactionInput,
     confidence: PendingTransactionDraft["confidence"],
+    transactionDateInferred = false,
   ): Promise<PendingTransactionDraft> {
     const member = await this.requireActiveMember(user.telegramUserId);
     validateTransactionInput(input);
@@ -471,6 +472,7 @@ export class FamilyService {
       transactionDate: input.transactionDate,
       description: normalizeTransactionDescription(input.description),
       confidence,
+      ...(transactionDateInferred ? { transactionDateInferred: true } : {}),
       createdAt: now.toISOString(),
       expiresAt: new Date(now.getTime() + 5 * 60 * 1000).toISOString(),
       status: "PENDING",

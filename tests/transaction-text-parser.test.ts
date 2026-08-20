@@ -45,6 +45,52 @@ test("normalizes a structured provider extraction into a ready transaction draft
   });
 });
 
+test("defaults a missing date to the business date and marks it as inferred", async () => {
+  configureProvider();
+  const today = getBusinessDate();
+  mockProviderResponse({
+    transaction_type: "EXPENSE",
+    amount_minor: 35000,
+    currency: "IDR",
+    transaction_date: null,
+    description: "Beli susu",
+    confidence: "HIGH",
+  });
+
+  const result = await new OpenAICompatibleTransactionTextParser().parse("beli susu 35 ribu", today);
+
+  assert.deepEqual(result, {
+    kind: "READY",
+    draft: {
+      transactionType: "EXPENSE",
+      amountMinor: 35000,
+      currency: "IDR",
+      transactionDate: today,
+      description: "Beli susu",
+      confidence: "HIGH",
+      transactionDateInferred: true,
+    },
+  });
+});
+
+test("clarifies planned language instead of creating an actual transaction", async () => {
+  configureProvider();
+  const today = getBusinessDate();
+  mockProviderResponse({
+    transaction_type: "EXPENSE",
+    amount_minor: 210000,
+    currency: "IDR",
+    transaction_date: null,
+    description: "Bayar tagihan",
+    confidence: "HIGH",
+  });
+
+  const result = await new OpenAICompatibleTransactionTextParser().parse("rencana bayar tagihan 210 ribu", today);
+
+  assert.equal(result.kind, "NEEDS_CLARIFICATION");
+  assert.match(result.question, /Transaksi terencana belum dapat disimpan/);
+});
+
 test("asks for clarification when the provider cannot extract all required fields", async () => {
   configureProvider();
   mockProviderResponse({

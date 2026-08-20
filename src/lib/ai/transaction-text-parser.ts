@@ -11,6 +11,7 @@ export interface TransactionDraft {
   transactionDate: string;
   description: string;
   confidence: TransactionDraftConfidence;
+  transactionDateInferred?: boolean;
 }
 
 export type TransactionTextParseResult =
@@ -90,7 +91,7 @@ export class OpenAICompatibleTransactionTextParser implements TransactionTextPar
                 "Never infer family_id, member identity, permissions, or transaction status.",
                 `Today is ${today}. Resolve relative dates against this date.`,
                 "amount_minor is a positive integer in the smallest currency unit; for IDR, use whole rupiah.",
-                "If a required field is absent or ambiguous, return null for that field.",
+                "If a required field is absent or ambiguous, return null for that field; the server may use today only when the message is not a planned transaction.",
               ].join(" "),
             },
             { role: "user", content: text },
@@ -127,16 +128,22 @@ export class OpenAICompatibleTransactionTextParser implements TransactionTextPar
       throw new TransactionTextParserUnavailableError("AI transaction parser returned invalid JSON.");
     }
 
-    return normalizeExtraction(extraction);
+    return normalizeExtraction(extraction, text, today);
   }
 }
 
-function normalizeExtraction(extraction: ProviderExtraction): TransactionTextParseResult {
+function normalizeExtraction(extraction: ProviderExtraction, sourceText: string, today: string): TransactionTextParseResult {
+  if (looksLikePlannedTransaction(sourceText)) {
+    return {
+      kind: "NEEDS_CLARIFICATION",
+      question: "Pesan ini terlihat seperti rencana atau transaksi yang akan datang. Transaksi terencana belum dapat disimpan sebagai transaksi aktual.",
+    };
+  }
+
   if (
     extraction.transaction_type === null ||
     extraction.amount_minor === null ||
     extraction.currency === null ||
-    extraction.transaction_date === null ||
     extraction.description === null
   ) {
     return {
@@ -145,11 +152,12 @@ function normalizeExtraction(extraction: ProviderExtraction): TransactionTextPar
     };
   }
 
+  const transactionDateInferred = extraction.transaction_date === null;
   const input: CreateTransactionInput = {
     transactionType: extraction.transaction_type,
     amountMinor: extraction.amount_minor,
     currency: extraction.currency,
-    transactionDate: extraction.transaction_date,
+    transactionDate: extraction.transaction_date ?? today,
     description: extraction.description,
   };
 
@@ -171,8 +179,13 @@ function normalizeExtraction(extraction: ProviderExtraction): TransactionTextPar
       transactionDate: input.transactionDate,
       description: input.description.replace(/\s+/g, " ").trim(),
       confidence: extraction.confidence,
+      ...(transactionDateInferred ? { transactionDateInferred: true } : {}),
     },
   };
+}
+
+function looksLikePlannedTransaction(sourceText: string): boolean {
+  return /\b(rencana|akan|nanti|terjadwal|rutin|recurring)\b/i.test(sourceText);
 }
 
 function getMessageContent(payload: unknown): string | null {

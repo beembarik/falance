@@ -5,12 +5,15 @@ import { telegramCode } from "./html";
 
 export function formatTransactionDraftMessage(draft: TransactionDraft): string {
   const label = draft.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran";
+  const dateLabel = draft.transactionDateInferred
+    ? `${formatDate(draft.transactionDate)} (diasumsikan hari ini)`
+    : formatDate(draft.transactionDate);
   return [
     "🧠 DRAFT TRANSAKSI",
     "",
     `Tipe       : ${label}`,
     `Jumlah     : ${formatAmount(draft.amountMinor, draft.currency)}`,
-    `Tanggal    : ${formatDate(draft.transactionDate)}`,
+    `Tanggal    : ${dateLabel}`,
     `Deskripsi  : ${draft.description}`,
     `Keyakinan  : ${draft.confidence}`,
     "",

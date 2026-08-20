@@ -35,6 +35,7 @@ test("previews a natural-language transaction draft without persisting it", asyn
       transactionDate: "2026-08-20",
       description: "Beli susu",
       confidence: "HIGH",
+      transactionDateInferred: true,
       createdAt: "2026-08-20T00:00:00.000Z",
       expiresAt: "2026-08-20T00:05:00.000Z",
       status: "PENDING",
@@ -50,6 +51,7 @@ test("previews a natural-language transaction draft without persisting it", asyn
         transactionDate: "2026-08-20",
         description: "Beli susu",
         confidence: "HIGH",
+        transactionDateInferred: true,
       },
     }),
   };
@@ -58,6 +60,7 @@ test("previews a natural-language transaction draft without persisting it", asyn
 
   assert.equal(persisted, false);
   assert.match(response, /DRAFT TRANSAKSI/);
+  assert.match(response, /Tanggal    : 20\/08\/2026 \(diasumsikan hari ini\)/);
   assert.match(response, /Jika sudah benar, tekan tombol ✅ Ya, simpan/);
   assert.match(response, /Jika perlu perubahan, tekan tombol ✏️ Edit/);
   assert.doesNotMatch(response, /\/addexpense 35000 IDR 2026-08-20 Beli susu/);

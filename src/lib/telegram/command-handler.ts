@@ -191,7 +191,12 @@ export async function handleTelegramTextMessageResponse(
     if (!command.startsWith("/") && command !== "Y" && command !== "N") {
       const parsed = await transactionTextParser.parse(command, getBusinessDate());
       if (parsed.kind === "READY") {
-        const draft = await service.createPendingTransactionDraft(user, parsed.draft, parsed.draft.confidence);
+        const draft = await service.createPendingTransactionDraft(
+          user,
+          parsed.draft,
+          parsed.draft.confidence,
+          parsed.draft.transactionDateInferred,
+        );
         return { text: formatTransactionDraftMessage(draft), replyMarkup: formatDraftActionMarkup(draft.draftId, draft.status) };
       }
       if (parsed.kind === "NEEDS_CLARIFICATION") return `🤔 ${parsed.question}`;
