@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { getBusinessDate } from "../src/lib/time/business-date";
 import type { FamilyRepository } from "../src/lib/family/repository";
 import {
   AlreadyRegisteredError,
@@ -501,6 +502,7 @@ test("rejects invalid transaction input and archived-family transaction access",
   await assert.rejects(service.createTransaction(owner, { ...valid, amountMinor: 1.5 }), TransactionError);
   await assert.rejects(service.createTransaction(owner, { ...valid, transactionType: "OTHER" as "INCOME" }), TransactionError);
   await assert.rejects(service.createTransaction(owner, { ...valid, transactionDate: "19-08-2026" }), TransactionError);
+  await assert.rejects(service.createTransaction(owner, { ...valid, transactionDate: nextDate(getBusinessDate()) }), /Tanggal transaksi tidak boleh lebih dari hari ini/);
   await assert.rejects(service.createTransaction(owner, { ...valid, description: "   " }), TransactionError);
   await assert.rejects(service.createTransaction(owner, { ...valid, currency: "RUPIAH" }), TransactionError);
 
@@ -679,6 +681,12 @@ test("retries a partial family creation without creating a duplicate family", as
   assert.equal(repository.members[0].familyId, retry.familyId);
   assert.equal(repository.pending[0].status, "COMPLETED");
 });
+
+function nextDate(value: string): string {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
 
 function setupMember(role: FamilyMember["role"]): FakeFamilyRepository {
   const repository = new FakeFamilyRepository();

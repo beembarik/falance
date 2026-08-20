@@ -2,7 +2,7 @@
 
 ## Milestone 0 — Project Setup
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Falancé uses Google Sheets as its initial storage implementation and Supabase as the planned future migration target. The Telegram Mini App and later financial features remain future work.
 
@@ -18,8 +18,7 @@ Status: COMPLETE in this implementation; production validation remains manual.
 
 Milestone 2 uses one Google Spreadsheet per Falancé deployment. The central spreadsheet contains all families. `family_id` is the server-side tenant boundary, and no spreadsheet is created when a family registers.
 
-The completed foundation includes Telegram identity resolution, `OWNER`, `ADMIN`, and `MEMBER` roles, central `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, `Audit Log`, and `Transactions` sheets, one-time expiring family-bound invitations, server-side family isolation, service-account authentication, the Sheets-only OAuth scope, retry-safe pending family creation, per-client registry initialization caching to avoid repeated Google Sheets quota usage, redacted server-side
- Google diagnostics, and automated coverage for authorization, failure behavior, and initialization caching.
+The completed foundation includes Telegram identity resolution, `OWNER`, `ADMIN`, and `MEMBER` roles, the central `Families`, `Members`, `Invitations`, `Pending Family Creations`, and `Pending Confirmations` boundaries, one-time expiring family-bound invitations, server-side family isolation, service-account authentication, the Sheets-only OAuth scope, retry-safe pending family creation, per-client registry initialization caching to avoid repeated Google Sheets quota usage, redacted server-side Google diagnostics, and automated coverage for authorization, failure behavior, and initialization caching. Later milestones add `Audit Log`, `Transactions`, and `Pending Transaction Drafts` to this same central registry; they do not create a per-family spreadsheet.
 
 The following are explicitly outside this milestone: member listing and administration, role promotion or demotion, member removal, invitation revocation, family renaming, family archival or deactivation, transaction commands, receipt OCR, AI categorization, AI summaries, budgets, dashboards, Mini App functionality, payment, subscriptions, and Supabase implementation.
 
@@ -47,11 +46,11 @@ Role management is implemented through `/changerole <member_id_or_username> <ADM
 
 Permanent hard deletion of a family and irreversible deletion of financial history are intentionally excluded until retention, backup, recovery, and ownership-transfer rules are defined. Those operations may require a later production-hardening decision.
 
-The milestone depends on Milestone 2’s central spreadsheet, server-side `family_id` resolution, invitation validation, role model, and Google Sheets quota protection. It must be complete before transaction commands are implemented.
+The milestone depended on Milestone 2’s central spreadsheet, server-side `family_id` resolution, invitation validation, role model, and Google Sheets quota protection. It was completed before transaction commands were implemented.
 
 ## Milestone 4 — Transaction Foundation
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 - [x] Transactions schema with mandatory `family_id`
 - [x] Transaction entity and repository interface
@@ -60,7 +59,7 @@ Status: IN PROGRESS
 - [x] Amount, date, ownership, and family-isolation validation
 - [x] Confirmation and persistence flows
 
-The transaction foundation persists `INCOME` and `EXPENSE` records in the central `Transactions` worksheet. The service resolves `family_id` and `created_by_member_id` from active server-side membership, rejects archived families, validates amount/date/currency/description inputs, records transaction lifecycle actions in the append-only Audit Log, and lists only `ACTIVE` transactions from the requester’s family. Structured Telegram transaction management is implemented in Milestone 5; natural-language parsing remains planned for Milestone 6.
+The transaction foundation persists `INCOME` and `EXPENSE` records in the central `Transactions` worksheet. The service resolves `family_id` and `created_by_member_id` from active server-side membership, rejects archived families, validates amount/date/currency/description inputs, rejects future ordinary transaction dates using `FALANCE_TIME_ZONE`, records transaction lifecycle actions in the append-only Audit Log, and lists only `ACTIVE` transactions from the requester’s family. Structured Telegram transaction management is implemented in Milestone 5, while natural-language parsing is implemented incrementally in Milestone 6.
 
 ## Milestone 5 — Manual Transaction Input
 
@@ -70,9 +69,9 @@ Status: COMPLETE
 - [x] Structured `/addincome` and `/addexpense` input
 - [x] Family-scoped `/transactions` listing
 - [x] Cumulative multi-currency balance summary in `/transactions`
-- [x] Add, edit, delete, cancel, and confirmation flows
+- [x] Add, edit, void, cancel, and confirmation flows
 
-Milestone 5 now accepts structured amount, optional currency, `YYYY-MM-DD` date, and description input through Telegram. `/transactions` shows a cumulative balance grouped by currency from active transactions, `/edittransaction` updates an active row in place, and `/voidtransaction` or `/canceltransaction` uses persisted Y/N confirmation before changing an active row to `VOID`. `family_id` and `created_by_member_id` continue to be resolved server-side by `FamilyService`; the command layer never accepts a family identifier. Natural-language parsing remains planned for Milestone 6.
+Milestone 5 accepts structured amount, optional currency, `YYYY-MM-DD` date, and description input through Telegram. Ordinary transaction dates cannot be later than the current date in `FALANCE_TIME_ZONE`. `/transactions` shows a cumulative balance grouped by currency from active transactions, `/edittransaction` updates an active row in place, and `/voidtransaction` or `/canceltransaction` uses persisted Y/N confirmation before changing an active row to `VOID`. `family_id` and `created_by_member_id` continue to be resolved server-side by `FamilyService`; the command layer never accepts a family identifier. Natural-language parsing is implemented in Milestone 6.
 
 ## Milestone 6 — AI Text Parser
 
@@ -83,10 +82,13 @@ Status: IN PROGRESS
 - [ ] Category and description suggestions
 - [x] Failure fallback
 - [x] Interactive Telegram draft preview, approval, cancellation, and manual edit flow
+- [x] Configurable business timezone and future-date validation for ordinary transactions
 
-The first Milestone 6 slice accepts natural-language text from an active Telegram member, extracts a validated transaction draft through an optional server-only OpenAI-compatible provider, persists temporary draft state with a five-minute expiry, and shows inline `Ya`, `Edit`, and `Batalkan` actions. Approval calls the same deterministic transaction service used by structured commands; Edit uses `/editdraft` and requires a second approval before persistence. The AI layer never receives or controls `family_id`, `created_by_member_id`, authorization, or transaction status. Missing configuration, provider failures, invalid JSON, missing fields, and deterministic validation failures fall back to Indonesian clarification or availability messages.
+The first Milestone 6 slice accepts natural-language text from an active Telegram member, extracts a validated transaction draft through an optional server-only OpenAI-compatible provider, persists temporary draft state with a five-minute expiry, and shows inline `Ya, simpan`, `Edit`, and `Batalkan` actions. Approval calls the same deterministic transaction service used by structured commands; Edit uses `/editdraft` and requires a second approval before persistence. Ordinary future dates are rejected using the business date derived from `FALANCE_TIME_ZONE`; planned transactions and recurring liabilities remain a separate future boundary and must not affect the actual balance before they occur. The AI layer never receives or controls `family_id`, `created_by_member_id`, authorization, or transaction status. Missing configuration, provider failures, invalid JSON, missing fields, future dates, and other deterministic validation failures fall back to Indonesian clarification or availability messages.
 
 ## Milestone 7 — Receipt Processing
+
+Status: PLANNED
 
 - [ ] Telegram image handling
 - [ ] Receipt extraction and confirmation
@@ -111,6 +113,7 @@ Report access follows this role boundary: `OWNER` and `ADMIN` may view reports a
 - [ ] Optional password protection selected before PDF export
 - [ ] Password supplied through a secure request body or form, never a URL or log
 - [ ] Password held ephemerally and never persisted in Sheets, logs, analytics, or download URLs
+- [ ] Planned transactions and recurring liabilities with a separate forecast boundary that does not affect actual balances before occurrence
 - [ ] Encrypted PDF validation, download expiry, and safe artifact cleanup
 - [ ] Tests proving Telegram and Mini App views are available to authorized members, exports are restricted to OWNER and ADMIN, and no output can cross family boundaries
 

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { getBusinessDate } from "../time/business-date";
 import type { FamilyRepository } from "./repository";
 import type {
   AuditAction,
@@ -755,6 +756,9 @@ export function validateTransactionInput(input: CreateTransactionInput): void {
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.transactionDate) || Number.isNaN(Date.parse(`${input.transactionDate}T00:00:00Z`))) {
     throw new TransactionError("Transaction date must use a valid YYYY-MM-DD date.");
+  }
+  if (input.transactionDate > getBusinessDate()) {
+    throw new TransactionError("Tanggal transaksi tidak boleh lebih dari hari ini. Untuk transaksi yang akan datang, gunakan transaksi terencana.");
   }
   const description = normalizeTransactionDescription(input.description);
   if (description.length < 1 || description.length > TRANSACTION_DESCRIPTION_MAX_LENGTH) {

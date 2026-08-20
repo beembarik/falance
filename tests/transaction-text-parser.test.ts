@@ -5,6 +5,7 @@ import {
   OpenAICompatibleTransactionTextParser,
   TransactionTextParserUnavailableError,
 } from "../src/lib/ai/transaction-text-parser";
+import { getBusinessDate } from "../src/lib/time/business-date";
 
 const originalFetch = globalThis.fetch;
 const originalBase = process.env.FALANCE_AI_API_BASE;
@@ -80,6 +81,24 @@ test("turns deterministic validation failures into clarification instead of pers
   assert.match(result.question, /belum valid/);
 });
 
+test("rejects a future AI transaction date as clarification", async () => {
+  configureProvider();
+  const today = getBusinessDate();
+  mockProviderResponse({
+    transaction_type: "EXPENSE",
+    amount_minor: 35000,
+    currency: "IDR",
+    transaction_date: nextDate(today),
+    description: "Beli susu besok",
+    confidence: "HIGH",
+  });
+
+  const result = await new OpenAICompatibleTransactionTextParser().parse("beli susu besok", today);
+
+  assert.equal(result.kind, "NEEDS_CLARIFICATION");
+  assert.match(result.question, /Tanggal transaksi tidak boleh lebih dari hari ini/);
+});
+
 test("fails safely when the AI provider is not configured", async () => {
   delete process.env.FALANCE_AI_API_BASE;
   delete process.env.FALANCE_AI_API_KEY;
@@ -103,6 +122,12 @@ function mockProviderResponse(extraction: unknown): void {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function nextDate(value: string): string {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
 }
 
 function restoreEnv(name: string, value: string | undefined): void {

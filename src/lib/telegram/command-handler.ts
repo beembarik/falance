@@ -12,6 +12,7 @@ import {
   OwnerInvariantError,
   UnauthorizedError,
 } from "../family/service";
+import { getBusinessDate } from "../time/business-date";
 import type { FamilyMember, MemberRole, TelegramUser } from "../family/types";
 import type { TelegramReplyMarkup } from "./client";
 import {
@@ -188,7 +189,7 @@ export async function handleTelegramTextMessageResponse(
       return `✅ Keluarga ${family.familyName} berhasil dibuat. Kamu adalah OWNER keluarga ini.`;
     }
     if (!command.startsWith("/") && command !== "Y" && command !== "N") {
-      const parsed = await transactionTextParser.parse(command, new Date().toISOString().slice(0, 10));
+      const parsed = await transactionTextParser.parse(command, getBusinessDate());
       if (parsed.kind === "READY") {
         const draft = await service.createPendingTransactionDraft(user, parsed.draft, parsed.draft.confidence);
         return { text: formatTransactionDraftMessage(draft), replyMarkup: formatDraftActionMarkup(draft.draftId, draft.status) };

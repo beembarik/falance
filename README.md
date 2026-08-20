@@ -22,14 +22,14 @@ Implementasi saat ini mencakup identitas Telegram, pembuatan keluarga, undangan,
 | Penggantian nama keluarga | `OWNER` dapat mengganti nama keluarga melalui `/renamefamily`; nama dinormalisasi dan dibatasi 1–80 karakter. | Tersedia |
 | Fondasi transaksi | Service dan repository menyimpan transaksi `INCOME`/`EXPENSE` ke worksheet `Transactions`, dengan validasi amount/date/currency/description, soft status, audit creation, dan family isolation. | Tersedia |
 | Input transaksi terstruktur | `/addincome`, `/addexpense`, `/transactions`, `/edittransaction`, dan `/voidtransaction` tersedia melalui Telegram; `/transactions` menampilkan saldo kumulatif per currency dan daftar transaksi aktif. Identifier invitation, member, dan transaksi ditampilkan sebagai inline code agar mudah disalin. | Tersedia |
-| AI text parser | Pesan natural-language dari anggota aktif diekstrak menjadi draft transaksi tervalidasi. Bot menampilkan rekap dengan tombol `Ya`, `Edit`, dan `Batalkan`; `Ya`/`Kirim draft` menyimpan melalui service deterministik, sedangkan `Edit` membuka format `/editdraft`. | Tahap awal |
+| AI text parser | Pesan natural-language dari anggota aktif diekstrak menjadi draft transaksi tervalidasi. Bot menampilkan rekap dengan tombol `Ya`, `Edit`, dan `Batalkan`; `Ya`/`Kirim draft` menyimpan melalui service deterministik, sedangkan `Edit` membuka format `/editdraft`. Tanggal transaksi biasa tidak boleh melewati tanggal hari ini pada zona waktu bisnis yang dikonfigurasi. | Tahap awal |
 | Isolasi keluarga | `family_id` selalu ditentukan server dari membership aktif atau invitation yang telah divalidasi. | Tersedia |
 | Registry Google Sheets | Satu registry pusat menggunakan sembilan worksheet: `Settings`, `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, `Pending Transaction Drafts`, `Audit Log`, dan `Transactions`. | Tersedia |
 | Diagnostik aman | Error Google Sheets dicatat menggunakan operation label dan path yang telah direduksi; token, credential, spreadsheet ID, Telegram ID, dan data baris tidak dicatat. | Tersedia |
 
 ## Telegram Commands
 
-Pesan dan error yang dikirim bot kepada pengguna menggunakan Bahasa Indonesia.
+Pesan dan error yang dikirim bot kepada pengguna menggunakan Bahasa Indonesia. Tanggal bisnis untuk transaksi dan relative date AI diatur melalui `FALANCE_TIME_ZONE` dengan format IANA, misalnya `Asia/Jakarta`; nilai default adalah `UTC`. Transaksi biasa dengan tanggal masa depan ditolak. Fitur transaksi terencana dan recurring liabilities akan memakai boundary terpisah agar tidak memengaruhi saldo aktual sebelum terjadi.
 
 | Command | Akses | Perilaku |
 | --- | --- | --- |

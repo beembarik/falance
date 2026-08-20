@@ -113,7 +113,7 @@ Audit rows are appended only after the primary administrative write succeeds. Au
 | `transaction_type` | `INCOME` or `EXPENSE`. |
 | `amount_minor` | Positive integer amount in the smallest currency unit. |
 | `currency` | Three-letter uppercase currency code. |
-| `transaction_date` | Valid `YYYY-MM-DD` transaction date. |
+| `transaction_date` | Valid `YYYY-MM-DD` date that is today or earlier in the configured `FALANCE_TIME_ZONE` for ordinary transactions. |
 | `description` | Normalized 1–200 character description. |
 | `confidence` | AI extraction confidence: `HIGH`, `MEDIUM`, or `LOW`. |
 | `created_at` | Draft creation timestamp. |
@@ -131,7 +131,7 @@ Pending drafts are temporary server state. A natural-language message creates or
 | `transaction_type` | `INCOME` or `EXPENSE`. |
 | `amount_minor` | Positive safe integer amount in the smallest currency unit, capped by the service validation limit. |
 | `currency` | Normalized three-letter ISO currency code; defaults to `IDR`. |
-| `transaction_date` | Valid calendar date in `YYYY-MM-DD` format. |
+| `transaction_date` | Valid calendar date in `YYYY-MM-DD` format that is not later than the current business date for ordinary transactions. |
 | `description` | Whitespace-normalized description containing 1–200 characters. |
 | `created_by_member_id` | Opaque active membership identifier of the creating member. |
 | `created_at` | ISO-8601 creation timestamp. |
