@@ -147,16 +147,16 @@ Slice webhook authentication dan update_id idempotency sudah divalidasi end-to-e
 
 ## Milestone 9 — Reports, Multi-Channel Access, and Export
 
-Status: READY TO START — PRIORITAS P1; Milestone 8 operationally ready dengan validasi pra-public-beta yang ditunda
+Status: IN PROGRESS — SLICE 1: read-only Telegram reports; Milestone 8 operationally ready dengan validasi pra-public-beta yang ditunda
 
-Reports must never expose the central Google Spreadsheet directly. Every report request resolves the user’s active membership and `family_id` server-side, then returns only data belonging to that family.
+Reports must never expose the central Google Spreadsheet directly. Every report request resolves the user’s active membership and `family_id` server-side, then returns only data belonging to that family. Slice 1 menyediakan `/report` untuk bulan berjalan atau periode `YYYY-MM`, dengan agregasi multi-currency, income, expense, saldo, transaction count, dan exclusion untuk `VOID` atau transaksi di luar periode.
 
 Report access follows this role boundary: all active roles may view reports through Telegram and the authenticated Mini App, while only `OWNER` and `ADMIN` may request or receive CSV, print, or PDF export artifacts.
 
 - [ ] Monthly and category summaries
 - [ ] Income, expense, balance, and family overview
 - [ ] Date filtering and concise report commands in Telegram
-- [ ] Read-only Telegram reports sebagai slice pertama sebelum Mini App dan export
+- [x] Read-only Telegram reports sebagai slice pertama sebelum Mini App dan export
 - [ ] Role-safe CSV/print/PDF export untuk `OWNER` dan `ADMIN`, dengan optional server-side PDF password
 - [ ] Regression tests untuk report family isolation, role permission, date filters, dan export authorization
 - [ ] First authorized report views in the Telegram Mini App

@@ -14,6 +14,7 @@ import {
 } from "../family/service";
 import { getBusinessDate } from "../time/business-date";
 import type { FamilyMember, MemberRole, TelegramUser } from "../family/types";
+import { ReportPeriodError } from "../family/report";
 import {
   downloadTelegramPhoto,
   TelegramApiError,
@@ -27,6 +28,7 @@ import {
 } from "../ai/transaction-text-parser";
 import { createReceiptParser, ReceiptParserUnavailableError, type ReceiptParser } from "../ai/receipt-parser";
 import { formatMembersMessage } from "./member-message";
+import { formatFinancialReportMessage } from "./report-message";
 import { formatTransactionCreatedMessage, formatTransactionsMessage } from "./transaction-message";
 import { parseEditDraftCommand, parseEditTransactionCommand, parseManualTransactionCommand, TransactionCommandError } from "./transaction-command";
 import { telegramCode } from "./html";
@@ -147,6 +149,17 @@ export async function handleTelegramTextMessageResponse(
     if (command === "/transactions") {
       const family = await service.getActiveFamily(user.telegramUserId);
       return formatTransactionsMessage(family, await service.listTransactions(user.telegramUserId));
+    }
+    if (command === "/report" || command.startsWith("/report ")) {
+      const periodArgument = command.slice("/report".length).trim();
+      if (periodArgument.split(/\s+/).filter(Boolean).length > 1) {
+        return "Format tidak valid. Gunakan: /report atau /report YYYY-MM";
+      }
+      const family = await service.getActiveFamily(user.telegramUserId);
+      return formatFinancialReportMessage(
+        family,
+        await service.getFinancialReport(user.telegramUserId, periodArgument || undefined),
+      );
     }
     if (command.startsWith("/editdraft")) {
       const draft = await service.updatePendingTransactionDraft(user, parseEditDraftCommand(command));
@@ -316,6 +329,7 @@ function confirmationResultMessage(result: ConfirmationResult): string {
 
 function messageForError(error: unknown): string {
   if (error instanceof TransactionCommandError) return error.message;
+  if (error instanceof ReportPeriodError) return "Periode tidak valid. Gunakan format YYYY-MM, misalnya /report 2026-08.";
   if (error instanceof ReceiptParserUnavailableError) return "Parser receipt belum tersedia. Coba lagi nanti atau gunakan input transaksi melalui teks.";
   if (error instanceof TransactionTextParserUnavailableError) return "Parser AI belum tersedia. Gunakan command transaksi terstruktur seperti /addincome atau /addexpense.";
   if (error instanceof AlreadyRegisteredError) return "Kamu sudah terdaftar dalam keluarga aktif.";

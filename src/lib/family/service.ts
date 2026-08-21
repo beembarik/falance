@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { getBusinessDate } from "../time/business-date";
+import { buildFinancialReport, getFinancialReportPeriod, type FinancialReport } from "./report";
 import { withKeyLocks } from "../concurrency/keyed-mutex";
 import type { FamilyRepository } from "./repository";
 import type {
@@ -649,6 +650,16 @@ export class FamilyService {
     await this.requireActiveFamily(member.familyId);
     return (await this.repository.findTransactionsByFamilyId(member.familyId))
       .filter((transaction) => transaction.status === "ACTIVE");
+  }
+
+  async getFinancialReport(telegramUserId: string, month?: string): Promise<FinancialReport> {
+    const member = await this.requireActiveMember(telegramUserId);
+    await this.requireActiveFamily(member.familyId);
+    const period = getFinancialReportPeriod(month);
+    return buildFinancialReport(
+      await this.repository.findTransactionsByFamilyId(member.familyId),
+      period,
+    );
   }
 
   async updateTransaction(

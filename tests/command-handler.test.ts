@@ -8,6 +8,7 @@ import {
 } from "../src/lib/telegram/command-handler";
 import type { FamilyService, ConfirmationResult } from "../src/lib/family/service";
 import type { Family, TelegramUser, Transaction } from "../src/lib/family/types";
+import type { FinancialReport } from "../src/lib/family/report";
 import type { TransactionTextParser } from "../src/lib/ai/transaction-text-parser";
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
@@ -290,6 +291,48 @@ test("lists transactions through the requester’s server-resolved family", asyn
   assert.match(response, /Keluarga Owner/);
   assert.match(response, /Gaji/);
   assert.match(response, /ID: <code>txn_1<\/code>/);
+});
+
+test("renders a family-scoped financial report for the requested month", async () => {
+  const family: Family = {
+    familyId: "fam_1",
+    familyName: "Keluarga Owner",
+    status: "ACTIVE",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    createdBy: owner.telegramUserId,
+    plan: "FREE",
+  };
+  const report: FinancialReport = {
+    period: { month: "2026-08", startDate: "2026-08-01", endDate: "2026-08-31", label: "Agustus 2026" },
+    transactionCount: 2,
+    currencies: [{ currency: "IDR", incomeMinor: BigInt(500000), expenseMinor: BigInt(125000), netMinor: BigInt(375000), transactionCount: 2 }],
+  };
+  let receivedUserId: string | undefined;
+  let receivedMonth: string | undefined;
+  const service = fakeService({
+    getActiveFamily: async () => family,
+    getFinancialReport: async (telegramUserId: string, month?: string) => {
+      receivedUserId = telegramUserId;
+      receivedMonth = month;
+      return report;
+    },
+  });
+
+  const response = await handleTelegramTextMessage(service, owner, "/report 2026-08");
+
+  assert.equal(receivedUserId, owner.telegramUserId);
+  assert.equal(receivedMonth, "2026-08");
+  assert.match(response, /Keluarga Owner/);
+  assert.match(response, /Agustus 2026/);
+  assert.match(response, /Saldo\s+: IDR 375\.000/);
+  assert.match(response, /Transaksi aktif: 2/);
+});
+
+test("rejects a report command with multiple period arguments", async () => {
+  const service = fakeService({});
+  const response = await handleTelegramTextMessage(service, owner, "/report 2026-08 extra");
+  assert.match(response, /Format tidak valid/);
+  assert.match(response, /\/report YYYY-MM/);
 });
 
 test("edits a transaction through the service", async () => {
