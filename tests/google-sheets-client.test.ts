@@ -68,6 +68,50 @@ test("logs a redacted operation label when a Google Sheets write fails", async (
   }
 });
 
+test("logs a safe OAuth failure reason when Google authentication is rejected", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalConsoleError = console.error;
+  const originalEnvironment = {
+    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    privateKey: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+  };
+  const logs: unknown[][] = [];
+  process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL = "service-account@example.iam.gserviceaccount.com";
+  process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY = await createPrivateKeyPem();
+  console.error = (...args: unknown[]) => logs.push(args);
+  globalThis.fetch = async (input) => {
+    assert.equal(String(input), "https://oauth2.googleapis.com/token");
+    return new Response(JSON.stringify({
+      error: "invalid_grant",
+      error_description: "Invalid JWT signature for service-account@example.iam.gserviceaccount.com",
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await assert.rejects(new GoogleSheetsClient().getValues("central-registry-id", "Members", "readMembers"));
+    const [label, details] = logs[0] as [string, Record<string, unknown>];
+    assert.equal(label, "[Google] request failed");
+    assert.deepEqual(details, {
+      operation: "readMembers",
+      method: "POST",
+      path: "/token",
+      status: 400,
+      reason: "invalid_grant",
+      message: "Invalid JWT signature for [redacted-email]",
+    });
+    assert.equal(JSON.stringify(logs).includes("private"), false);
+    assert.equal(JSON.stringify(logs).includes("service-account@example.iam.gserviceaccount.com"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalConsoleError;
+    restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_EMAIL", originalEnvironment.email);
+    restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY", originalEnvironment.privateKey);
+  }
+});
+
 test("marks Google Sheets 429 responses as quota telemetry with a safe operation label", async () => {
   const originalFetch = globalThis.fetch;
   const originalConsoleInfo = console.info;

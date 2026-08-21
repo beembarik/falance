@@ -35,6 +35,8 @@ export class GoogleSheetsClient {
   ): Promise<void> {
     let metadata = await this.request<SpreadsheetMetadata>(
       `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}?fields=sheets.properties`,
+      {},
+      operation,
     );
     const existingSheets = new Map(
       metadata.sheets?.flatMap((sheet) => {
@@ -304,7 +306,18 @@ function getSafeGoogleErrorDetails(error: unknown): Record<string, string | numb
     return {};
   }
 
-  const googleError = error.error;
+  const oauthError = error.error;
+  if (typeof oauthError === "string") {
+    const description = "error_description" in error && typeof error.error_description === "string"
+      ? error.error_description
+      : undefined;
+    return {
+      reason: redactLogText(oauthError),
+      ...(description ? { message: redactLogText(description) } : {}),
+    };
+  }
+
+  const googleError = oauthError;
   if (typeof googleError !== "object" || googleError === null) return {};
 
   const details = googleError as {
