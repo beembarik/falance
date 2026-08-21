@@ -26,6 +26,8 @@ Command integrity check tersedia sebagai:
 npm run check:registry
 ```
 
+Saat dijalankan, registry initialization mengenali dua schema legacy yang diketahui: urutan kolom lama pada `Invitations` dan format lama `Pending Family Creations` tanpa `family_name`. Migrasi hanya menata ulang atau menambahkan kolom kosong pada row yang sudah ada, memperbarui header ke schema saat ini, dan tidak menghapus row. Schema mismatch lain tidak boleh diperbaiki dengan menimpa header secara manual; simpan snapshot dan lakukan reconciliation terlebih dahulu.
+
 Command tersebut memerlukan `GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, dan `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` pada environment operator. Output hanya boleh dibagikan jika sudah dipastikan tidak mengandung nilai baris atau credential.
 
 ## Integrity check dan klasifikasi hasil

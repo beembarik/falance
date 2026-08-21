@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { GoogleSheetsFamilyRepository } from "../src/lib/family/google-sheets-repository";
-import { GoogleSheetsClient } from "../src/lib/google/sheets-client";
+import { GoogleSheetsClient, REGISTRY_SHEETS } from "../src/lib/google/sheets-client";
 import { inspectRegistryIntegrity } from "../src/lib/google/registry-integrity";
 
 test("logs a redacted operation label when a Google Sheets write fails", async () => {
@@ -258,6 +258,58 @@ test("initializes the single central registry without Drive or spreadsheet creat
       ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"],
       ["draft_id", "telegram_user_id", "family_id", "transaction_id", "claimed_at", "completed_at", "lease_until", "status"],
     ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_EMAIL", originalEnvironment.email);
+    restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY", originalEnvironment.privateKey);
+  }
+});
+
+test("migrates legacy invitation and pending family creation schemas without deleting rows", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalEnvironment = {
+    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    privateKey: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+  };
+  const updates: Array<{ url: string; values: string[][]; operation: string | undefined }> = [];
+  process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL = "service-account@example.iam.gserviceaccount.com";
+  process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY = await createPrivateKeyPem();
+  const expectedHeaders = new Map<string, string[]>(REGISTRY_SHEETS.map((sheet) => [sheet.name, [...sheet.headers]]));
+  const legacyInvitationHeader = ["invitation_id", "family_id", "code", "created_by", "created_at", "expires_at", "status", "used_by", "used_at"];
+  const legacyPendingHeader = ["telegram_user_id", "created_at", "expires_at", "status"];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url === "https://oauth2.googleapis.com/token") {
+      return jsonResponse({ access_token: "test-access-token", expires_in: 3600 });
+    }
+    if (url.includes("?fields=sheets.properties")) {
+      return jsonResponse({ sheets: [...expectedHeaders.keys()].map((title, index) => ({ properties: { title, sheetId: index + 1 } })) });
+    }
+    if (url.endsWith("/values/Invitations!1%3A1")) return jsonResponse({ values: [legacyInvitationHeader] });
+    if (url.endsWith("/values/Pending%20Family%20Creations!1%3A1")) return jsonResponse({ values: [legacyPendingHeader] });
+    if (url.endsWith("/values/Invitations")) return jsonResponse({ values: [legacyInvitationHeader, ["inv_1", "fam_1", "FAL-AAAAAA", "100", "2026-01-01", "2026-01-02", "PENDING", "", ""]] });
+    if (url.endsWith("/values/Pending%20Family%20Creations")) return jsonResponse({ values: [legacyPendingHeader, ["100", "2026-01-01", "2026-01-02", "PENDING"]] });
+    if (url.includes("/values/") && init?.method === "PUT") {
+      updates.push({ url, values: JSON.parse(String(init.body)).values, operation: undefined });
+      return jsonResponse({});
+    }
+    const sheetName = decodeURIComponent(url.split("/values/")[1] ?? "").split("!")[0];
+    return jsonResponse({ values: [expectedHeaders.get(sheetName) ?? []] });
+  };
+
+  try {
+    await new GoogleSheetsClient().ensureRegistry("central-registry-id");
+    const invitationUpdates = updates.filter((update) => update.url.includes("Invitations"));
+    const pendingUpdates = updates.filter((update) => update.url.includes("Pending%20Family%20Creations"));
+    assert.deepEqual(invitationUpdates.map((update) => update.values), [
+      [["inv_1", "fam_1", "FAL-AAAAAA", "100", "2026-01-01", "2026-01-02", "", "", "PENDING"]],
+      [expectedHeaders.get("Invitations")],
+    ]);
+    assert.deepEqual(pendingUpdates.map((update) => update.values), [
+      [["100", "", "2026-01-01", "2026-01-02", "PENDING"]],
+      [expectedHeaders.get("Pending Family Creations")],
+    ]);
+    assert.equal(updates.some((update) => update.url.includes("deleteDimension")), false);
   } finally {
     globalThis.fetch = originalFetch;
     restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_EMAIL", originalEnvironment.email);

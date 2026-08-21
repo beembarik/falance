@@ -78,6 +78,18 @@ export class GoogleSheetsClient {
     for (const sheet of REGISTRY_SHEETS) {
       const values = await this.getValues(spreadsheetId, `${sheet.name}!1:1`, operation);
       const header = values[0] ?? [];
+      const legacyMigration = getLegacyRegistryMigration(sheet.name, header);
+      if (legacyMigration) {
+        const allValues = await this.getValues(spreadsheetId, sheet.name, operation);
+        const migratedRows = allValues.slice(1)
+          .filter((row) => row.some((value) => value !== ""))
+          .map(legacyMigration.transformRow);
+        if (migratedRows.length > 0) {
+          await this.updateValues(spreadsheetId, `${sheet.name}!A2`, migratedRows, legacyMigration.operation);
+        }
+        await this.updateValues(spreadsheetId, `${sheet.name}!A1`, [sheet.headers], legacyMigration.operation);
+        continue;
+      }
       if (sheet.name === "Families" && header.includes("spreadsheet_id")) {
         const sheetId = currentSheets.get(sheet.name);
         if (sheetId !== undefined) {
@@ -277,6 +289,8 @@ export type GoogleOperation =
   | "completeDraftApproval"
   | "readDraftApprovalClaims"
   | "readRegistryIntegrity"
+  | "migrateInvitationsSchema"
+  | "migratePendingFamilyCreationsSchema"
   | "migrateFamiliesSchema";
 
 function logGoogleFailure(
@@ -386,6 +400,50 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
   const binary = atob(base64);
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   return bytes.buffer;
+}
+
+type LegacyRegistryMigration = {
+  operation: GoogleOperation;
+  transformRow: (row: string[]) => string[];
+};
+
+function getLegacyRegistryMigration(
+  sheetName: string,
+  header: readonly string[],
+): LegacyRegistryMigration | null {
+  if (sheetName === "Invitations" && sameHeader(header, [
+    "invitation_id", "family_id", "code", "created_by", "created_at", "expires_at", "status", "used_by", "used_at",
+  ])) {
+    return {
+      operation: "migrateInvitationsSchema",
+      transformRow: (row) => isInvitationStatus(row[8])
+        ? row.slice(0, 9)
+        : [row[0] ?? "", row[1] ?? "", row[2] ?? "", row[3] ?? "", row[4] ?? "", row[5] ?? "", row[8] ?? "", row[7] ?? "", row[6] ?? ""],
+    };
+  }
+  if (sheetName === "Pending Family Creations" && sameHeader(header, [
+    "telegram_user_id", "created_at", "expires_at", "status",
+  ])) {
+    return {
+      operation: "migratePendingFamilyCreationsSchema",
+      transformRow: (row) => isPendingFamilyCreationStatus(row[4])
+        ? row.slice(0, 5)
+        : [row[0] ?? "", "", row[1] ?? "", row[2] ?? "", row[3] ?? ""],
+    };
+  }
+  return null;
+}
+
+function isInvitationStatus(value: string | undefined): boolean {
+  return value === "PENDING" || value === "USED" || value === "EXPIRED" || value === "REVOKED";
+}
+
+function isPendingFamilyCreationStatus(value: string | undefined): boolean {
+  return value === "PENDING" || value === "COMPLETED";
+}
+
+function sameHeader(actual: readonly string[], expected: readonly string[]): boolean {
+  return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
 }
 
 export const REGISTRY_SHEETS = [
