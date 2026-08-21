@@ -58,10 +58,18 @@ export async function POST(request: Request): Promise<Response> {
     process.env.FALANCE_TELEGRAM_WEBHOOK_SECRET,
   );
   if (secretResult === "MISSING_CONFIGURATION") {
+    logDuration("telegram.webhook", measureDuration(requestStartedAt), {
+      outcome: "configuration_error",
+      status: 503,
+    });
     console.error("[Telegram] webhook secret is not configured");
     return Response.json({ error: "Service unavailable." }, { status: 503 });
   }
   if (secretResult === "UNAUTHORIZED") {
+    logDuration("telegram.webhook", measureDuration(requestStartedAt), {
+      outcome: "unauthorized",
+      status: 401,
+    });
     return Response.json({ error: "Unauthorized." }, { status: 401 });
   }
 
@@ -70,10 +78,18 @@ export async function POST(request: Request): Promise<Response> {
   try {
     payload = await request.json();
   } catch {
+    logDuration("telegram.webhook", measureDuration(requestStartedAt), {
+      outcome: "invalid_json",
+      status: 400,
+    });
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
 
   if (!isTelegramUpdate(payload)) {
+    logDuration("telegram.webhook", measureDuration(requestStartedAt), {
+      outcome: "invalid_update",
+      status: 400,
+    });
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
 
@@ -81,8 +97,9 @@ export async function POST(request: Request): Promise<Response> {
     const repository = new GoogleSheetsFamilyRepository();
     const claimed = await repository.claimTelegramUpdate(payload.update_id, new Date().toISOString());
     if (!claimed) {
-      logDuration("telegram.update.duplicate", measureDuration(requestStartedAt), {
-        updateId: payload.update_id,
+      logDuration("telegram.update", measureDuration(requestStartedAt), {
+        outcome: "duplicate",
+        status: 200,
       });
       return Response.json({ ok: true, duplicate: true });
     }

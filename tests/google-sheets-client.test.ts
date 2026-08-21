@@ -67,6 +67,56 @@ test("logs a redacted operation label when a Google Sheets write fails", async (
   }
 });
 
+test("marks Google Sheets 429 responses as quota telemetry with a safe operation label", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalConsoleInfo = console.info;
+  const originalConsoleError = console.error;
+  const originalEnvironment = {
+    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    privateKey: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+    timingLogs: process.env.FALANCE_TIMING_LOGS,
+  };
+  const timingLogs: unknown[][] = [];
+  process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL = "service-account@example.iam.gserviceaccount.com";
+  process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY = await createPrivateKeyPem();
+  process.env.FALANCE_TIMING_LOGS = "true";
+  console.info = (...args: unknown[]) => timingLogs.push(args);
+  console.error = () => {};
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url === "https://oauth2.googleapis.com/token") {
+      return jsonResponse({ access_token: "test-access-token", expires_in: 3600 });
+    }
+    return new Response(JSON.stringify({ error: { code: 429, status: "RESOURCE_EXHAUSTED" } }), {
+      status: 429,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await assert.rejects(new GoogleSheetsClient().getValues("central-registry-id", "Members", "readMembers"));
+    const quotaLog = timingLogs.find((entry) => entry[0] === "[Timing]" && (entry[1] as Record<string, unknown>).scope === "google.request");
+    assert.deepEqual(quotaLog?.[1], {
+      scope: "google.request",
+      durationMs: (quotaLog?.[1] as Record<string, unknown>).durationMs,
+      operation: "readMembers",
+      method: "GET",
+      status: 429,
+      outcome: "quota_exceeded",
+      quota: "google_sheets",
+    });
+    assert.equal(JSON.stringify(timingLogs).includes("central-registry-id"), false);
+    assert.equal(JSON.stringify(timingLogs).includes("test-access-token"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.info = originalConsoleInfo;
+    console.error = originalConsoleError;
+    restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_EMAIL", originalEnvironment.email);
+    restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY", originalEnvironment.privateKey);
+    restoreEnvironment("FALANCE_TIMING_LOGS", originalEnvironment.timingLogs);
+  }
+});
+
 test("initializes the single central registry without Drive or spreadsheet creation calls", async () => {
   const originalFetch = globalThis.fetch;
   const originalEnvironment = {

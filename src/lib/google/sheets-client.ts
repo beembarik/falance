@@ -172,7 +172,8 @@ export class GoogleSheetsClient {
         operation,
         method: init.method ?? "GET",
         status: response.status,
-        outcome: "error",
+        outcome: response.status === 429 ? "quota_exceeded" : "error",
+        ...(response.status === 429 ? { quota: "google_sheets" } : {}),
       });
       logGoogleFailure(operation, url, init.method, response.status, errorBody);
       throw new GoogleApiError("Google API returned an error response.");
