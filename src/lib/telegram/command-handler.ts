@@ -161,6 +161,22 @@ export async function handleTelegramTextMessageResponse(
         await service.getFinancialReport(user.telegramUserId, periodArgument || undefined),
       );
     }
+    if (command === "/reportapp") {
+      const miniAppUrl = process.env.FALANCE_MINI_APP_URL?.trim();
+      if (!miniAppUrl) return "Mini App belum dikonfigurasi. Gunakan laporan Telegram biasa melalui /report.";
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(miniAppUrl);
+      } catch {
+        return "Mini App belum dikonfigurasi dengan URL yang valid.";
+      }
+      if (parsedUrl.protocol !== "https:") return "Mini App belum dikonfigurasi dengan URL HTTPS.";
+      const family = await service.getActiveFamily(user.telegramUserId);
+      return {
+        text: `📊 Buka laporan interaktif keluarga ${telegramCode(family.familyName)}.`,
+        replyMarkup: { inline_keyboard: [[{ text: "Buka Mini App", webApp: { url: parsedUrl.toString() } }]] },
+      };
+    }
     if (command.startsWith("/editdraft")) {
       const draft = await service.updatePendingTransactionDraft(user, parseEditDraftCommand(command));
       return { text: formatTransactionDraftMessage(draft), replyMarkup: formatDraftActionMarkup(draft.draftId, draft.status) };

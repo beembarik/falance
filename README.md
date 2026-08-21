@@ -2,7 +2,7 @@
 
 Falancé adalah bot Telegram untuk pencatatan dan pengelolaan keuangan keluarga. Repository ini berisi fondasi aplikasi yang berjalan di Next.js, menerima update Telegram melalui webhook, dan menggunakan **satu Google Spreadsheet pusat untuk seluruh keluarga dalam satu deployment**.
 
-> **Status saat ini:** Milestone 0–7 selesai dan Milestone 8 sedang berjalan. Slice latency observability, pengurangan read amplification yang aman, verifikasi secret webhook, durable `update_id` idempotency, in-process concurrency hardening, AI vision usage guard, review authorization/privacy, durable draft approval claim, serta monitoring operation/error/latency/quota yang privacy-safe sudah diimplementasikan di branch pengembangan ini. Sebelum deployment, `FALANCE_TELEGRAM_WEBHOOK_SECRET` harus diisi di Vercel dan secret yang sama harus dikonfigurasi pada Telegram `setWebhook`. AI parser, draft interaktif, receipt processing, approval, edit, pembatalan, validasi timezone, penanganan tanggal, category suggestion, dan description suggestion sudah tersedia. Laporan, Mini App, validasi race lintas serverless instance, monitoring operasional lanjutan, dan Supabase migration masih berada pada milestone lanjutan.
+> **Status saat ini:** Milestone 0–7 selesai, Milestone 8 operationally ready dengan validasi race lintas serverless instance dan production replay testing yang tetap wajib sebelum public beta, dan Milestone 9 sedang berjalan. Slice report Telegram serta implementasi Mini App read-only dengan validated `initData`, report API family-scoped, dan launcher `/reportapp` sudah tersedia pada branch pengembangan ini. Sebelum deployment, `FALANCE_TELEGRAM_WEBHOOK_SECRET` harus diisi di Vercel dan secret yang sama harus dikonfigurasi pada Telegram `setWebhook`. AI parser, draft interaktif, receipt processing, approval, edit, pembatalan, validasi timezone, penanganan tanggal, category suggestion, dan description suggestion sudah tersedia.
 
 ## Kemampuan yang Sudah Tersedia
 
@@ -30,6 +30,7 @@ Implementasi saat ini mencakup identitas Telegram, pembuatan keluarga, undangan,
 | Registry integrity dan recovery | `npm run check:registry` memeriksa header, duplicate key, enum, foreign reference, active OWNER, serta consistency transaction/claim tanpa mencetak row values. Runbook backup dan partial-write retry tersedia pada `docs/backup-recovery.md`. | Tersedia; restoration tetap manual dan terkontrol |
 | Diagnostik aman | Error Google Sheets dicatat menggunakan operation label dan path yang telah direduksi; token, credential, spreadsheet ID, Telegram ID, dan data baris tidak dicatat. | Tersedia |
 | Report read model | Report bulan dan agregasi multi-currency dibangun secara deterministic dari transaction rows keluarga yang di-resolve server-side. | Milestone 9 Slice 1 tersedia |
+| Telegram Mini App | UI read-only mobile-first, endpoint report yang memvalidasi raw `initData`, dan launcher `/reportapp` dengan web_app button. | Milestone 9 Slice 2 in progress |
 
 ## Telegram Commands
 
@@ -46,6 +47,7 @@ Pesan dan error yang dikirim bot kepada pengguna menggunakan Bahasa Indonesia. T
 | `/addexpense <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Semua anggota aktif | Mencatat pengeluaran ke keluarga yang di-resolve server. Transaction ID pada response ditampilkan sebagai inline code. |
 | `/transactions` | Semua anggota aktif | Menampilkan ringkasan saldo kumulatif per currency serta maksimal 50 transaksi `ACTIVE` terbaru dari keluarga actor. Transaction ID ditampilkan sebagai inline code dan transaksi `VOID` dikecualikan. |
 | `/report` atau `/report <YYYY-MM>` | Semua anggota aktif | Menampilkan laporan read-only untuk bulan berjalan atau periode yang dipilih, dengan total income, expense, saldo bersih, jumlah transaksi, dan agregasi multi-currency dari keluarga actor. `VOID` dan transaksi di luar periode dikecualikan. |
+| `/reportapp` | Semua anggota aktif | Mengirim tombol HTTPS untuk membuka Telegram Mini App. Raw `initData` divalidasi server-side; Mini App tidak memilih `family_id`. |
 | `/edittransaction <transaction_id> <INCOME|EXPENSE> <amount_minor> [CURRENCY] <YYYY-MM-DD> <deskripsi>` | Semua anggota aktif | Memperbarui transaksi aktif dalam keluarga actor tanpa mengganti transaction ID, family ID, creator member ID, atau created timestamp. Transaction ID pada response ditampilkan sebagai inline code. |
 | `/voidtransaction <transaction_id>` atau `/canceltransaction <transaction_id>` lalu `Y`/`N` | Semua anggota aktif | Meminta konfirmasi interaktif; transaction ID pada prompt ditampilkan sebagai inline code, lalu status transaksi diubah menjadi `VOID` tanpa menghapus row. |
 | `/revokeinvite <code>` lalu `Y`/`N` | `OWNER`, `ADMIN` | Meminta konfirmasi interaktif sebelum mengubah invitation `PENDING` menjadi `REVOKED`. Balasan `Y` menjalankan aksi, sedangkan `N` membatalkan. |
@@ -92,7 +94,7 @@ Role disimpan pada worksheet `Members` dan divalidasi pada service layer. Pembat
 | Mengubah nama keluarga | Ya | Tidak | Tidak |
 | Membuat transaksi pada keluarga sendiri | Ya | Ya | Ya |
 
-Pada tahap laporan yang direncanakan, `OWNER` dan `ADMIN` akan memiliki akses export CSV, print, dan PDF. `MEMBER` hanya akan dapat melihat laporan melalui Telegram atau Mini App; fitur tersebut belum tersedia pada versi saat ini.
+Pada tahap laporan, semua role aktif dapat melihat report melalui Telegram dan Mini App. `OWNER` dan `ADMIN` akan memiliki akses export CSV, print, dan PDF setelah export slice diimplementasikan; `MEMBER` tidak dapat melakukan export.
 
 ## Arsitektur
 
@@ -187,6 +189,8 @@ Salin `.env.example` ke konfigurasi environment deployment dan isi nilai server-
 | `TELEGRAM_BOT_TOKEN` | Token bot Telegram. | Ya |
 | `FALANCE_TELEGRAM_WEBHOOK_SECRET` | Secret server-only yang harus sama dengan secret pada Telegram `setWebhook`; request tanpa header yang cocok ditolak. | Ya |
 | `NEXT_PUBLIC_APP_URL` | URL publik deployment untuk kebutuhan link server-generated di masa depan. | Tidak untuk command saat ini |
+| `FALANCE_MINI_APP_URL` | URL HTTPS publik Mini App yang dibuka oleh tombol `/reportapp`. | Wajib untuk `/reportapp` |
+| `FALANCE_TELEGRAM_MINI_APP_AUTH_MAX_AGE_SECONDS` | Umur maksimum raw Mini App `initData`; default `3600` detik. | Tidak |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Email service account Google. | Ya |
 | `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` | PKCS#8 private key service account. | Ya |
 | `GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID` | ID spreadsheet pusat registry Falancé. | Ya |

@@ -24,7 +24,8 @@ const TELEGRAM_FILE_TIMEOUT_MS = 10_000;
 
 export interface TelegramInlineKeyboardButton {
   text: string;
-  callbackData: string;
+  callbackData?: string;
+  webApp?: { url: string };
 }
 
 export interface TelegramReplyMarkup {
@@ -134,11 +135,12 @@ export async function sendTelegramMessage({
   }
 }
 
-function toTelegramReplyMarkup(markup: TelegramReplyMarkup): { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> } {
+function toTelegramReplyMarkup(markup: TelegramReplyMarkup): { inline_keyboard: Array<Array<{ text: string; callback_data?: string; web_app?: { url: string } }>> } {
   return {
     inline_keyboard: markup.inline_keyboard.map((row) => row.map((button) => ({
       text: button.text,
-      callback_data: button.callbackData,
+      ...(button.callbackData ? { callback_data: button.callbackData } : {}),
+      ...(button.webApp ? { web_app: button.webApp } : {}),
     }))),
   };
 }

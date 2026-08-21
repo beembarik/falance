@@ -1,69 +1,179 @@
-import Image from "next/image";
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
+type ReportResponse = {
+  familyName: string;
+  viewer: { name: string; role: string };
+  report: {
+    period: { month: string; startDate: string; endDate: string; label: string };
+    transactionCount: number;
+    currencies: Array<{
+      currency: string;
+      incomeMinor: string;
+      expenseMinor: string;
+      netMinor: string;
+      transactionCount: number;
+    }>;
+  };
+};
+
+type TelegramWebApp = {
+  initData: string;
+  ready: () => void;
+  expand: () => void;
+  setHeaderColor?: (color: string) => void;
+  setBackgroundColor?: (color: string) => void;
+};
+
+declare global {
+  interface Window {
+    Telegram?: { WebApp?: TelegramWebApp };
+  }
+}
 
 export default function Home() {
+  const [month, setMonth] = useState("");
+  const [data, setData] = useState<ReportResponse | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const initDataRef = useRef("");
+
+  const loadReport = useCallback(async (selectedMonth: string) => {
+    if (!initDataRef.current) {
+      setError("Buka halaman ini dari Telegram Mini App agar akun dapat diverifikasi.");
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/mini-app/report", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ initData: initDataRef.current, month: selectedMonth || undefined }),
+      });
+      const payload = await response.json() as ReportResponse & { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Laporan tidak dapat dimuat.");
+      setData(payload);
+    } catch (loadError) {
+      setData(null);
+      setError(loadError instanceof Error ? loadError.message : "Laporan tidak dapat dimuat.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const webApp = window.Telegram?.WebApp;
+    if (webApp) {
+      initDataRef.current = webApp.initData;
+      webApp.ready();
+      webApp.expand();
+      webApp.setHeaderColor?.("#0f766e");
+      webApp.setBackgroundColor?.("#f4fbfa");
+    }
+    void loadReport("");
+  }, [loadReport]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+    <main className="min-h-screen bg-[#f4fbfa] px-4 pb-8 pt-5 text-slate-900">
+      <div className="mx-auto flex w-full max-w-xl flex-col gap-5">
+        <header className="rounded-3xl bg-[#0f766e] p-5 text-white shadow-lg shadow-teal-900/10">
+          <p className="text-sm font-medium text-teal-100">Falancé Mini App</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight">Laporan keuangan</h1>
+          <p className="mt-2 text-sm leading-6 text-teal-50">Ringkasan keluarga yang sedang aktif pada akun Telegram kamu.</p>
+        </header>
+
+        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          <label className="block text-sm font-semibold text-slate-700" htmlFor="report-month">Periode laporan</label>
+          <div className="mt-2 flex gap-2">
+            <input
+              id="report-month"
+              type="month"
+              value={month}
+              onChange={(event) => setMonth(event.target.value)}
+              className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+            <button
+              type="button"
+              onClick={() => void loadReport(month)}
+              disabled={loading}
+              className="min-h-11 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-wait disabled:opacity-60"
+            >
+              {loading ? "Memuat…" : "Tampilkan"}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">Kosongkan periode untuk menggunakan bulan berjalan.</p>
+        </section>
+
+        {error && (
+          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+            {error}
+          </section>
+        )}
+
+        {loading && !data && !error && (
+          <section className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
+            Memuat laporan…
+          </section>
+        )}
+
+        {data && (
+          <>
+            <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">Keluarga</p>
+                  <h2 className="mt-1 text-xl font-bold text-slate-900">{data.familyName}</h2>
+                </div>
+                <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">{data.viewer.role}</span>
+              </div>
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <p className="text-sm font-semibold text-slate-700">{data.report.period.label}</p>
+                <p className="mt-1 text-xs text-slate-500">{data.report.period.startDate} s/d {data.report.period.endDate}</p>
+                <p className="mt-3 text-sm text-slate-600">{data.report.transactionCount} transaksi aktif</p>
+              </div>
+            </section>
+
+            {data.report.currencies.length === 0 ? (
+              <section className="rounded-2xl bg-white p-6 text-center text-sm leading-6 text-slate-500 shadow-sm ring-1 ring-slate-200">
+                Belum ada transaksi aktif pada periode ini.
+              </section>
+            ) : (
+              <section className="grid gap-4">
+                {data.report.currencies.map((summary) => (
+                  <article key={summary.currency} className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-bold text-slate-900">{summary.currency}</h3>
+                      <span className="text-xs text-slate-500">{summary.transactionCount} transaksi</span>
+                    </div>
+                    <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                      <Metric label="Pemasukan" value={formatAmount(summary.incomeMinor, summary.currency)} tone="positive" />
+                      <Metric label="Pengeluaran" value={formatAmount(summary.expenseMinor, summary.currency)} tone="negative" />
+                      <Metric label="Saldo" value={formatAmount(summary.netMinor, summary.currency)} tone="neutral" />
+                    </dl>
+                  </article>
+                ))}
+              </section>
+            )}
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function Metric({ label, value, tone }: { label: string; value: string; tone: "positive" | "negative" | "neutral" }) {
+  const color = tone === "positive" ? "text-emerald-700" : tone === "negative" ? "text-rose-700" : "text-slate-900";
+  return (
+    <div className="rounded-xl bg-slate-50 p-3">
+      <dt className="text-xs text-slate-500">{label}</dt>
+      <dd className={`mt-1 font-semibold ${color}`}>{value}</dd>
     </div>
   );
+}
+
+function formatAmount(value: string, currency: string): string {
+  return `${currency} ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(BigInt(value))}`;
 }

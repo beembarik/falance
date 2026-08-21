@@ -5,6 +5,7 @@ import {
   handleTelegramCallbackQuery,
   handleTelegramPhotoMessageResponse,
   handleTelegramTextMessage,
+  handleTelegramTextMessageResponse,
 } from "../src/lib/telegram/command-handler";
 import type { FamilyService, ConfirmationResult } from "../src/lib/family/service";
 import type { Family, TelegramUser, Transaction } from "../src/lib/family/types";
@@ -333,6 +334,34 @@ test("rejects a report command with multiple period arguments", async () => {
   const response = await handleTelegramTextMessage(service, owner, "/report 2026-08 extra");
   assert.match(response, /Format tidak valid/);
   assert.match(response, /\/report YYYY-MM/);
+});
+
+test("opens the configured HTTPS Mini App for an active family member", async () => {
+  const originalMiniAppUrl = process.env.FALANCE_MINI_APP_URL;
+  process.env.FALANCE_MINI_APP_URL = "https://falance.example.com/";
+  const family: Family = {
+    familyId: "fam_1",
+    familyName: "Keluarga Owner",
+    status: "ACTIVE",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    createdBy: owner.telegramUserId,
+    plan: "FREE",
+  };
+  try {
+    const response = await handleTelegramTextMessageResponse(
+      fakeService({ getActiveFamily: async () => family }),
+      owner,
+      "/reportapp",
+    );
+    assert.equal(typeof response, "object");
+    assert.deepEqual(response, {
+      text: "📊 Buka laporan interaktif keluarga <code>Keluarga Owner</code>.",
+      replyMarkup: { inline_keyboard: [[{ text: "Buka Mini App", webApp: { url: "https://falance.example.com/" } }]] },
+    });
+  } finally {
+    if (originalMiniAppUrl === undefined) delete process.env.FALANCE_MINI_APP_URL;
+    else process.env.FALANCE_MINI_APP_URL = originalMiniAppUrl;
+  }
 });
 
 test("edits a transaction through the service", async () => {

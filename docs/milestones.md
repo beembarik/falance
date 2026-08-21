@@ -4,7 +4,7 @@
 
 Status: COMPLETE
 
-Falancé uses Google Sheets as its initial storage implementation and Supabase as the planned future migration target. The Telegram Mini App and later financial features remain future work.
+Falancé uses Google Sheets as its initial storage implementation and Supabase as the planned future migration target. The Telegram Mini App read-only report surface is implemented in Milestone 9 Slice 2; broader Mini App workspace features and later financial features remain future work.
 
 ## Milestone 1 — Telegram Webhook
 
@@ -147,7 +147,7 @@ Slice webhook authentication dan update_id idempotency sudah divalidasi end-to-e
 
 ## Milestone 9 — Reports, Multi-Channel Access, and Export
 
-Status: IN PROGRESS — SLICE 1: read-only Telegram reports; Milestone 8 operationally ready dengan validasi pra-public-beta yang ditunda
+Status: IN PROGRESS — SLICE 2: Telegram Mini App read-only reports; Milestone 8 operationally ready dengan validasi pra-public-beta yang ditunda
 
 Reports must never expose the central Google Spreadsheet directly. Every report request resolves the user’s active membership and `family_id` server-side, then returns only data belonging to that family. Slice 1 menyediakan `/report` untuk bulan berjalan atau periode `YYYY-MM`, dengan agregasi multi-currency, income, expense, saldo, transaction count, dan exclusion untuk `VOID` atau transaksi di luar periode.
 
@@ -157,6 +157,7 @@ Report access follows this role boundary: all active roles may view reports thro
 - [ ] Income, expense, balance, and family overview
 - [ ] Date filtering and concise report commands in Telegram
 - [x] Read-only Telegram reports sebagai slice pertama sebelum Mini App dan export
+- [x] Mini App auth/API/UI implementation dengan validated Telegram `initData` dan family-scoped report response
 - [ ] Role-safe CSV/print/PDF export untuk `OWNER` dan `ADMIN`, dengan optional server-side PDF password
 - [ ] Regression tests untuk report family isolation, role permission, date filters, dan export authorization
 - [ ] First authorized report views in the Telegram Mini App

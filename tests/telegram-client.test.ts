@@ -41,6 +41,35 @@ test("serializes interactive draft inline keyboard markup for Telegram", async (
   }
 });
 
+test("serializes a Mini App web_app button for Telegram", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalToken = process.env.TELEGRAM_BOT_TOKEN;
+  const requests: Array<{ body: unknown }> = [];
+  process.env.TELEGRAM_BOT_TOKEN = "test-token";
+  globalThis.fetch = async (_input, init) => {
+    requests.push({ body: JSON.parse(String(init?.body)) });
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  };
+
+  try {
+    await sendTelegramMessage({
+      chatId: 123,
+      text: "Report",
+      replyMarkup: { inline_keyboard: [[{ text: "Buka Mini App", webApp: { url: "https://falance.example.com/" } }]] },
+    });
+    assert.deepEqual(requests[0]?.body, {
+      chat_id: 123,
+      text: "Report",
+      reply_markup: {
+        inline_keyboard: [[{ text: "Buka Mini App", web_app: { url: "https://falance.example.com/" } }]],
+      },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnvironment("TELEGRAM_BOT_TOKEN", originalToken);
+  }
+});
+
 test("downloads the largest Telegram photo through getFile", async () => {
   const originalFetch = globalThis.fetch;
   const originalToken = process.env.TELEGRAM_BOT_TOKEN;
