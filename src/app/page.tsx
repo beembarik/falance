@@ -105,15 +105,7 @@ export default function Home() {
         const payload = await response.json() as { error?: string };
         throw new Error(payload.error || "Export tidak dapat dibuat.");
       }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = "falance-report.csv";
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
+      downloadBlob(await response.blob(), "falance-report.csv");
     } catch (exportLoadError) {
       setExportError(exportLoadError instanceof Error ? exportLoadError.message : "Export tidak dapat dibuat.");
     } finally {
@@ -146,10 +138,9 @@ export default function Home() {
         const payload = await response.json() as { error?: string };
         throw new Error(payload.error || "Tampilan cetak tidak dapat dibuat.");
       }
-      const html = await response.text();
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
+      const url = URL.createObjectURL(await response.blob());
+      printWindow.location.href = url;
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
       printWindow.focus();
     } catch (printLoadError) {
       printWindow.close();
@@ -179,15 +170,7 @@ export default function Home() {
         const payload = await response.json() as { error?: string };
         throw new Error(payload.error || "PDF tidak dapat dibuat.");
       }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = "falance-report.pdf";
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
+      downloadBlob(await response.blob(), "falance-report.pdf");
       setPdfPassword("");
     } catch (pdfLoadError) {
       setPdfError(pdfLoadError instanceof Error ? pdfLoadError.message : "PDF tidak dapat dibuat.");
@@ -425,4 +408,16 @@ function formatAmount(value: string, currency: string): string {
 function formatDisplayDate(value: string): string {
   const [year, month, day] = value.split("-");
   return `${day}/${month}/${year}`;
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

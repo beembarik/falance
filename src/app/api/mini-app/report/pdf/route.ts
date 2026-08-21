@@ -81,6 +81,7 @@ export async function POST(request: Request): Promise<Response> {
     }
     console.error("[MiniApp] PDF export failed", {
       error: error instanceof Error ? error.name : "unknown",
+      code: classifyPdfError(error),
     });
     return Response.json({ error: "Unable to create PDF report." }, { status: 500 });
   }
@@ -88,4 +89,13 @@ export async function POST(request: Request): Promise<Response> {
 
 function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function classifyPdfError(error: unknown): string {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  if (message.includes("font")) return "font";
+  if (message.includes("password") || message.includes("encrypt") || message.includes("security")) return "encryption";
+  if (message.includes("stream") || message.includes("buffer")) return "stream";
+  if (message.includes("unsupported") || message.includes("version")) return "pdf-version";
+  return "generation";
 }
