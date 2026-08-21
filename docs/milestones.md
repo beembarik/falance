@@ -119,7 +119,7 @@ Milestone 8–13 di bawah ini adalah roadmap yang direncanakan, bukan pekerjaan 
 
 ## Milestone 8 — Production Reliability and Security Hardening
 
-Status: IN PROGRESS — SLICE 5: durable draft approval claim
+Status: OPERATIONALLY READY — DEFERRED PRE-PUBLIC-BETA VALIDATION
 
 Milestone ini menyelesaikan risiko yang dapat menyebabkan request Telegram diproses berulang, webhook dipanggil oleh pihak yang tidak berwenang, operasi keluarga mengalami race condition, atau provider AI vision digunakan tanpa guard dasar. Tidak ada item pada milestone ini yang boleh melemahkan resolusi server-side `family_id`.
 
@@ -130,7 +130,7 @@ Milestone ini menyelesaikan risiko yang dapat menyebabkan request Telegram dipro
 - [x] Verifikasi `X-Telegram-Bot-Api-Secret-Token` pada webhook dengan konfigurasi server-only; deployment production wajib mengisi `FALANCE_TELEGRAM_WEBHOOK_SECRET` dan mengatur secret yang sama melalui Telegram `setWebhook`
 - [x] Durable idempotensi `update_id` Telegram melalui worksheet pusat `Processed Telegram Updates`, dengan status `CLAIMED`/`COMPLETED`, duplicate suppression, dan lease lima menit untuk claim yang stale
 - [x] In-process concurrency tests dan keyed locks untuk `/join`, pending confirmation, role change, member lifecycle, dan family lifecycle
-- [ ] Cross-instance/Google Sheets race validation untuk `/join`, invitation, pending confirmation, dan operasi lifecycle anggota/keluarga — **ditunda: belum tersedia dua akun Telegram uji**
+- [ ] Cross-instance/Google Sheets race validation untuk `/join`, invitation, pending confirmation, dan operasi lifecycle anggota/keluarga — **ditunda sampai tersedia dua akun Telegram uji; wajib sebelum public beta**
 - [x] Guard cooldown, rolling-window quota, in-flight lease, dan fallback aman untuk AI vision per active user/family dengan state durable pada worksheet pusat `AI Vision Usage`
 - [x] Review authorization, callback/draft ownership, input validation, dan cross-family rejection
 - [x] Durable draft approval claim pada worksheet pusat `Draft Approval Claims`, dengan deterministic transaction ID, completion recovery, lease 60 detik, dan keyed lock draft lifecycle
@@ -141,13 +141,13 @@ Milestone ini menyelesaikan risiko yang dapat menyebabkan request Telegram dipro
 - [x] Regression tests untuk AI vision guard pada Telegram photo boundary dan registry schema
 - [x] Regression tests untuk durable draft approval claim, parallel suppression, stale lease recovery, dan completed-claim recovery
 - [x] Regression tests untuk partial-write recovery dan privacy-safe registry integrity report
-- [ ] Regression tests untuk cross-instance race condition dan privacy boundary lanjutan
+- [ ] Regression tests untuk cross-instance race condition dan privacy boundary lanjutan — **wajib sebelum public beta**
 
-Slice webhook authentication dan update_id idempotency sudah divalidasi end-to-end di production. Slice in-process concurrency sekarang memiliki keyed locks dan regression tests lintas dua `FamilyService` instance. Review authorization/privacy untuk callback ownership dan draft ownership telah selesai, dan durable draft approval claim sekarang menyimpan `CLAIMED`/`COMPLETED` state, lease 60 detik, serta deterministic `transaction_id` untuk recovery tanpa membuat transaction baru. Monitoring operation label, error-rate, latency, dan Google Sheets 429 quota signal sekarang tersedia melalui timing logs yang privacy-safe dan terdokumentasi pada `docs/monitoring.md`. Partial-write recovery untuk `/createfamily` dan `/join` kini memiliki retry semantics yang eksplisit, dan `npm run check:registry` memeriksa header, duplicate key, enum, foreign reference, active OWNER, serta consistency transaction/claim tanpa mencetak row values. Prosedur backup, restoration, dan recovery terdokumentasi pada `docs/backup-recovery.md`. Karena Google Sheets tidak menyediakan compare-and-swap, claim worksheet ini belum menjadi jaminan atomic cross-instance uniqueness; validasi race lintas instance dan keputusan storage primitive dengan conditional write tetap terbuka. Pengujian production dengan dua user berbeda yang berebut invitation ditunda karena belum tersedia dua akun Telegram uji; pengujian ini harus diulang sebelum public beta. AI vision guard sekarang memiliki cooldown 30 detik, maksimum 5 claim per rolling window 1 jam, dan lease in-flight 60 detik secara default; seluruh nilai dapat dikonfigurasi melalui environment server-only. Exit criterion Milestone 8 secara keseluruhan belum tercapai: concurrency lintas serverless instance/Google Sheets, runbook recovery, dan production replay testing masih terbuka.
+Slice webhook authentication dan update_id idempotency sudah divalidasi end-to-end di production. Slice in-process concurrency sekarang memiliki keyed locks dan regression tests lintas dua `FamilyService` instance. Review authorization/privacy untuk callback ownership dan draft ownership telah selesai, dan durable draft approval claim sekarang menyimpan `CLAIMED`/`COMPLETED` state, lease 60 detik, serta deterministic `transaction_id` untuk recovery tanpa membuat transaction baru. Monitoring operation label, error-rate, latency, dan Google Sheets 429 quota signal sekarang tersedia melalui timing logs yang privacy-safe dan terdokumentasi pada `docs/monitoring.md`. Partial-write recovery untuk `/createfamily` dan `/join` kini memiliki retry semantics yang eksplisit, dan `npm run check:registry` memeriksa header, duplicate key, enum, foreign reference, active OWNER, serta consistency transaction/claim tanpa mencetak row values. Prosedur backup, restoration, dan recovery terdokumentasi pada `docs/backup-recovery.md`. Karena Google Sheets tidak menyediakan compare-and-swap, claim worksheet ini belum menjadi jaminan atomic cross-instance uniqueness; validasi race lintas instance dan keputusan storage primitive dengan conditional write tetap terbuka. Pengujian production dengan dua user berbeda yang berebut invitation ditunda karena belum tersedia dua akun Telegram uji; pengujian ini harus diulang sebelum public beta. AI vision guard sekarang memiliki cooldown 30 detik, maksimum 5 claim per rolling window 1 jam, dan lease in-flight 60 detik secara default; seluruh nilai dapat dikonfigurasi melalui environment server-only. Milestone 8 sekarang **operationally ready untuk pengujian satu sampai dua keluarga** setelah production registry integrity check menghasilkan `healthy: true` dan `issues: []`. Dua exit item tetap ditunda dan wajib diselesaikan sebelum public beta: validasi race lintas serverless instance dengan dua akun Telegram berbeda serta production replay testing setelah recovery. Google Sheets tetap belum menyediakan compare-and-swap atau unique conditional write; keputusan storage primitive dengan conditional write tetap berada pada backlog hardening/scale-out.
 
 ## Milestone 9 — Reports, Multi-Channel Access, and Export
 
-Status: PLANNED — PRIORITAS P1 setelah hardening P0
+Status: READY TO START — PRIORITAS P1; Milestone 8 operationally ready dengan validasi pra-public-beta yang ditunda
 
 Reports must never expose the central Google Spreadsheet directly. Every report request resolves the user’s active membership and `family_id` server-side, then returns only data belonging to that family.
 
@@ -156,6 +156,9 @@ Report access follows this role boundary: all active roles may view reports thro
 - [ ] Monthly and category summaries
 - [ ] Income, expense, balance, and family overview
 - [ ] Date filtering and concise report commands in Telegram
+- [ ] Read-only Telegram reports sebagai slice pertama sebelum Mini App dan export
+- [ ] Role-safe CSV/print/PDF export untuk `OWNER` dan `ADMIN`, dengan optional server-side PDF password
+- [ ] Regression tests untuk report family isolation, role permission, date filters, dan export authorization
 - [ ] First authorized report views in the Telegram Mini App
 - [ ] CSV export for authorized family data
 - [ ] Print-friendly report view
