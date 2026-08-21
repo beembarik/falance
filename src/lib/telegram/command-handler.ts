@@ -72,23 +72,30 @@ export async function handleTelegramPhotoMessageResponse(
   try {
     const membership = await service.getActiveMembership(user.telegramUserId);
     if (!membership) return startMessage(null);
-    const image = await photoDownloader(photo);
-    const parsed = await receiptParser.parse(image, caption, getBusinessDate());
-    if (parsed.kind === "READY") {
-      const draft = await service.createPendingTransactionDraft(
-        user,
-        parsed.draft,
-        parsed.draft.confidence,
-        {
-          transactionDateInferred: parsed.draft.transactionDateInferred,
-          categorySuggestion: parsed.draft.categorySuggestion,
-          descriptionSuggestion: parsed.draft.descriptionSuggestion,
-        },
-      );
-      return { text: formatTransactionDraftMessage(draft), replyMarkup: formatDraftActionMarkup(draft.draftId, draft.status) };
+    const visionClaim = await service.claimReceiptVision(user);
+    if (!visionClaim) return { text: "⏳ Receipt sedang diproses atau batas penggunaan receipt sementara tercapai. Coba lagi nanti." };
+
+    try {
+      const image = await photoDownloader(photo);
+      const parsed = await receiptParser.parse(image, caption, getBusinessDate());
+      if (parsed.kind === "READY") {
+        const draft = await service.createPendingTransactionDraft(
+          user,
+          parsed.draft,
+          parsed.draft.confidence,
+          {
+            transactionDateInferred: parsed.draft.transactionDateInferred,
+            categorySuggestion: parsed.draft.categorySuggestion,
+            descriptionSuggestion: parsed.draft.descriptionSuggestion,
+          },
+        );
+        return { text: formatTransactionDraftMessage(draft), replyMarkup: formatDraftActionMarkup(draft.draftId, draft.status) };
+      }
+      if (parsed.kind === "NEEDS_CLARIFICATION") return `🤔 ${parsed.question}`;
+      return `🤔 ${parsed.reason}`;
+    } finally {
+      await service.completeReceiptVision(visionClaim).catch(() => undefined);
     }
-    if (parsed.kind === "NEEDS_CLARIFICATION") return `🤔 ${parsed.question}`;
-    return `🤔 ${parsed.reason}`;
   } catch (error) {
     if (error instanceof TelegramApiError) return { text: "Receipt tidak dapat diunduh atau format gambarnya tidak didukung. Pastikan foto jelas dan berukuran sesuai, lalu coba lagi." };
     return { text: messageForError(error) };

@@ -119,7 +119,7 @@ Milestone 8–13 di bawah ini adalah roadmap yang direncanakan, bukan pekerjaan 
 
 ## Milestone 8 — Production Reliability and Security Hardening
 
-Status: IN PROGRESS — SLICE 3: in-process concurrency hardening
+Status: IN PROGRESS — SLICE 4: AI vision usage guard
 
 Milestone ini menyelesaikan risiko yang dapat menyebabkan request Telegram diproses berulang, webhook dipanggil oleh pihak yang tidak berwenang, operasi keluarga mengalami race condition, atau provider AI vision digunakan tanpa guard dasar. Tidak ada item pada milestone ini yang boleh melemahkan resolusi server-side `family_id`.
 
@@ -130,16 +130,17 @@ Milestone ini menyelesaikan risiko yang dapat menyebabkan request Telegram dipro
 - [x] Verifikasi `X-Telegram-Bot-Api-Secret-Token` pada webhook dengan konfigurasi server-only; deployment production wajib mengisi `FALANCE_TELEGRAM_WEBHOOK_SECRET` dan mengatur secret yang sama melalui Telegram `setWebhook`
 - [x] Durable idempotensi `update_id` Telegram melalui worksheet pusat `Processed Telegram Updates`, dengan status `CLAIMED`/`COMPLETED`, duplicate suppression, dan lease lima menit untuk claim yang stale
 - [x] In-process concurrency tests dan keyed locks untuk `/join`, pending confirmation, role change, member lifecycle, dan family lifecycle
-- [ ] Cross-instance/Google Sheets race validation untuk `/join`, invitation, pending confirmation, dan operasi lifecycle anggota/keluarga
-- [ ] Guard rate, ukuran, dan frekuensi untuk AI vision per user/family dengan fallback yang aman
+- [ ] Cross-instance/Google Sheets race validation untuk `/join`, invitation, pending confirmation, dan operasi lifecycle anggota/keluarga — **ditunda: belum tersedia dua akun Telegram uji**
+- [x] Guard cooldown, rolling-window quota, in-flight lease, dan fallback aman untuk AI vision per active user/family dengan state durable pada worksheet pusat `AI Vision Usage`
 - [ ] Review authorization, callback/draft ownership, input validation, dan cross-family rejection
 - [ ] Monitoring operation label, error rate, latency, dan Google Sheets quota tanpa membocorkan credential atau data pengguna
 - [ ] Runbook backup, recovery, partial-write retry, dan integritas data registry pusat
 - [x] Regression tests untuk secret verification, duplicate suppression, stale-claim recovery, dan update ID validation
 - [x] Regression tests untuk in-process race condition pada invitation join dan destructive confirmation
-- [ ] Regression tests untuk cross-instance race condition, AI vision guard, dan privacy boundary lanjutan
+- [x] Regression tests untuk AI vision guard pada Telegram photo boundary dan registry schema
+- [ ] Regression tests untuk cross-instance race condition dan privacy boundary lanjutan
 
-Slice webhook authentication dan update_id idempotency sudah divalidasi end-to-end di production. Slice in-process concurrency sekarang memiliki keyed locks dan regression tests lintas dua `FamilyService` instance. Exit criterion Milestone 8 secara keseluruhan belum tercapai: concurrency lintas serverless instance/Google Sheets, AI vision guard, monitoring, quota, recovery, dan production replay testing masih terbuka.
+Slice webhook authentication dan update_id idempotency sudah divalidasi end-to-end di production. Slice in-process concurrency sekarang memiliki keyed locks dan regression tests lintas dua `FamilyService` instance. Pengujian production dengan dua user berbeda yang berebut invitation ditunda karena belum tersedia dua akun Telegram uji; pengujian ini harus diulang sebelum public beta. AI vision guard sekarang memiliki cooldown 30 detik, maksimum 5 claim per rolling window 1 jam, dan lease in-flight 60 detik secara default; seluruh nilai dapat dikonfigurasi melalui environment server-only. Exit criterion Milestone 8 secara keseluruhan belum tercapai: concurrency lintas serverless instance/Google Sheets, monitoring, quota operasional lanjutan, recovery, dan production replay testing masih terbuka.
 
 ## Milestone 9 — Reports, Multi-Channel Access, and Export
 

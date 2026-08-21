@@ -49,4 +49,14 @@ export interface FamilyRepository {
   updatePendingTransactionDraft(draft: PendingTransactionDraft): Promise<void>;
   claimTelegramUpdate(updateId: number, claimedAt: string): Promise<boolean>;
   completeTelegramUpdate(updateId: number, completedAt: string): Promise<void>;
+  claimReceiptVision(
+    familyId: string,
+    telegramUserId: string,
+    claimedAt: string,
+    cooldownMs: number,
+    windowMs: number,
+    maxRequests: number,
+    leaseMs: number,
+  ): Promise<boolean>;
+  completeReceiptVision(familyId: string, telegramUserId: string, completedAt: string): Promise<void>;
 }

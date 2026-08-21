@@ -843,6 +843,16 @@ class FakeFamilyRepository implements FamilyRepository {
   transactions: Transaction[] = [];
   transactionDrafts: PendingTransactionDraft[] = [];
   processedUpdates: ProcessedTelegramUpdate[] = [];
+  visionUsage: Array<{
+    usageKey: string;
+    familyId: string;
+    telegramUserId: string;
+    windowStartedAt: string;
+    requestCount: number;
+    lastClaimedAt: string;
+    leaseUntil: string;
+    status: "IN_FLIGHT" | "COMPLETED";
+  }> = [];
   failAuditLog = false;
   failMemberCreation = false;
   spreadsheetCreationCalls = 0;
@@ -939,6 +949,32 @@ class FakeFamilyRepository implements FamilyRepository {
     const existing = this.processedUpdates.find((update) => update.updateId === updateId);
     if (!existing) throw new Error("processed update missing");
     existing.completedAt = completedAt;
+    existing.status = "COMPLETED";
+  }
+  async claimReceiptVision(familyId: string, telegramUserId: string, claimedAt: string, cooldownMs: number, windowMs: number, maxRequests: number, leaseMs: number) {
+    const usageKey = `${familyId}:${telegramUserId}`;
+    const existing = this.visionUsage.find((value) => value.usageKey === usageKey);
+    const claimedAtMs = Date.parse(claimedAt);
+    if (!existing) {
+      this.visionUsage.push({ usageKey, familyId, telegramUserId, windowStartedAt: claimedAt, requestCount: 1, lastClaimedAt: claimedAt, leaseUntil: new Date(claimedAtMs + leaseMs).toISOString(), status: "IN_FLIGHT" });
+      return true;
+    }
+    if (Date.parse(existing.leaseUntil) > claimedAtMs) return false;
+    if (claimedAtMs - Date.parse(existing.lastClaimedAt) < cooldownMs) return false;
+    const windowActive = claimedAtMs - Date.parse(existing.windowStartedAt) < windowMs;
+    const requestCount = windowActive ? existing.requestCount + 1 : 1;
+    if (windowActive && requestCount > maxRequests) return false;
+    existing.windowStartedAt = windowActive ? existing.windowStartedAt : claimedAt;
+    existing.requestCount = requestCount;
+    existing.lastClaimedAt = claimedAt;
+    existing.leaseUntil = new Date(claimedAtMs + leaseMs).toISOString();
+    existing.status = "IN_FLIGHT";
+    return true;
+  }
+  async completeReceiptVision(familyId: string, telegramUserId: string) {
+    const existing = this.visionUsage.find((value) => value.usageKey === `${familyId}:${telegramUserId}`);
+    if (!existing) throw new Error("vision usage missing");
+    existing.leaseUntil = "";
     existing.status = "COMPLETED";
   }
   async createPendingFamilyCreation(value: PendingFamilyCreation) {

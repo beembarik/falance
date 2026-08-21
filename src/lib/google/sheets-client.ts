@@ -268,6 +268,8 @@ export type GoogleOperation =
   | "updatePendingTransactionDraft"
   | "claimTelegramUpdate"
   | "completeTelegramUpdate"
+  | "claimReceiptVision"
+  | "completeReceiptVision"
   | "migrateFamiliesSchema";
 
 function logGoogleFailure(
@@ -379,6 +381,7 @@ const REGISTRY_SHEETS = [
   { name: "Audit Log", headers: ["audit_id", "family_id", "actor_member_id", "actor_role", "action", "target_type", "target_id", "previous_value", "new_value", "created_at"] },
   { name: "Transactions", headers: ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"] },
   { name: "Processed Telegram Updates", headers: ["update_id", "claimed_at", "completed_at", "status"] },
+  { name: "AI Vision Usage", headers: ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"] },
 ] as const;
 
 interface SpreadsheetMetadata {

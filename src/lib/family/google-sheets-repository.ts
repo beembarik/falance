@@ -13,6 +13,7 @@ import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmati
  */
 const sharedGoogleSheetsClient = new GoogleSheetsClient();
 const telegramUpdateClaimLocks = new Map<string, Promise<boolean>>();
+const receiptVisionClaimLocks = new Map<string, Promise<boolean>>();
 const TELEGRAM_UPDATE_CLAIM_LEASE_MS = 5 * 60 * 1000;
 
 export class GoogleSheetsFamilyRepository implements FamilyRepository {
@@ -337,6 +338,101 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     await this.client.updateValues(this.registryId(), `Processed Telegram Updates!A${index + 2}`, [[
       row[0], row[1], completedAt, "COMPLETED",
     ]], "completeTelegramUpdate");
+  }
+
+  async claimReceiptVision(
+    familyId: string,
+    telegramUserId: string,
+    claimedAt: string,
+    cooldownMs: number,
+    windowMs: number,
+    maxRequests: number,
+    leaseMs: number,
+  ): Promise<boolean> {
+    const lockKey = `${this.registryId()}:${familyId}:${telegramUserId}`;
+    const previous = receiptVisionClaimLocks.get(lockKey) ?? Promise.resolve(false);
+    const claim = previous.catch(() => false).then(() => this.claimReceiptVisionWithoutLock(
+      familyId,
+      telegramUserId,
+      claimedAt,
+      cooldownMs,
+      windowMs,
+      maxRequests,
+      leaseMs,
+    ));
+    const trackedClaim = claim.finally(() => {
+      if (receiptVisionClaimLocks.get(lockKey) === trackedClaim) receiptVisionClaimLocks.delete(lockKey);
+    });
+    receiptVisionClaimLocks.set(lockKey, trackedClaim);
+    return trackedClaim;
+  }
+
+  async completeReceiptVision(familyId: string, telegramUserId: string, completedAt: string): Promise<void> {
+    void completedAt;
+    const rows = await this.rows("AI Vision Usage", "completeReceiptVision");
+    const usageKey = `${familyId}:${telegramUserId}`;
+    const index = rows.findIndex((row) => row[0] === usageKey);
+    if (index < 0) throw new GoogleConfigurationError("AI vision usage record is missing.");
+    const row = rows[index];
+    if (row[7] === "COMPLETED" && !row[6]) return;
+    await this.client.updateValues(this.registryId(), `AI Vision Usage!A${index + 2}`, [[
+      ...row.slice(0, 6), "", "COMPLETED",
+    ]], "completeReceiptVision");
+  }
+
+  private async claimReceiptVisionWithoutLock(
+    familyId: string,
+    telegramUserId: string,
+    claimedAt: string,
+    cooldownMs: number,
+    windowMs: number,
+    maxRequests: number,
+    leaseMs: number,
+  ): Promise<boolean> {
+    const rows = await this.rows("AI Vision Usage", "claimReceiptVision");
+    const usageKey = `${familyId}:${telegramUserId}`;
+    const index = rows.findIndex((row) => row[0] === usageKey);
+    const claimedAtMs = Date.parse(claimedAt);
+    if (Number.isNaN(claimedAtMs)) return false;
+    const leaseUntil = new Date(claimedAtMs + leaseMs).toISOString();
+    if (index < 0) {
+      await this.append("AI Vision Usage", [
+        usageKey,
+        familyId,
+        telegramUserId,
+        claimedAt,
+        "1",
+        claimedAt,
+        leaseUntil,
+        "IN_FLIGHT",
+      ], "claimReceiptVision");
+      return true;
+    }
+
+    const row = rows[index];
+    const previousLeaseMs = Date.parse(row[6]);
+    if (!Number.isNaN(previousLeaseMs) && previousLeaseMs > claimedAtMs) return false;
+
+    const previousClaimMs = Date.parse(row[5]);
+    if (!Number.isNaN(previousClaimMs) && claimedAtMs - previousClaimMs < cooldownMs) return false;
+
+    const previousWindowMs = Date.parse(row[3]);
+    const previousCount = Number(row[4]);
+    const windowActive = !Number.isNaN(previousWindowMs) && claimedAtMs - previousWindowMs < windowMs;
+    const requestCount = windowActive ? previousCount + 1 : 1;
+    if (windowActive && (!Number.isSafeInteger(previousCount) || requestCount > maxRequests)) return false;
+
+    await this.client.updateValues(this.registryId(), `AI Vision Usage!A${index + 2}`, [[
+      usageKey,
+      familyId,
+      telegramUserId,
+      windowActive ? row[3] : claimedAt,
+      String(requestCount),
+      claimedAt,
+      leaseUntil,
+      "IN_FLIGHT",
+    ]], "claimReceiptVision");
+    return true;
   }
 
   private async claimTelegramUpdateWithoutLock(updateId: number, claimedAt: string): Promise<boolean> {

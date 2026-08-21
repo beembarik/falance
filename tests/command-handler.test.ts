@@ -128,6 +128,43 @@ test("previews an authorized receipt through the shared interactive draft flow",
   assert.match(typeof response === "string" ? response : response.text, /Kategori   : Makanan & Minuman \(saran\)/);
 });
 
+test("blocks a receipt when the vision guard denies the claim before download or parsing", async () => {
+  let downloaded = false;
+  let parsed = false;
+  const service = fakeService({ claimReceiptVision: async () => null });
+  const response = await handleTelegramPhotoMessageResponse(
+    service,
+    owner,
+    [{ fileId: "photo_rate_limited", width: 1200, height: 1600 }],
+    null,
+    { parse: async () => { parsed = true; throw new Error("parser must not run"); } },
+    async () => {
+      downloaded = true;
+      throw new Error("download must not run");
+    },
+  );
+
+  assert.equal(downloaded, false);
+  assert.equal(parsed, false);
+  assert.match(typeof response === "string" ? response : response.text, /batas penggunaan receipt/);
+});
+
+test("completes the vision guard claim after receipt processing", async () => {
+  let completed = false;
+  const service = fakeService({ completeReceiptVision: async () => { completed = true; } });
+  const response = await handleTelegramPhotoMessageResponse(
+    service,
+    owner,
+    [{ fileId: "photo_1", width: 1200, height: 1600 }],
+    null,
+    { parse: async () => ({ kind: "NEEDS_CLARIFICATION" as const, question: "Receipt belum jelas." }) },
+    async () => ({ data: new Uint8Array([1, 2, 3]), mimeType: "image/jpeg", filePath: "photos/receipt.jpg" }),
+  );
+
+  assert.equal(completed, true);
+  assert.match(typeof response === "string" ? response : response.text, /Receipt belum jelas/);
+});
+
 test("rejects a receipt photo for an unregistered user before downloading it", async () => {
   let downloaded = false;
   const service = fakeService({ getActiveMembership: async () => null });
@@ -355,6 +392,8 @@ function fakeService(overrides: Record<string, unknown>): FamilyService {
     hasPendingConfirmation: async () => false,
     confirmPendingAction: async () => ({ action: "REVOKE_INVITATION" }),
     cancelPendingConfirmation: async () => {},
+    claimReceiptVision: async () => ({ familyId: "fam_1", telegramUserId: owner.telegramUserId }),
+    completeReceiptVision: async () => {},
     getActiveMembership: async () => ({
       memberId: "mem_100",
       familyId: "fam_1",

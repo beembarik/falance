@@ -23,6 +23,10 @@ const DEFAULT_INVITATION_EXPIRY_HOURS = 24;
 const FAMILY_CREATION_EXPIRY_MINUTES = 15;
 const TRANSACTION_DESCRIPTION_MAX_LENGTH = 200;
 const MAX_TRANSACTION_AMOUNT_MINOR = 1_000_000_000_000;
+const DEFAULT_RECEIPT_VISION_COOLDOWN_SECONDS = 30;
+const DEFAULT_RECEIPT_VISION_WINDOW_SECONDS = 3_600;
+const DEFAULT_RECEIPT_VISION_MAX_REQUESTS = 5;
+const DEFAULT_RECEIPT_VISION_LEASE_SECONDS = 60;
 
 export interface CreateTransactionInput {
   transactionType: TransactionType;
@@ -48,6 +52,11 @@ export interface ConfirmationResult {
   targetName?: string;
   familyName?: string;
   transactionDescription?: string;
+}
+
+export interface ReceiptVisionClaim {
+  familyId: string;
+  telegramUserId: string;
 }
 
 export class FamilyService {
@@ -82,6 +91,24 @@ export class FamilyService {
       throw new UnauthorizedError("Family is unavailable.");
     }
     return family;
+  }
+
+  async claimReceiptVision(user: TelegramUser): Promise<ReceiptVisionClaim | null> {
+    const member = await this.requireActiveMember(user.telegramUserId);
+    const claimed = await this.repository.claimReceiptVision(
+      member.familyId,
+      user.telegramUserId,
+      new Date().toISOString(),
+      getReceiptVisionCooldownSeconds() * 1000,
+      getReceiptVisionWindowSeconds() * 1000,
+      getReceiptVisionMaxRequests(),
+      getReceiptVisionLeaseSeconds() * 1000,
+    );
+    return claimed ? { familyId: member.familyId, telegramUserId: user.telegramUserId } : null;
+  }
+
+  async completeReceiptVision(claim: ReceiptVisionClaim): Promise<void> {
+    await this.repository.completeReceiptVision(claim.familyId, claim.telegramUserId, new Date().toISOString());
   }
 
   async beginFamilyCreation(user: TelegramUser): Promise<void> {
@@ -846,4 +873,25 @@ function getInvitationExpiryHours(): number {
   return Number.isFinite(configuredValue) && configuredValue > 0
     ? configuredValue
     : DEFAULT_INVITATION_EXPIRY_HOURS;
+}
+
+function getReceiptVisionCooldownSeconds(): number {
+  return readPositiveIntegerEnv("FALANCE_RECEIPT_VISION_COOLDOWN_SECONDS", DEFAULT_RECEIPT_VISION_COOLDOWN_SECONDS);
+}
+
+function getReceiptVisionWindowSeconds(): number {
+  return readPositiveIntegerEnv("FALANCE_RECEIPT_VISION_WINDOW_SECONDS", DEFAULT_RECEIPT_VISION_WINDOW_SECONDS);
+}
+
+function getReceiptVisionMaxRequests(): number {
+  return readPositiveIntegerEnv("FALANCE_RECEIPT_VISION_MAX_REQUESTS", DEFAULT_RECEIPT_VISION_MAX_REQUESTS);
+}
+
+function getReceiptVisionLeaseSeconds(): number {
+  return readPositiveIntegerEnv("FALANCE_RECEIPT_VISION_LEASE_SECONDS", DEFAULT_RECEIPT_VISION_LEASE_SECONDS);
+}
+
+function readPositiveIntegerEnv(name: string, fallback: number): number {
+  const configuredValue = Number(process.env[name]);
+  return Number.isSafeInteger(configuredValue) && configuredValue > 0 ? configuredValue : fallback;
 }
