@@ -38,7 +38,7 @@ A `/createfamily` request is retained for 15 minutes. A new request replaces the
 
 **Status:** Planned.
 
-Supabase is the planned future storage implementation. Milestone 2 deliberately did not introduce Supabase or transaction commands. The Milestone 4 transaction foundation now provides central transaction persistence and service authorization; financial parsing, AI, dashboards, Mini App functionality, payment, and subscription systems remain future work.
+Supabase is the planned future storage implementation. Milestone 2 deliberately did not introduce Supabase or transaction commands. The Milestone 4 transaction foundation now provides central transaction persistence and service authorization; financial parsing, AI, dashboards, payment, and subscription systems remain future work. The Milestone 9 report surface now includes authenticated Mini App views and role-safe CSV export.
 
 ## ADR-007: Quota-aware registry initialization and safe diagnostics
 
@@ -58,7 +58,7 @@ Hard deletion remains deferred until retention, backup, recovery, and ownership-
 
 ## ADR-009: Private multi-channel reporting and optional PDF protection
 
-**Status:** Planned for Milestone 9.
+**Status:** Accepted; Telegram reports, authenticated Mini App views, and role-safe CSV export implemented in Milestone 9. Print/PDF export remains planned.
 
 The central Google Spreadsheet remains a private backend and is never shared directly with family members. Reports are delivered through three controlled channels: Telegram summaries, authenticated Mini App views, and per-request CSV, print, or PDF exports. All active members may view authorized reports through Telegram or the Mini App, but only `OWNER` and `ADMIN` may request export artifacts. Every channel must authorize the requester server-side and resolve the family from membership rather than client input.
 

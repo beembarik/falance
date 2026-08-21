@@ -8,7 +8,7 @@ The service account needs access to the spreadsheet identified by `GOOGLE_FAMILY
 
 ## Registry initialization and quota behavior
 
-Before accessing a registry sheet, the repository asks `GoogleSheetsClient` to verify the central worksheet set and headers. Initialization is cached per spreadsheet ID within the client instance, including concurrent calls that share the same in-flight promise. Subsequent repository reads and writes on that client do not repeat the metadata and five-header read sequence.
+Before accessing a registry sheet, the repository asks `GoogleSheetsClient` to verify the central worksheet set and headers. Initialization is cached per spreadsheet ID within the client instance, including concurrent calls that share the same in-flight promise. Subsequent repository reads and writes on that client do not repeat the metadata and twelve-header read sequence.
 
 A new serverless cold start may perform initialization again. This is expected, but repeated initialization within one warm client instance is avoided because Google Sheets applies read quotas per user. A `429 RESOURCE_EXHAUSTED` response indicates that the request budget was exceeded; it is not evidence of a missing family or a per-family spreadsheet.
 
@@ -193,4 +193,4 @@ Export artifacts should be short-lived and cleaned up after delivery or expiry. 
 
 ## Future boundaries
 
-Receipt parsing, AI analysis, budgets, dashboards, Supabase storage, payments, and subscriptions are outside Milestone 2. The transaction foundation is implemented in Milestone 4, transaction commands are implemented in Milestones 5–7, and reports and exports are planned for Milestone 9. The first authenticated Mini App report views are also delivered in Milestone 9, while broader Mini App expansion is planned for Milestone 10; all eventual schemas and read models must preserve the `family_id` rule.
+Receipt parsing, AI analysis, budgets, dashboards, Supabase storage, payments, and subscriptions are outside Milestone 2. The transaction foundation is implemented in Milestone 4, transaction commands are implemented in Milestones 5–7, and Telegram reports, authenticated Mini App report views, and role-safe CSV export are implemented in Milestone 9. Print/PDF export and broader Mini App expansion remain planned for later slices and Milestone 10; all eventual schemas and read models must preserve the `family_id` rule.

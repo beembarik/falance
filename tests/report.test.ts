@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildFinancialReport, getFinancialReportPeriod, ReportPeriodError } from "../src/lib/family/report";
+import { buildFinancialCsv, buildFinancialReport, getFinancialReportPeriod, ReportPeriodError } from "../src/lib/family/report";
 import type { Transaction } from "../src/lib/family/types";
 
 const period = getFinancialReportPeriod("2026-08");
@@ -94,4 +94,33 @@ test("returns an empty report when the selected month has no active transactions
   const report = buildFinancialReport([transaction({ transactionDate: "2026-07-31" })], period);
   assert.equal(report.transactionCount, 0);
   assert.deepEqual(report.currencies, []);
+});
+
+test("keeps every transaction detail when the report limit is null for export", () => {
+  const transactions = Array.from({ length: 55 }, (_, index) => transaction({
+    transactionId: `txn_${index}`,
+    transactionDate: "2026-08-01",
+  }));
+  const report = buildFinancialReport(transactions, period, null);
+  assert.equal(report.transactionCount, 55);
+  assert.equal(report.transactions.length, 55);
+});
+
+test("serializes CSV with BOM, CRLF, RFC 4180 quoting, and formula-injection defense", () => {
+  const report = buildFinancialReport([
+    transaction({
+      transactionId: "=txn,1",
+      description: '=SUM("A",1), line\nnext',
+    }),
+  ], period, null);
+  const csv = buildFinancialCsv(report);
+  const lines = csv.split("\r\n");
+
+  assert.equal(csv.charCodeAt(0), 0xfeff);
+  assert.equal(lines.at(-1), "");
+  assert.equal(lines.length, 3);
+  assert.equal(lines[0], '\uFEFF"transaction_id","transaction_type","amount_minor","currency","transaction_date","description"');
+  assert.equal(lines[1], '"\'=txn,1","EXPENSE","1000","IDR","2026-08-19","\'=SUM(""A"",1), line\nnext"');
+  assert.equal(csv.includes("\n"), true);
+  assert.equal(csv.includes("\r\n"), true);
 });

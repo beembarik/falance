@@ -46,7 +46,9 @@ export default function Home() {
   const [endDate, setEndDate] = useState("");
   const [data, setData] = useState<ReportResponse | null>(null);
   const [error, setError] = useState("");
+  const [exportError, setExportError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const initDataRef = useRef("");
 
   const loadReport = useCallback(async (selectedMonth: string, selectedStartDate: string, selectedEndDate: string) => {
@@ -78,6 +80,41 @@ export default function Home() {
       setLoading(false);
     }
   }, []);
+
+  const exportCsv = useCallback(async () => {
+    if (!initDataRef.current || !data || (data.viewer.role !== "OWNER" && data.viewer.role !== "ADMIN")) return;
+    setExporting(true);
+    setExportError("");
+    try {
+      const response = await fetch("/api/mini-app/report/export", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          initData: initDataRef.current,
+          month: month || undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+        }),
+      });
+      if (!response.ok) {
+        const payload = await response.json() as { error?: string };
+        throw new Error(payload.error || "Export tidak dapat dibuat.");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "falance-report.csv";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (exportLoadError) {
+      setExportError(exportLoadError instanceof Error ? exportLoadError.message : "Export tidak dapat dibuat.");
+    } finally {
+      setExporting(false);
+    }
+  }, [data, endDate, month, startDate]);
 
   useEffect(() => {
     const webApp = window.Telegram?.WebApp;
@@ -178,9 +215,27 @@ export default function Home() {
               <div className="mt-4 border-t border-slate-100 pt-4">
                 <p className="text-sm font-semibold text-slate-700">{data.report.period.label}</p>
                 <p className="mt-1 text-xs text-slate-500">{data.report.period.startDate} s/d {data.report.period.endDate}</p>
-                <p className="mt-3 text-sm text-slate-600">{data.report.transactionCount} transaksi aktif</p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <p className="text-sm text-slate-600">{data.report.transactionCount} transaksi aktif</p>
+                  {(data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") && (
+                    <button
+                      type="button"
+                      onClick={() => void exportCsv()}
+                      disabled={exporting}
+                      className="min-h-10 rounded-xl border border-teal-200 bg-teal-50 px-3 text-xs font-semibold text-teal-800 transition hover:bg-teal-100 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {exporting ? "Menyiapkan CSV…" : "Unduh CSV"}
+                    </button>
+                  )}
+                </div>
               </div>
             </section>
+
+            {exportError && (
+              <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                {exportError}
+              </section>
+            )}
 
             {data.report.currencies.length === 0 ? (
               <section className="rounded-2xl bg-white p-6 text-center text-sm leading-6 text-slate-500 shadow-sm ring-1 ring-slate-200">

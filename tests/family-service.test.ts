@@ -511,6 +511,37 @@ test("lists only active transactions from the requester’s server-resolved fami
   assert.equal(listed.every((value) => value.familyId === "fam_1"), true);
 });
 
+test("exports unbounded, family-scoped reports only for OWNER and ADMIN", async () => {
+  const admin: TelegramUser = { telegramUserId: "250", name: "Admin", username: "admin" };
+  const familyBOwner: TelegramUser = { telegramUserId: "300", name: "Family B Owner", username: "family-b-owner" };
+  const repository = new FakeFamilyRepository();
+  repository.families.push(family("fam_1"), { ...family("fam_2"), createdBy: familyBOwner.telegramUserId });
+  repository.members.push(
+    activeMember("fam_1", owner, "OWNER"),
+    activeMember("fam_1", admin, "ADMIN"),
+    activeMember("fam_1", member, "MEMBER"),
+    activeMember("fam_2", familyBOwner, "OWNER"),
+  );
+  repository.transactions.push(
+    transaction("txn_a", "fam_1", "ACTIVE"),
+    transaction("txn_b", "fam_1", "ACTIVE"),
+    transaction("txn_void", "fam_1", "VOID"),
+    transaction("txn_other_family", "fam_2", "ACTIVE"),
+  );
+  const service = new FamilyService(repository);
+
+  const ownerExport = await service.getFinancialExportReport(owner.telegramUserId, "2026-08");
+  const adminExport = await service.getFinancialExportReport(admin.telegramUserId, "2026-08");
+  assert.deepEqual(ownerExport.report.transactions.map((value) => value.transactionId), ["txn_a", "txn_b"]);
+  assert.deepEqual(adminExport.report.transactions.map((value) => value.transactionId), ["txn_a", "txn_b"]);
+  assert.equal(ownerExport.family.familyId, "fam_1");
+  assert.equal(ownerExport.report.transactionCount, 2);
+  await assert.rejects(service.getFinancialExportReport(member.telegramUserId, "2026-08"), UnauthorizedError);
+
+  repository.families[0].status = "SUSPENDED";
+  await assert.rejects(service.getFinancialExportReport(owner.telegramUserId, "2026-08"), UnauthorizedError);
+});
+
 test("rejects invalid transaction input and archived-family transaction access", async () => {
   const repository = setupMember("OWNER");
   const service = new FamilyService(repository);

@@ -147,22 +147,23 @@ Slice webhook authentication dan update_id idempotency sudah divalidasi end-to-e
 
 ## Milestone 9 — Reports, Multi-Channel Access, and Export
 
-Status: IN PROGRESS — SLICE 2: Telegram Mini App read-only reports; Milestone 8 operationally ready dengan validasi pra-public-beta yang ditunda
+Status: IN PROGRESS — SLICE 3: role-safe CSV export; Milestone 8 operationally ready dengan validasi pra-public-beta yang ditunda
 
-Reports must never expose the central Google Spreadsheet directly. Every report request resolves the user’s active membership and `family_id` server-side, then returns only data belonging to that family. Slice 1 menyediakan `/report` untuk bulan berjalan atau periode `YYYY-MM`, dengan agregasi multi-currency, income, expense, saldo, transaction count, dan exclusion untuk `VOID` atau transaksi di luar periode.
+Reports must never expose the central Google Spreadsheet directly. Every report request resolves the user’s active membership and `family_id` server-side, then returns only data belonging to that family. Slice 1 menyediakan `/report` untuk bulan berjalan atau periode `YYYY-MM`, dengan agregasi multi-currency, income, expense, saldo, transaction count, dan exclusion untuk `VOID` atau transaksi di luar periode. Slice 2 menambahkan Mini App terautentikasi dengan filter bulan atau rentang tanggal maksimal 366 hari dan detail transaksi maksimal 50 row. Slice 3 menambahkan CSV export family-scoped yang tidak dibatasi 50 row dan hanya dapat diminta oleh `OWNER` atau `ADMIN`.
 
 Report access follows this role boundary: all active roles may view reports through Telegram and the authenticated Mini App, while only `OWNER` and `ADMIN` may request or receive CSV, print, or PDF export artifacts.
 
 - [ ] Monthly and category summaries
-- [ ] Income, expense, balance, and family overview
-- [ ] Date filtering and concise report commands in Telegram
+- [x] Income, expense, balance, and family overview
+- [x] Date filtering and concise report commands in Telegram
 - [x] Read-only Telegram reports sebagai slice pertama sebelum Mini App dan export
 - [x] Mini App auth/API/UI implementation dengan validated Telegram `initData` dan family-scoped report response
-- [x] Mini App date-range filter maksimal satu tahun dan bounded transaction detail list maksimal 50 row
-- [ ] Role-safe CSV/print/PDF export untuk `OWNER` dan `ADMIN`, dengan optional server-side PDF password
-- [ ] Regression tests untuk report family isolation, role permission, date filters, dan export authorization
-- [ ] First authorized report views in the Telegram Mini App
-- [ ] CSV export for authorized family data
+- [x] Mini App date-range filter maksimal 366 hari dan bounded transaction detail list maksimal 50 row
+- [x] Role-safe CSV export untuk `OWNER` dan `ADMIN`, dengan unbounded transaction detail list dan server-side CSV safeguards
+- [ ] Print-friendly report view dan PDF export untuk `OWNER` dan `ADMIN`, dengan optional server-side PDF password
+- [x] Regression tests untuk report family isolation, role permission, date filters, CSV serialization, dan export authorization
+- [x] First authorized report views in the Telegram Mini App
+- [x] CSV export for authorized family data
 - [ ] Print-friendly report view
 - [ ] PDF export generated per authorized request
 - [ ] Optional password protection selected before PDF export

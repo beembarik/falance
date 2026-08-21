@@ -667,6 +667,26 @@ export class FamilyService {
     );
   }
 
+  async getFinancialExportReport(
+    telegramUserId: string,
+    month?: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<{ family: Family; member: FamilyMember; report: FinancialReport }> {
+    const member = await this.requireActiveMember(telegramUserId);
+    if (member.role !== "OWNER" && member.role !== "ADMIN") {
+      throw new UnauthorizedError("Only OWNER and ADMIN can export reports.");
+    }
+    const family = await this.requireActiveFamily(member.familyId);
+    const period = getFinancialReportPeriod(month, startDate, endDate);
+    const report = buildFinancialReport(
+      await this.repository.findTransactionsByFamilyId(member.familyId),
+      period,
+      null,
+    );
+    return { family, member, report };
+  }
+
   async updateTransaction(
     user: TelegramUser,
     transactionId: string,

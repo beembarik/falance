@@ -84,9 +84,11 @@ export function getFinancialReportPeriod(
 export function buildFinancialReport(
   transactions: readonly Transaction[],
   period: FinancialReportPeriod,
-  transactionLimit: number = DEFAULT_TRANSACTION_LIMIT,
+  transactionLimit: number | null = DEFAULT_TRANSACTION_LIMIT,
 ): FinancialReport {
-  const boundedLimit = Math.min(Math.max(Math.trunc(transactionLimit), 1), MAX_TRANSACTION_LIMIT);
+  const boundedLimit = transactionLimit === null
+    ? null
+    : Math.min(Math.max(Math.trunc(transactionLimit), 1), MAX_TRANSACTION_LIMIT);
   const activeInPeriod = transactions
     .filter((transaction) => transaction.status === "ACTIVE")
     .filter((transaction) => transaction.transactionDate >= period.startDate && transaction.transactionDate <= period.endDate);
@@ -116,7 +118,7 @@ export function buildFinancialReport(
   const reportTransactions = activeInPeriod
     .slice()
     .sort((left, right) => right.transactionDate.localeCompare(left.transactionDate) || right.createdAt.localeCompare(left.createdAt))
-    .slice(0, boundedLimit)
+    .slice(0, boundedLimit ?? activeInPeriod.length)
     .map((transaction) => ({
       transactionId: transaction.transactionId,
       transactionType: transaction.transactionType,
@@ -135,6 +137,24 @@ export function buildFinancialReport(
 }
 
 export class ReportPeriodError extends Error {}
+
+export function buildFinancialCsv(report: FinancialReport): string {
+  const header = ["transaction_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description"];
+  const rows = report.transactions.map((transaction) => [
+    transaction.transactionId,
+    transaction.transactionType,
+    transaction.amountMinor.toString(),
+    transaction.currency,
+    transaction.transactionDate,
+    transaction.description,
+  ]);
+  return `\uFEFF${[header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n")}\r\n`;
+}
+
+function csvCell(value: string): string {
+  const normalized = /^[=+\-@]/.test(value) ? `'${value}` : value;
+  return `"${normalized.replaceAll('"', '""')}"`;
+}
 
 function isCalendarDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
