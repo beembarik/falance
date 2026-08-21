@@ -8,6 +8,7 @@ import type {
   PendingConfirmation,
   PendingFamilyCreation,
   PendingTransactionDraft,
+  DraftApprovalClaim,
   Transaction,
 } from "./types";
 
@@ -47,6 +48,16 @@ export interface FamilyRepository {
   createPendingTransactionDraft(draft: PendingTransactionDraft): Promise<void>;
   findPendingTransactionDraft(telegramUserId: string): Promise<PendingTransactionDraft | null>;
   updatePendingTransactionDraft(draft: PendingTransactionDraft): Promise<void>;
+  claimDraftApproval(
+    draftId: string,
+    telegramUserId: string,
+    familyId: string,
+    transactionId: string,
+    claimedAt: string,
+    leaseMs: number,
+  ): Promise<boolean>;
+  completeDraftApproval(draftId: string, completedAt: string): Promise<void>;
+  findDraftApprovalClaim(draftId: string): Promise<DraftApprovalClaim | null>;
   claimTelegramUpdate(updateId: number, claimedAt: string): Promise<boolean>;
   completeTelegramUpdate(updateId: number, completedAt: string): Promise<void>;
   claimReceiptVision(

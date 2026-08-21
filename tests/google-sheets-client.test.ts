@@ -124,6 +124,7 @@ test("initializes the single central registry without Drive or spreadsheet creat
       ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"],
       ["update_id", "claimed_at", "completed_at", "status"],
       ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"],
+      ["draft_id", "telegram_user_id", "family_id", "transaction_id", "claimed_at", "completed_at", "lease_until", "status"],
     ]);
   } finally {
     globalThis.fetch = originalFetch;
@@ -501,6 +502,47 @@ test("reclaims a stale Telegram update claim after the five-minute lease", async
     const repository = new GoogleSheetsFamilyRepository(client);
     assert.equal(await repository.claimTelegramUpdate(900002, "2026-08-21T00:05:00.000Z"), true);
     assert.deepEqual(updates, [["900002", "2026-08-21T00:05:00.000Z", "", "CLAIMED"]]);
+  } finally {
+    restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
+  }
+});
+
+test("claims draft approval once, completes it, and reclaims a stale lease", async () => {
+  const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
+  process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";
+  const rows: string[][] = [["draft_id", "telegram_user_id", "family_id", "transaction_id", "claimed_at", "completed_at", "lease_until", "status"]];
+  const updates: string[][] = [];
+  const client = {
+    ensureRegistry: async () => {},
+    getValues: async (_spreadsheetId: string, range: string) => range.startsWith("Draft Approval Claims") ? rows : [],
+    appendRows: async (_spreadsheetId: string, _sheetName: string, values: readonly (readonly string[])[]) => rows.push(...values.map((value) => [...value])),
+    updateValues: async (_spreadsheetId: string, range: string, values: readonly (readonly string[])[]) => {
+      updates.push(...values.map((value) => [...value]));
+      const rowIndex = Number(range.match(/!A(\d+)/)?.[1] ?? "0") - 1;
+      rows[rowIndex] = [...values[0]];
+    },
+  } as unknown as GoogleSheetsClient;
+
+  try {
+    const repository = new GoogleSheetsFamilyRepository(client);
+    const parallelClaims = await Promise.all([
+      repository.claimDraftApproval("draft_claim_1", "100", "fam_1", "txn_claim_1", "2026-08-21T00:00:00.000Z", 60_000),
+      repository.claimDraftApproval("draft_claim_1", "100", "fam_1", "txn_claim_2", "2026-08-21T00:00:00.001Z", 60_000),
+    ]);
+    assert.deepEqual(parallelClaims.sort(), [false, true]);
+    assert.equal((await repository.findDraftApprovalClaim("draft_claim_1"))?.transactionId, "txn_claim_1");
+
+    await repository.completeDraftApproval("draft_claim_1", "2026-08-21T00:00:02.000Z");
+    assert.equal(await repository.claimDraftApproval("draft_claim_1", "100", "fam_1", "txn_claim_3", "2026-08-21T00:00:03.000Z", 60_000), false);
+    assert.equal(rows[1][7], "COMPLETED");
+
+    assert.equal(await repository.claimDraftApproval("draft_claim_stale", "100", "fam_1", "txn_old", "2026-08-21T00:00:00.000Z", 60_000), true);
+    assert.equal(await repository.claimDraftApproval("draft_claim_stale", "100", "fam_1", "txn_new", "2026-08-21T00:01:01.000Z", 60_000), true);
+    assert.equal((await repository.findDraftApprovalClaim("draft_claim_stale"))?.transactionId, "txn_new");
+    assert.deepEqual(updates, [
+      ["draft_claim_1", "100", "fam_1", "txn_claim_1", "2026-08-21T00:00:00.000Z", "2026-08-21T00:00:02.000Z", "", "COMPLETED"],
+      ["draft_claim_stale", "100", "fam_1", "txn_new", "2026-08-21T00:01:01.000Z", "", "2026-08-21T00:02:01.000Z", "CLAIMED"],
+    ]);
   } finally {
     restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
   }

@@ -129,6 +129,20 @@ export interface ProcessedTelegramUpdate {
   status: ProcessedTelegramUpdateStatus;
 }
 
+export const DRAFT_APPROVAL_CLAIM_STATUSES = ["CLAIMED", "COMPLETED"] as const;
+export type DraftApprovalClaimStatus = (typeof DRAFT_APPROVAL_CLAIM_STATUSES)[number];
+
+export interface DraftApprovalClaim {
+  draftId: string;
+  telegramUserId: string;
+  familyId: string;
+  transactionId: string;
+  claimedAt: string;
+  completedAt: string | null;
+  leaseUntil: string;
+  status: DraftApprovalClaimStatus;
+}
+
 export interface PendingTransactionDraft {
   draftId: string;
   telegramUserId: string;

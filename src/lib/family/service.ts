@@ -27,6 +27,7 @@ const DEFAULT_RECEIPT_VISION_COOLDOWN_SECONDS = 30;
 const DEFAULT_RECEIPT_VISION_WINDOW_SECONDS = 3_600;
 const DEFAULT_RECEIPT_VISION_MAX_REQUESTS = 5;
 const DEFAULT_RECEIPT_VISION_LEASE_SECONDS = 60;
+const DEFAULT_DRAFT_APPROVAL_LEASE_MS = 60 * 1000;
 
 export interface CreateTransactionInput {
   transactionType: TransactionType;
@@ -487,12 +488,20 @@ export class FamilyService {
   }
 
   async createTransaction(user: TelegramUser, input: CreateTransactionInput): Promise<Transaction> {
+    return this.createTransactionWithId(user, input, createId("txn"));
+  }
+
+  private async createTransactionWithId(
+    user: TelegramUser,
+    input: CreateTransactionInput,
+    transactionId: string,
+  ): Promise<Transaction> {
     const member = await this.requireActiveMember(user.telegramUserId);
     await this.requireActiveFamily(member.familyId);
     validateTransactionInput(input);
 
     const transaction: Transaction = {
-      transactionId: createId("txn"),
+      transactionId,
       familyId: member.familyId,
       transactionType: input.transactionType,
       amountMinor: input.amountMinor,
@@ -591,15 +600,48 @@ export class FamilyService {
   async approvePendingTransactionDraft(user: TelegramUser): Promise<Transaction> {
     const draft = await this.getPendingTransactionDraft(user.telegramUserId);
     if (!draft) throw new TransactionError("No active transaction draft is available.");
-    const transaction = await this.createTransaction(user, {
-      transactionType: draft.transactionType,
-      amountMinor: draft.amountMinor,
-      currency: draft.currency,
-      transactionDate: draft.transactionDate,
-      description: draft.description,
+
+    return withKeyLocks([`draft:${draft.draftId}`], async () => {
+      const transactionId = `txn_${draft.draftId.replace(/^draft_/, "")}`;
+      const claimedAt = new Date().toISOString();
+      const claimed = await this.repository.claimDraftApproval(
+        draft.draftId,
+        draft.telegramUserId,
+        draft.familyId,
+        transactionId,
+        claimedAt,
+        DEFAULT_DRAFT_APPROVAL_LEASE_MS,
+      );
+
+      if (!claimed) {
+        const existingClaim = await this.repository.findDraftApprovalClaim(draft.draftId);
+        if (existingClaim?.status === "COMPLETED") {
+          const existingTransaction = (await this.repository.findTransactionsByFamilyId(draft.familyId))
+            .find((candidate) => candidate.transactionId === existingClaim.transactionId);
+          if (!existingTransaction) {
+            throw new TransactionError("Draft approval completed but its transaction is missing.");
+          }
+          await this.repository.updatePendingTransactionDraft({ ...draft, status: "COMPLETED" });
+          return existingTransaction;
+        }
+        throw new TransactionError("Draft approval is already in progress.");
+      }
+
+      const transactionInput = {
+        transactionType: draft.transactionType,
+        amountMinor: draft.amountMinor,
+        currency: draft.currency,
+        transactionDate: draft.transactionDate,
+        description: draft.description,
+      };
+      const existingTransaction = (await this.repository.findTransactionsByFamilyId(draft.familyId))
+        .find((candidate) => candidate.transactionId === transactionId);
+      const transaction = existingTransaction ?? await this.createTransactionWithId(user, transactionInput, transactionId);
+
+      await this.repository.completeDraftApproval(draft.draftId, new Date().toISOString());
+      await this.repository.updatePendingTransactionDraft({ ...draft, status: "COMPLETED" });
+      return transaction;
     });
-    await this.repository.updatePendingTransactionDraft({ ...draft, status: "COMPLETED" });
-    return transaction;
   }
 
   async listTransactions(telegramUserId: string): Promise<Transaction[]> {

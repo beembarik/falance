@@ -15,7 +15,7 @@ import {
   TransactionError,
   UnauthorizedError,
 } from "../src/lib/family/service";
-import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, ProcessedTelegramUpdate, TelegramUser, Transaction } from "../src/lib/family/types";
+import type { AuditLogEntry, DraftApprovalClaim, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, ProcessedTelegramUpdate, TelegramUser, Transaction } from "../src/lib/family/types";
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
 const member: TelegramUser = { telegramUserId: "200", name: "Member", username: null };
@@ -634,6 +634,61 @@ test("creates, edits, and approves an AI draft only through the service boundary
   assert.equal(repository.transactions[0]?.familyId, "fam_1");
 });
 
+test("serializes concurrent approvals of one draft into one transaction", async () => {
+  const repository = setupMember("OWNER");
+  const service = new FamilyService(repository);
+  const draft = await service.createPendingTransactionDraft(owner, {
+    transactionType: "EXPENSE",
+    amountMinor: 25000,
+    currency: "IDR",
+    transactionDate: "2026-08-19",
+    description: "Transportasi",
+  }, "HIGH");
+
+  const results = await Promise.all([
+    service.approvePendingTransactionDraft(owner),
+    service.approvePendingTransactionDraft(owner),
+  ]);
+
+  assert.equal(repository.transactions.length, 1);
+  assert.equal(repository.draftApprovalClaims.length, 1);
+  assert.equal(repository.draftApprovalClaims[0].draftId, draft.draftId);
+  assert.equal(repository.draftApprovalClaims[0].status, "COMPLETED");
+  assert.equal(results[0].transactionId, results[1].transactionId);
+});
+
+test("returns the existing transaction when a completed claim is recovered", async () => {
+  const repository = setupMember("OWNER");
+  const service = new FamilyService(repository);
+  const draft = await service.createPendingTransactionDraft(owner, {
+    transactionType: "INCOME",
+    amountMinor: 500000,
+    currency: "IDR",
+    transactionDate: "2026-08-19",
+    description: "Honorarium",
+  }, "HIGH");
+  const transactionId = `txn_${draft.draftId.replace(/^draft_/, "")}`;
+  const completedAt = "2026-08-19T00:01:00.000Z";
+  repository.transactions.push(transaction(transactionId, "fam_1", "ACTIVE"));
+  repository.draftApprovalClaims.push({
+    draftId: draft.draftId,
+    telegramUserId: owner.telegramUserId,
+    familyId: "fam_1",
+    transactionId,
+    claimedAt: "2026-08-19T00:00:00.000Z",
+    completedAt,
+    leaseUntil: "",
+    status: "COMPLETED",
+  });
+
+  const recovered = await service.approvePendingTransactionDraft(owner);
+
+  assert.equal(recovered.transactionId, transactionId);
+  assert.equal(repository.transactions.length, 1);
+  assert.equal(repository.transactionDrafts[0].status, "COMPLETED");
+  assert.equal(repository.draftApprovalClaims[0].status, "COMPLETED");
+});
+
 test("expires an AI draft and refuses a foreign user approval", async () => {
   const repository = setupMember("OWNER");
   const service = new FamilyService(repository);
@@ -842,6 +897,7 @@ class FakeFamilyRepository implements FamilyRepository {
   auditLogs: AuditLogEntry[] = [];
   transactions: Transaction[] = [];
   transactionDrafts: PendingTransactionDraft[] = [];
+  draftApprovalClaims: DraftApprovalClaim[] = [];
   processedUpdates: ProcessedTelegramUpdate[] = [];
   visionUsage: Array<{
     usageKey: string;
@@ -932,6 +988,28 @@ class FakeFamilyRepository implements FamilyRepository {
   async updatePendingTransactionDraft(value: PendingTransactionDraft) {
     const index = this.transactionDrafts.findIndex((draft) => draft.draftId === value.draftId);
     if (index >= 0) this.transactionDrafts[index] = value;
+  }
+  async claimDraftApproval(draftId: string, telegramUserId: string, familyId: string, transactionId: string, claimedAt: string, leaseMs: number) {
+    const existing = this.draftApprovalClaims.find((claim) => claim.draftId === draftId);
+    const claimedAtMs = Date.parse(claimedAt);
+    if (existing?.status === "COMPLETED") return false;
+    if (existing && Date.parse(existing.leaseUntil) > claimedAtMs) return false;
+    if (existing) {
+      Object.assign(existing, { telegramUserId, familyId, transactionId, claimedAt, completedAt: null, leaseUntil: new Date(claimedAtMs + leaseMs).toISOString(), status: "CLAIMED" as const });
+      return true;
+    }
+    this.draftApprovalClaims.push({ draftId, telegramUserId, familyId, transactionId, claimedAt, completedAt: null, leaseUntil: new Date(claimedAtMs + leaseMs).toISOString(), status: "CLAIMED" });
+    return true;
+  }
+  async completeDraftApproval(draftId: string, completedAt: string) {
+    const existing = this.draftApprovalClaims.find((claim) => claim.draftId === draftId);
+    if (!existing) throw new Error("draft approval claim missing");
+    existing.completedAt = completedAt;
+    existing.leaseUntil = "";
+    existing.status = "COMPLETED";
+  }
+  async findDraftApprovalClaim(draftId: string) {
+    return this.draftApprovalClaims.find((claim) => claim.draftId === draftId) ?? null;
   }
   async claimTelegramUpdate(updateId: number, claimedAt: string) {
     const existing = this.processedUpdates.find((update) => update.updateId === updateId);

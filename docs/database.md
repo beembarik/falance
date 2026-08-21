@@ -133,6 +133,21 @@ Audit rows are appended only after the primary administrative write succeeds. Au
 
 Pending drafts are temporary server state. A natural-language message creates or replaces the user’s active draft; `Ya`/`Kirim draft` validates and persists a transaction, `Edit` changes the draft to manual-edit mode, and cancellation or expiry preserves the row without persisting a transaction. AI category and description suggestions are review-only metadata for the draft response; they are not authoritative transaction fields, are cleared by manual draft editing, and are not added to the final `Transactions` schema or actual balance calculation. The draft repository filters by the server-resolved Telegram identity, and the service verifies the active family before any update or approval.
 
+### Draft Approval Claims
+
+| Column | Meaning |
+| --- | --- |
+| `draft_id` | Unique draft approval key. |
+| `telegram_user_id` | Server-resolved approving Telegram identity. |
+| `family_id` | Server-resolved family boundary for the draft. |
+| `transaction_id` | Deterministic transaction identifier derived from the draft ID for retry recovery. |
+| `claimed_at` | Timestamp at which approval processing acquired the claim. |
+| `completed_at` | Timestamp at which transaction persistence and approval completion succeeded, when completed. |
+| `lease_until` | Expiry of the in-flight claim; a stale claim may be reclaimed. |
+| `status` | `CLAIMED` while approval is in progress or `COMPLETED` after recovery-safe completion. |
+
+Approval claims are durable server state used before transaction creation. The service serializes draft lifecycle operations in a warm instance, persists the claim and a deterministic `transaction_id`, avoids creating another transaction when a completed claim is recovered, completes the claim after transaction persistence, and then marks the draft `COMPLETED`. A 60-second lease permits recovery when a serverless execution stops after claiming. Google Sheets does not provide a compare-and-swap primitive for the read-then-update sequence, so this worksheet improves durable retry recovery and in-process suppression but is not a final guarantee of atomic cross-instance uniqueness; cross-instance validation and a storage primitive with conditional writes remain Milestone 8 hardening work.
+
 ### Transactions
 
 | Column | Meaning |

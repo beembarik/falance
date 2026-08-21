@@ -4,7 +4,7 @@ import {
   type GoogleOperation,
 } from "../google/sheets-client";
 import type { FamilyRepository } from "./repository";
-import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, Transaction } from "./types";
+import type { AuditLogEntry, DraftApprovalClaim, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, Transaction } from "./types";
 
 /**
  * Repository backed by the single Falancé database spreadsheet configured for
@@ -14,6 +14,7 @@ import type { AuditLogEntry, Family, FamilyMember, Invitation, PendingConfirmati
 const sharedGoogleSheetsClient = new GoogleSheetsClient();
 const telegramUpdateClaimLocks = new Map<string, Promise<boolean>>();
 const receiptVisionClaimLocks = new Map<string, Promise<boolean>>();
+const draftApprovalClaimLocks = new Map<string, Promise<boolean>>();
 const TELEGRAM_UPDATE_CLAIM_LEASE_MS = 5 * 60 * 1000;
 
 export class GoogleSheetsFamilyRepository implements FamilyRepository {
@@ -291,6 +292,49 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     ]], "updatePendingTransactionDraft");
   }
 
+  async claimDraftApproval(
+    draftId: string,
+    telegramUserId: string,
+    familyId: string,
+    transactionId: string,
+    claimedAt: string,
+    leaseMs: number,
+  ): Promise<boolean> {
+    const lockKey = `${this.registryId()}:${draftId}`;
+    const previous = draftApprovalClaimLocks.get(lockKey) ?? Promise.resolve(false);
+    const claim = previous.catch(() => false).then(() => this.claimDraftApprovalWithoutLock(
+      draftId,
+      telegramUserId,
+      familyId,
+      transactionId,
+      claimedAt,
+      leaseMs,
+    ));
+    const trackedClaim = claim.finally(() => {
+      if (draftApprovalClaimLocks.get(lockKey) === trackedClaim) draftApprovalClaimLocks.delete(lockKey);
+    });
+    draftApprovalClaimLocks.set(lockKey, trackedClaim);
+    return trackedClaim;
+  }
+
+  async completeDraftApproval(draftId: string, completedAt: string): Promise<void> {
+    const rows = await this.rows("Draft Approval Claims", "completeDraftApproval");
+    const index = rows.findIndex((row) => row[0] === draftId);
+    if (index < 0) throw new GoogleConfigurationError("Draft approval claim record is missing.");
+    const row = rows[index];
+    if (row[7] === "COMPLETED") return;
+    await this.client.updateValues(this.registryId(), `Draft Approval Claims!A${index + 2}`, [[
+      row[0], row[1], row[2], row[3], row[4], completedAt, "", "COMPLETED",
+    ]], "completeDraftApproval");
+  }
+
+  async findDraftApprovalClaim(draftId: string): Promise<DraftApprovalClaim | null> {
+    const row = (await this.rows("Draft Approval Claims", "readDraftApprovalClaims")).find(
+      (value) => value[0] === draftId,
+    );
+    return row ? draftApprovalClaimFromRow(row) : null;
+  }
+
   async createPendingFamilyCreation(pending: PendingFamilyCreation): Promise<void> {
     await this.clearPendingFamilyCreation(pending.telegramUserId);
     await this.append("Pending Family Creations", [
@@ -378,6 +422,37 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     await this.client.updateValues(this.registryId(), `AI Vision Usage!A${index + 2}`, [[
       ...row.slice(0, 6), "", "COMPLETED",
     ]], "completeReceiptVision");
+  }
+
+  private async claimDraftApprovalWithoutLock(
+    draftId: string,
+    telegramUserId: string,
+    familyId: string,
+    transactionId: string,
+    claimedAt: string,
+    leaseMs: number,
+  ): Promise<boolean> {
+    const rows = await this.rows("Draft Approval Claims", "claimDraftApproval");
+    const index = rows.findIndex((row) => row[0] === draftId);
+    const claimedAtMs = Date.parse(claimedAt);
+    if (Number.isNaN(claimedAtMs)) return false;
+    const leaseUntil = new Date(claimedAtMs + leaseMs).toISOString();
+    if (index < 0) {
+      await this.append("Draft Approval Claims", [
+        draftId, telegramUserId, familyId, transactionId, claimedAt, "", leaseUntil, "CLAIMED",
+      ], "claimDraftApproval");
+      return true;
+    }
+
+    const row = rows[index];
+    if (row[7] === "COMPLETED") return false;
+    const previousLeaseMs = Date.parse(row[6]);
+    if (!Number.isNaN(previousLeaseMs) && previousLeaseMs > claimedAtMs) return false;
+
+    await this.client.updateValues(this.registryId(), `Draft Approval Claims!A${index + 2}`, [[
+      draftId, telegramUserId, familyId, transactionId, claimedAt, "", leaseUntil, "CLAIMED",
+    ]], "claimDraftApproval");
+    return true;
   }
 
   private async claimReceiptVisionWithoutLock(
@@ -509,6 +584,19 @@ function pendingTransactionDraftFromRow(row: string[]): PendingTransactionDraft 
     createdAt: row[9],
     expiresAt: row[10],
     status: row[11] as PendingTransactionDraft["status"],
+  };
+}
+
+function draftApprovalClaimFromRow(row: string[]): DraftApprovalClaim {
+  return {
+    draftId: row[0],
+    telegramUserId: row[1],
+    familyId: row[2],
+    transactionId: row[3],
+    claimedAt: row[4],
+    completedAt: row[5] || null,
+    leaseUntil: row[6],
+    status: row[7] as DraftApprovalClaim["status"],
   };
 }
 
