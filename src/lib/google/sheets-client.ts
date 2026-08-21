@@ -1,4 +1,4 @@
-import { logDuration } from "../observability/timing";
+import { logDuration } from "../observability/timing.ts";
 
 const GOOGLE_SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 

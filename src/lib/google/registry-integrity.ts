@@ -1,4 +1,4 @@
-import { GoogleConfigurationError, GoogleSheetsClient, REGISTRY_SHEETS } from "./sheets-client";
+import { GoogleConfigurationError, GoogleSheetsClient, REGISTRY_SHEETS } from "./sheets-client.ts";
 import type {
   AuditAction,
   AuditTargetType,
