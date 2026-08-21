@@ -58,9 +58,9 @@ Hard deletion remains deferred until retention, backup, recovery, and ownership-
 
 ## ADR-009: Private multi-channel reporting and optional PDF protection
 
-**Status:** Accepted; Telegram reports, authenticated Mini App views, and role-safe CSV export implemented in Milestone 9. Print/PDF export remains planned.
+**Status:** Accepted; Telegram reports, authenticated Mini App views, role-safe CSV export, and print-friendly HTML implemented in Milestone 9. Server-side PDF export remains planned.
 
-The central Google Spreadsheet remains a private backend and is never shared directly with family members. Reports are delivered through three controlled channels: Telegram summaries, authenticated Mini App views, and per-request CSV, print, or PDF exports. All active members may view authorized reports through Telegram or the Mini App, but only `OWNER` and `ADMIN` may request export artifacts. Every channel must authorize the requester server-side and resolve the family from membership rather than client input.
+The central Google Spreadsheet remains a private backend and is never shared directly with family members. Reports are delivered through controlled channels: Telegram summaries, authenticated Mini App views, per-request CSV, and print-friendly HTML reports; server-side PDF is a future channel. All active members may view authorized reports through Telegram or the Mini App, but only `OWNER` and `ADMIN` may request export artifacts. Every channel must authorize the requester server-side and resolve the family from membership rather than client input.
 
 The export role check occurs before report generation and artifact creation. A MEMBER request must be rejected even if it bypasses the normal interface and calls an export endpoint directly.
 

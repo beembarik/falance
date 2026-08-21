@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildFinancialCsv, buildFinancialReport, getFinancialReportPeriod, ReportPeriodError } from "../src/lib/family/report";
+import { buildFinancialCsv, buildFinancialPrintHtml, buildFinancialReport, getFinancialReportPeriod, ReportPeriodError } from "../src/lib/family/report";
 import type { Transaction } from "../src/lib/family/types";
 
 const period = getFinancialReportPeriod("2026-08");
@@ -104,6 +104,24 @@ test("keeps every transaction detail when the report limit is null for export", 
   const report = buildFinancialReport(transactions, period, null);
   assert.equal(report.transactionCount, 55);
   assert.equal(report.transactions.length, 55);
+});
+
+test("renders print-friendly HTML with escaped family and transaction values", () => {
+  const report = buildFinancialReport([
+    transaction({
+      transactionId: "txn_print",
+      description: "</td><script>alert(1)</script>",
+    }),
+  ], period, null);
+  const html = buildFinancialPrintHtml("Keluarga <Rahasia>", report);
+
+  assert.match(html, /^<!doctype html>/);
+  assert.match(html, /Laporan Keuangan/);
+  assert.match(html, /Keluarga &lt;Rahasia&gt;/);
+  assert.match(html, /&lt;\/td&gt;&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.match(html, /Cetak \/ Simpan PDF/);
+  assert.match(html, /window\.print\(\)/);
+  assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
 });
 
 test("serializes CSV with BOM, CRLF, RFC 4180 quoting, and formula-injection defense", () => {

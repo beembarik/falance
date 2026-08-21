@@ -47,8 +47,10 @@ export default function Home() {
   const [data, setData] = useState<ReportResponse | null>(null);
   const [error, setError] = useState("");
   const [exportError, setExportError] = useState("");
+  const [printError, setPrintError] = useState("");
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const initDataRef = useRef("");
 
   const loadReport = useCallback(async (selectedMonth: string, selectedStartDate: string, selectedEndDate: string) => {
@@ -113,6 +115,44 @@ export default function Home() {
       setExportError(exportLoadError instanceof Error ? exportLoadError.message : "Export tidak dapat dibuat.");
     } finally {
       setExporting(false);
+    }
+  }, [data, endDate, month, startDate]);
+
+  const printReport = useCallback(async () => {
+    if (!initDataRef.current || !data || (data.viewer.role !== "OWNER" && data.viewer.role !== "ADMIN")) return;
+    setPrinting(true);
+    setPrintError("");
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      setPrinting(false);
+      setPrintError("Popup diblokir browser. Izinkan popup untuk membuka tampilan cetak.");
+      return;
+    }
+    try {
+      const response = await fetch("/api/mini-app/report/print", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          initData: initDataRef.current,
+          month: month || undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+        }),
+      });
+      if (!response.ok) {
+        const payload = await response.json() as { error?: string };
+        throw new Error(payload.error || "Tampilan cetak tidak dapat dibuat.");
+      }
+      const html = await response.text();
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+    } catch (printLoadError) {
+      printWindow.close();
+      setPrintError(printLoadError instanceof Error ? printLoadError.message : "Tampilan cetak tidak dapat dibuat.");
+    } finally {
+      setPrinting(false);
     }
   }, [data, endDate, month, startDate]);
 
@@ -218,22 +258,32 @@ export default function Home() {
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   <p className="text-sm text-slate-600">{data.report.transactionCount} transaksi aktif</p>
                   {(data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") && (
-                    <button
-                      type="button"
-                      onClick={() => void exportCsv()}
-                      disabled={exporting}
-                      className="min-h-10 rounded-xl border border-teal-200 bg-teal-50 px-3 text-xs font-semibold text-teal-800 transition hover:bg-teal-100 disabled:cursor-wait disabled:opacity-60"
-                    >
-                      {exporting ? "Menyiapkan CSV…" : "Unduh CSV"}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void exportCsv()}
+                        disabled={exporting || printing}
+                        className="min-h-10 rounded-xl border border-teal-200 bg-teal-50 px-3 text-xs font-semibold text-teal-800 transition hover:bg-teal-100 disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {exporting ? "Menyiapkan CSV…" : "Unduh CSV"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void printReport()}
+                        disabled={exporting || printing}
+                        className="min-h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {printing ? "Menyiapkan cetak…" : "Tampilan cetak"}
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
             </section>
 
-            {exportError && (
+            {(exportError || printError) && (
               <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-                {exportError}
+                {exportError || printError}
               </section>
             )}
 

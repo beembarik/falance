@@ -156,6 +156,99 @@ function csvCell(value: string): string {
   return `"${normalized.replaceAll('"', '""')}"`;
 }
 
+export function buildFinancialPrintHtml(familyName: string, report: FinancialReport): string {
+  const currencyRows = report.currencies.length === 0
+    ? '<tr><td colspan="5">Belum ada transaksi aktif pada periode ini.</td></tr>'
+    : report.currencies.map((summary) => `
+      <tr>
+        <td>${escapeHtml(summary.currency)}</td>
+        <td class="amount positive">${escapeHtml(formatReportAmount(summary.incomeMinor, summary.currency))}</td>
+        <td class="amount negative">${escapeHtml(formatReportAmount(summary.expenseMinor, summary.currency))}</td>
+        <td class="amount">${escapeHtml(formatReportAmount(summary.netMinor, summary.currency))}</td>
+        <td>${summary.transactionCount}</td>
+      </tr>`).join('');
+  const transactionRows = report.transactions.length === 0
+    ? '<tr><td colspan="6">Belum ada transaksi aktif pada periode ini.</td></tr>'
+    : report.transactions.map((transaction) => `
+      <tr>
+        <td>${escapeHtml(transaction.transactionDate)}</td>
+        <td>${escapeHtml(transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran")}</td>
+        <td>${escapeHtml(transaction.currency)}</td>
+        <td class="amount">${escapeHtml(formatReportAmount(transaction.amountMinor, transaction.currency))}</td>
+        <td>${escapeHtml(transaction.description)}</td>
+        <td><code>${escapeHtml(transaction.transactionId)}</code></td>
+      </tr>`).join('');
+  return `<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(`Falancé — ${familyName} — ${report.period.label}`)}</title>
+  <style>
+    :root { color-scheme: light; font-family: Arial, sans-serif; }
+    body { color: #0f172a; margin: 0; padding: 32px; background: #fff; }
+    main { max-width: 1080px; margin: 0 auto; }
+    h1, h2, p { margin: 0; }
+    h1 { font-size: 24px; margin-bottom: 6px; }
+    h2 { font-size: 16px; margin: 28px 0 10px; }
+    .muted { color: #475569; font-size: 13px; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+    button { border: 0; border-radius: 8px; background: #0f766e; color: #fff; cursor: pointer; padding: 10px 16px; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border-bottom: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #f1f5f9; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .amount { text-align: right; white-space: nowrap; }
+    .positive { color: #047857; }
+    .negative { color: #be123c; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+    @media print { body { padding: 0; } .no-print { display: none !important; } th { background: #f1f5f9 !important; print-color-adjust: exact; } }
+    @media (max-width: 720px) { body { padding: 16px; } .toolbar { align-items: flex-start; flex-direction: column; } table { font-size: 11px; } th, td { padding: 6px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="toolbar no-print">
+      <p class="muted">Dokumen print-friendly Falancé</p>
+      <button type="button" onclick="window.print()">Cetak / Simpan PDF</button>
+    </div>
+    <header>
+      <h1>Laporan Keuangan — ${escapeHtml(familyName)}</h1>
+      <p class="muted">${escapeHtml(report.period.label)} · ${escapeHtml(report.period.startDate)} s/d ${escapeHtml(report.period.endDate)}</p>
+      <p class="muted">${report.transactionCount} transaksi aktif</p>
+    </header>
+    <section>
+      <h2>Ringkasan per mata uang</h2>
+      <table>
+        <thead><tr><th>Mata uang</th><th>Pemasukan</th><th>Pengeluaran</th><th>Saldo</th><th>Transaksi</th></tr></thead>
+        <tbody>${currencyRows}</tbody>
+      </table>
+    </section>
+    <section>
+      <h2>Detail transaksi</h2>
+      <table>
+        <thead><tr><th>Tanggal</th><th>Jenis</th><th>Mata uang</th><th>Jumlah</th><th>Deskripsi</th><th>ID</th></tr></thead>
+        <tbody>${transactionRows}</tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>`;
+}
+
+function formatReportAmount(amount: bigint, currency: string): string {
+  return `${currency} ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(amount)}`;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character] ?? character);
+}
+
 function isCalendarDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
