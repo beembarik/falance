@@ -48,9 +48,12 @@ export default function Home() {
   const [error, setError] = useState("");
   const [exportError, setExportError] = useState("");
   const [printError, setPrintError] = useState("");
+  const [pdfError, setPdfError] = useState("");
+  const [pdfPassword, setPdfPassword] = useState("");
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [pdfExporting, setPdfExporting] = useState(false);
   const initDataRef = useRef("");
 
   const loadReport = useCallback(async (selectedMonth: string, selectedStartDate: string, selectedEndDate: string) => {
@@ -155,6 +158,43 @@ export default function Home() {
       setPrinting(false);
     }
   }, [data, endDate, month, startDate]);
+
+  const exportPdf = useCallback(async () => {
+    if (!initDataRef.current || !data || (data.viewer.role !== "OWNER" && data.viewer.role !== "ADMIN")) return;
+    setPdfExporting(true);
+    setPdfError("");
+    try {
+      const response = await fetch("/api/mini-app/report/pdf", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          initData: initDataRef.current,
+          month: month || undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+          password: pdfPassword || undefined,
+        }),
+      });
+      if (!response.ok) {
+        const payload = await response.json() as { error?: string };
+        throw new Error(payload.error || "PDF tidak dapat dibuat.");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "falance-report.pdf";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setPdfPassword("");
+    } catch (pdfLoadError) {
+      setPdfError(pdfLoadError instanceof Error ? pdfLoadError.message : "PDF tidak dapat dibuat.");
+    } finally {
+      setPdfExporting(false);
+    }
+  }, [data, endDate, month, pdfPassword, startDate]);
 
   useEffect(() => {
     const webApp = window.Telegram?.WebApp;
@@ -262,7 +302,7 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => void exportCsv()}
-                        disabled={exporting || printing}
+                        disabled={exporting || printing || pdfExporting}
                         className="min-h-10 rounded-xl border border-teal-200 bg-teal-50 px-3 text-xs font-semibold text-teal-800 transition hover:bg-teal-100 disabled:cursor-wait disabled:opacity-60"
                       >
                         {exporting ? "Menyiapkan CSV…" : "Unduh CSV"}
@@ -270,7 +310,7 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => void printReport()}
-                        disabled={exporting || printing}
+                        disabled={exporting || printing || pdfExporting}
                         className="min-h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-wait disabled:opacity-60"
                       >
                         {printing ? "Menyiapkan cetak…" : "Tampilan cetak"}
@@ -278,12 +318,41 @@ export default function Home() {
                     </>
                   )}
                 </div>
+                {(data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") && (
+                  <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <summary className="cursor-pointer text-xs font-semibold text-slate-700">Unduh PDF (opsional password)</summary>
+                    <div className="mt-3 space-y-3">
+                      <label className="block text-xs font-semibold text-slate-600" htmlFor="pdf-password">
+                        Password PDF
+                        <input
+                          id="pdf-password"
+                          type="password"
+                          autoComplete="new-password"
+                          value={pdfPassword}
+                          maxLength={127}
+                          onChange={(event) => setPdfPassword(event.target.value)}
+                          placeholder="Kosongkan jika tanpa password"
+                          className="mt-1 min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-normal outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        />
+                      </label>
+                      <p className="text-xs leading-5 text-slate-500">Jika diisi, gunakan minimal 8 karakter. Password hanya digunakan saat pembuatan PDF dan tidak disimpan.</p>
+                      <button
+                        type="button"
+                        onClick={() => void exportPdf()}
+                        disabled={exporting || printing || pdfExporting}
+                        className="min-h-10 rounded-xl bg-slate-900 px-3 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {pdfExporting ? "Menyiapkan PDF…" : "Unduh PDF"}
+                      </button>
+                    </div>
+                  </details>
+                )}
               </div>
             </section>
 
-            {(exportError || printError) && (
+            {(exportError || printError || pdfError) && (
               <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-                {exportError || printError}
+                {exportError || printError || pdfError}
               </section>
             )}
 
