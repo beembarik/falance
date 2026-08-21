@@ -706,13 +706,36 @@ export class FamilyService {
       `telegram:${user.telegramUserId}`,
       `invitation:${normalizedCode}`,
     ], async () => {
-      if (await this.getActiveMembership(user.telegramUserId)) {
-        throw new AlreadyRegisteredError("User already belongs to a family.");
-      }
-
       const invitation = await this.repository.findInvitationByCode(normalizedCode);
       if (!invitation) {
         throw new InvitationError("Invitation is invalid.");
+      }
+
+      const family = await this.findFamilyById(invitation.familyId);
+      if (!family || family.status !== "ACTIVE") {
+        throw new InvitationError("Family is unavailable.");
+      }
+
+      const activeMembership = await this.getActiveMembership(user.telegramUserId);
+      if (activeMembership) {
+        if (
+          invitation.status === "USED" &&
+          invitation.usedBy === user.telegramUserId &&
+          activeMembership.familyId === invitation.familyId
+        ) {
+          return family;
+        }
+        throw new AlreadyRegisteredError("User already belongs to a family.");
+      }
+
+      // Mark the invitation before creating membership. If membership persistence
+      // fails after this point, a retry can recognize the same-user USED claim and
+      // finish the missing membership without issuing another invitation claim.
+      if (invitation.status === "USED" && invitation.usedBy === user.telegramUserId) {
+        await this.repository.createMember(
+          createMember(family.familyId, user, "MEMBER", invitation.usedAt ?? new Date().toISOString()),
+        );
+        return family;
       }
       if (invitation.status !== "PENDING") {
         throw new InvitationError("Invitation cannot be used.");
@@ -721,18 +744,13 @@ export class FamilyService {
         throw new InvitationError("Invitation has expired.");
       }
 
-      const family = await this.findFamilyById(invitation.familyId);
-      if (!family || family.status !== "ACTIVE") {
-        throw new InvitationError("Family is unavailable.");
-      }
-
       const usedAt = new Date().toISOString();
-      await this.repository.createMember(createMember(family.familyId, user, "MEMBER", usedAt));
       await this.repository.markInvitationUsed(
         invitation.invitationId,
         user.telegramUserId,
         usedAt,
       );
+      await this.repository.createMember(createMember(family.familyId, user, "MEMBER", usedAt));
 
       return family;
     });

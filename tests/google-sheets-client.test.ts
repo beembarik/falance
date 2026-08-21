@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { GoogleSheetsFamilyRepository } from "../src/lib/family/google-sheets-repository";
 import { GoogleSheetsClient } from "../src/lib/google/sheets-client";
+import { inspectRegistryIntegrity } from "../src/lib/google/registry-integrity";
 
 test("logs a redacted operation label when a Google Sheets write fails", async () => {
   const originalFetch = globalThis.fetch;
@@ -114,6 +115,43 @@ test("marks Google Sheets 429 responses as quota telemetry with a safe operation
     restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_EMAIL", originalEnvironment.email);
     restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY", originalEnvironment.privateKey);
     restoreEnvironment("FALANCE_TIMING_LOGS", originalEnvironment.timingLogs);
+  }
+});
+
+test("reports registry foreign references without exposing row values", async () => {
+  const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
+  process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";
+  const headers: Record<string, string[]> = {
+    Settings: ["key", "value"],
+    Families: ["family_id", "family_name", "status", "created_at", "created_by", "plan"],
+    Members: ["member_id", "family_id", "telegram_user_id", "name", "username", "role", "status", "joined_at"],
+    Invitations: ["invitation_id", "family_id", "code", "created_by", "created_at", "expires_at", "used_at", "used_by", "status"],
+    "Pending Family Creations": ["telegram_user_id", "family_name", "created_at", "expires_at", "status"],
+    "Pending Confirmations": ["confirmation_id", "telegram_user_id", "family_id", "action", "target", "created_at", "expires_at", "status"],
+    "Pending Transaction Drafts": ["draft_id", "telegram_user_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "confidence", "created_at", "expires_at", "status"],
+    "Audit Log": ["audit_id", "family_id", "actor_member_id", "actor_role", "action", "target_type", "target_id", "previous_value", "new_value", "created_at"],
+    Transactions: ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"],
+    "Processed Telegram Updates": ["update_id", "claimed_at", "completed_at", "status"],
+    "AI Vision Usage": ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"],
+    "Draft Approval Claims": ["draft_id", "telegram_user_id", "family_id", "transaction_id", "claimed_at", "completed_at", "lease_until", "status"],
+  };
+  const values: Record<string, string[][]> = Object.fromEntries(Object.entries(headers).map(([name, header]) => [name, [header]]));
+  values.Families.push(["fam_1", "Keluarga Rahasia", "ACTIVE", "2026-01-01T00:00:00.000Z", "100", "MVP"]);
+  values.Members.push(["mem_1", "fam_1", "100", "Owner Rahasia", "owner", "OWNER", "ACTIVE", "2026-01-01T00:00:00.000Z"]);
+  values.Transactions.push(["txn_1", "fam_missing", "EXPENSE", "1000", "IDR", "2026-08-21", "Data Rahasia", "mem_1", "2026-08-21T00:00:00.000Z", "ACTIVE"]);
+  const client = {
+    ensureRegistry: async () => {},
+    getValues: async (_spreadsheetId: string, sheetName: string) => values[sheetName],
+  } as unknown as GoogleSheetsClient;
+
+  try {
+    const report = await inspectRegistryIntegrity(client);
+    assert.equal(report.healthy, false);
+    assert.ok(report.issues.some((issue) => issue.sheet === "Transactions" && issue.code === "ORPHAN_REFERENCE"));
+    assert.equal(JSON.stringify(report).includes("Keluarga Rahasia"), false);
+    assert.equal(JSON.stringify(report).includes("Data Rahasia"), false);
+  } finally {
+    restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
   }
 });
 

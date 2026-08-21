@@ -27,6 +27,7 @@ Implementasi saat ini mencakup identitas Telegram, pembuatan keluarga, undangan,
 | Isolasi keluarga | `family_id` selalu ditentukan server dari membership aktif atau invitation yang telah divalidasi. | Tersedia |
 | Registry Google Sheets | Satu registry pusat menggunakan dua belas worksheet: `Settings`, `Families`, `Members`, `Invitations`, `Pending Family Creations`, `Pending Confirmations`, `Pending Transaction Drafts`, `Audit Log`, `Transactions`, `Processed Telegram Updates`, `AI Vision Usage`, dan `Draft Approval Claims`. Worksheet claim menyimpan state durable untuk replay/update processing, AI vision usage, dan approval recovery. | Tersedia |
 | Webhook security dan idempotency | POST webhook menolak request tanpa `FALANCE_TELEGRAM_WEBHOOK_SECRET` atau header `X-Telegram-Bot-Api-Secret-Token` yang cocok. `update_id` di-claim secara durable sebelum handler dijalankan dan duplicate update diabaikan. Approval draft menggunakan claim durable ber-lease dan deterministic transaction ID untuk recovery tanpa membuat transaksi kedua. | Implemented; konfigurasi production wajib |
+| Registry integrity dan recovery | `npm run check:registry` memeriksa header, duplicate key, enum, foreign reference, active OWNER, serta consistency transaction/claim tanpa mencetak row values. Runbook backup dan partial-write retry tersedia pada `docs/backup-recovery.md`. | Tersedia; restoration tetap manual dan terkontrol |
 | Diagnostik aman | Error Google Sheets dicatat menggunakan operation label dan path yang telah direduksi; token, credential, spreadsheet ID, Telegram ID, dan data baris tidak dicatat. | Tersedia |
 
 ## Telegram Commands
@@ -248,6 +249,7 @@ Detail scope, exit criteria, dan backlog eksperimen non-commitment tersedia di [
 - [`docs/telegram.md`](docs/telegram.md) — detail webhook, command, identity, authorization, dan report boundary.
 - [`docs/milestones.md`](docs/milestones.md) — roadmap milestone dan status implementasi.
 - [`docs/monitoring.md`](docs/monitoring.md) — operation labels, latency/error/quota diagnostics, dan aturan redaction.
+- [`docs/backup-recovery.md`](docs/backup-recovery.md) — prosedur backup, restoration, partial-write retry, dan integrity response.
 
 ## Repository
 

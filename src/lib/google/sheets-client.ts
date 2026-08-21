@@ -274,6 +274,7 @@ export type GoogleOperation =
   | "claimDraftApproval"
   | "completeDraftApproval"
   | "readDraftApprovalClaims"
+  | "readRegistryIntegrity"
   | "migrateFamiliesSchema";
 
 function logGoogleFailure(
@@ -374,7 +375,7 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-const REGISTRY_SHEETS = [
+export const REGISTRY_SHEETS = [
   { name: "Settings", headers: ["key", "value"] },
   { name: "Families", headers: ["family_id", "family_name", "status", "created_at", "created_by", "plan"] },
   { name: "Members", headers: ["member_id", "family_id", "telegram_user_id", "name", "username", "role", "status", "joined_at"] },

@@ -724,6 +724,25 @@ test("joins a valid invitation once and marks it used", async () => {
   await assert.rejects(service.joinFamily({ ...member, telegramUserId: "300" }, invitation.code), InvitationError);
 });
 
+test("recovers a join when invitation is marked used before membership write fails", async () => {
+  const repository = setupMember("OWNER");
+  const service = new FamilyService(repository);
+  const invitation = await service.createInvitation(owner);
+  repository.failMemberCreation = true;
+
+  await assert.rejects(service.joinFamily(member, invitation.code));
+  assert.equal(repository.invitations[0].status, "USED");
+  assert.equal(repository.invitations[0].usedBy, member.telegramUserId);
+  assert.equal(repository.members.filter((value) => value.telegramUserId === member.telegramUserId).length, 0);
+
+  repository.failMemberCreation = false;
+  const recovered = await service.joinFamily(member, invitation.code);
+
+  assert.equal(recovered.familyId, "fam_1");
+  assert.equal(repository.members.filter((value) => value.telegramUserId === member.telegramUserId).length, 1);
+  assert.equal(repository.invitations[0].status, "USED");
+});
+
 test("serializes concurrent joins so one invitation creates only one membership", async () => {
   const repository = setupMember("OWNER");
   const setupService = new FamilyService(repository);

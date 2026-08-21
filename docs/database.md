@@ -165,6 +165,14 @@ Approval claims are durable server state used before transaction creation. The s
 
 Transactions are appended to the central registry by the repository and read back by `family_id`. Every active `OWNER`, `ADMIN`, and `MEMBER` may create a transaction for their server-resolved family. Successful creation appends a privacy-preserving `CREATE_TRANSACTION` entry to the `Audit Log`; structured Telegram transaction commands and VOID confirmation flows are implemented, while AI draft approval reuses the same service boundary.
 
+## Registry integrity and recovery
+
+`npm run check:registry` membaca seluruh worksheet registry pusat dan menghasilkan report metadata yang hanya berisi `healthy`, `rowCounts`, worksheet, row number, field, dan issue code. Pemeriksaan mencakup header schema, duplicate key, enum/status, foreign reference, active OWNER invariant, orphan member, dan consistency antara `Draft Approval Claims` dengan `Transactions`. Report tidak mengeluarkan row values, credential, spreadsheet ID, Telegram ID, atau family name.
+
+Backup dan restoration dilakukan secara manual dan terkontrol oleh operator melalui Google Sheets atau prosedur administrasi yang disetujui. Aplikasi tidak membuat spreadsheet baru melalui Drive API. Snapshot harus mencakup seluruh worksheet pada satu titik waktu dan tidak boleh menggabungkan worksheet dari snapshot berbeda tanpa reconciliation. Lihat [`docs/backup-recovery.md`](backup-recovery.md) untuk runbook, partial-write retry matrix, dan recovery decision tree.
+
+`/createfamily` memiliki recovery terhadap family row yang sudah tertulis tetapi membership belum selesai. `/join` menandai invitation `USED` lebih dahulu, lalu membuat membership; retry oleh Telegram identity yang sama menyelesaikan membership yang hilang tanpa menggunakan invitation kedua. Durable draft approval menggunakan lease dan deterministic transaction ID. Untuk operasi yang tidak memiliki idempotency key domain, operator harus melakukan read-only inspection sebelum retry manual.
+
 ## Isolation rule
 
 Every family-owned table must include `family_id` as a mandatory partition key. The application must obtain this value from a server-side membership or validated invitation lookup, never from untrusted Telegram request data.

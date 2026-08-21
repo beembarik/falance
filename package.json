@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:registry": "node --experimental-strip-types scripts/check-registry-integrity.mjs",
     "test": "node --import ./tests/typescript-register.mjs --experimental-strip-types --test tests/**/*.test.ts"
   },
   "dependencies": {
