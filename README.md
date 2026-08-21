@@ -30,7 +30,7 @@ Implementasi saat ini mencakup identitas Telegram, pembuatan keluarga, undangan,
 | Registry integrity dan recovery | `npm run check:registry` memeriksa header, duplicate key, enum, foreign reference, active OWNER, serta consistency transaction/claim tanpa mencetak row values. Runbook backup dan partial-write retry tersedia pada `docs/backup-recovery.md`. | Tersedia; restoration tetap manual dan terkontrol |
 | Diagnostik aman | Error Google Sheets dicatat menggunakan operation label dan path yang telah direduksi; token, credential, spreadsheet ID, Telegram ID, dan data baris tidak dicatat. | Tersedia |
 | Report read model | Report bulan dan agregasi multi-currency dibangun secara deterministic dari transaction rows keluarga yang di-resolve server-side. | Milestone 9 Slice 1 tersedia |
-| Telegram Mini App | UI read-only mobile-first, endpoint report yang memvalidasi raw `initData`, dan launcher `/reportapp` dengan web_app button. | Milestone 9 Slice 2 in progress |
+| Telegram Mini App | UI read-only mobile-first, endpoint report yang memvalidasi raw `initData`, launcher `/reportapp`, filter bulan/rentang tanggal maksimal satu tahun, dan daftar maksimal 50 transaksi terbaru. | Milestone 9 Slice 2 in progress |
 
 ## Telegram Commands
 

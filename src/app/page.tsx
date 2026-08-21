@@ -6,7 +6,7 @@ type ReportResponse = {
   familyName: string;
   viewer: { name: string; role: string };
   report: {
-    period: { month: string; startDate: string; endDate: string; label: string };
+    period: { month: string | null; startDate: string; endDate: string; label: string };
     transactionCount: number;
     currencies: Array<{
       currency: string;
@@ -14,6 +14,14 @@ type ReportResponse = {
       expenseMinor: string;
       netMinor: string;
       transactionCount: number;
+    }>;
+    transactions: Array<{
+      transactionId: string;
+      transactionType: "INCOME" | "EXPENSE";
+      amountMinor: string;
+      currency: string;
+      transactionDate: string;
+      description: string;
     }>;
   };
 };
@@ -34,12 +42,14 @@ declare global {
 
 export default function Home() {
   const [month, setMonth] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [data, setData] = useState<ReportResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const initDataRef = useRef("");
 
-  const loadReport = useCallback(async (selectedMonth: string) => {
+  const loadReport = useCallback(async (selectedMonth: string, selectedStartDate: string, selectedEndDate: string) => {
     if (!initDataRef.current) {
       setError("Buka halaman ini dari Telegram Mini App agar akun dapat diverifikasi.");
       setLoading(false);
@@ -51,7 +61,12 @@ export default function Home() {
       const response = await fetch("/api/mini-app/report", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ initData: initDataRef.current, month: selectedMonth || undefined }),
+        body: JSON.stringify({
+          initData: initDataRef.current,
+          month: selectedMonth || undefined,
+          startDate: selectedStartDate || undefined,
+          endDate: selectedEndDate || undefined,
+        }),
       });
       const payload = await response.json() as ReportResponse & { error?: string };
       if (!response.ok) throw new Error(payload.error || "Laporan tidak dapat dimuat.");
@@ -73,7 +88,7 @@ export default function Home() {
       webApp.setHeaderColor?.("#0f766e");
       webApp.setBackgroundColor?.("#f4fbfa");
     }
-    void loadReport("");
+    void loadReport("", "", "");
   }, [loadReport]);
 
   return (
@@ -92,12 +107,16 @@ export default function Home() {
               id="report-month"
               type="month"
               value={month}
-              onChange={(event) => setMonth(event.target.value)}
+              onChange={(event) => {
+                setMonth(event.target.value);
+                setStartDate("");
+                setEndDate("");
+              }}
               className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
             />
             <button
               type="button"
-              onClick={() => void loadReport(month)}
+              onClick={() => void loadReport(month, startDate, endDate)}
               disabled={loading}
               className="min-h-11 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-wait disabled:opacity-60"
             >
@@ -105,6 +124,33 @@ export default function Home() {
             </button>
           </div>
           <p className="mt-2 text-xs text-slate-500">Kosongkan periode untuk menggunakan bulan berjalan.</p>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <label className="text-xs font-semibold text-slate-600">
+              Dari tanggal
+              <input
+                type="date"
+                value={startDate}
+                onChange={(event) => {
+                  setStartDate(event.target.value);
+                  setMonth("");
+                }}
+                className="mt-1 min-h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-normal outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+              />
+            </label>
+            <label className="text-xs font-semibold text-slate-600">
+              Sampai tanggal
+              <input
+                type="date"
+                value={endDate}
+                onChange={(event) => {
+                  setEndDate(event.target.value);
+                  setMonth("");
+                }}
+                className="mt-1 min-h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-normal outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+              />
+            </label>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">Pilih bulan atau rentang tanggal maksimal satu tahun.</p>
         </section>
 
         {error && (
@@ -157,6 +203,30 @@ export default function Home() {
                 ))}
               </section>
             )}
+
+            {data.report.transactions.length > 0 && (
+              <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-slate-900">Transaksi terbaru</h2>
+                  <span className="text-xs text-slate-500">Maksimal 50</span>
+                </div>
+                <div className="mt-4 divide-y divide-slate-100">
+                  {data.report.transactions.map((transaction) => (
+                    <article key={transaction.transactionId} className="py-3 first:pt-0 last:pb-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-900">{transaction.description}</p>
+                          <p className="mt-1 text-xs text-slate-500">{formatDisplayDate(transaction.transactionDate)} · {transaction.currency}</p>
+                        </div>
+                        <p className={`shrink-0 text-sm font-bold ${transaction.transactionType === "INCOME" ? "text-emerald-700" : "text-rose-700"}`}>
+                          {transaction.transactionType === "INCOME" ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}
+                        </p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
           </>
         )}
       </div>
@@ -176,4 +246,9 @@ function Metric({ label, value, tone }: { label: string; value: string; tone: "p
 
 function formatAmount(value: string, currency: string): string {
   return `${currency} ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(BigInt(value))}`;
+}
+
+function formatDisplayDate(value: string): string {
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year}`;
 }

@@ -31,9 +31,22 @@ test("builds a calendar-month period with business-independent boundaries", () =
   });
 });
 
-test("rejects invalid report periods", () => {
+test("rejects invalid report periods and ranges", () => {
   assert.throws(() => getFinancialReportPeriod("2026-13"), ReportPeriodError);
   assert.throws(() => getFinancialReportPeriod("2026-8"), ReportPeriodError);
+  assert.throws(() => getFinancialReportPeriod(undefined, "2026-08-02", "2026-08-01"), ReportPeriodError);
+  assert.throws(() => getFinancialReportPeriod(undefined, "2026-02-30", "2026-03-01"), ReportPeriodError);
+  assert.throws(() => getFinancialReportPeriod("2026-08", "2026-08-01", "2026-08-02"), ReportPeriodError);
+});
+
+test("builds a bounded date-range period", () => {
+  assert.deepEqual(getFinancialReportPeriod(undefined, "2026-08-01", "2026-08-31"), {
+    month: null,
+    startDate: "2026-08-01",
+    endDate: "2026-08-31",
+    label: "01 Agustus 2026 – 31 Agustus 2026",
+  });
+  assert.throws(() => getFinancialReportPeriod(undefined, "2025-01-01", "2026-01-02"), ReportPeriodError);
 });
 
 test("aggregates active transactions by currency and excludes VOID or out-of-period rows", () => {
@@ -46,6 +59,15 @@ test("aggregates active transactions by currency and excludes VOID or out-of-per
   ], period);
 
   assert.equal(report.transactionCount, 3);
+  assert.deepEqual(report.transactions.map((item) => item.transactionId), ["txn_income", "txn_expense", "txn_usd"]);
+  assert.deepEqual(report.transactions[0], {
+    transactionId: "txn_income",
+    transactionType: "INCOME",
+    amountMinor: BigInt(500000),
+    currency: "IDR",
+    transactionDate: "2026-08-19",
+    description: "Test",
+  });
   assert.deepEqual(report.currencies.map((summary) => ({
     currency: summary.currency,
     incomeMinor: summary.incomeMinor,
@@ -56,6 +78,16 @@ test("aggregates active transactions by currency and excludes VOID or out-of-per
     { currency: "IDR", incomeMinor: BigInt(500000), expenseMinor: BigInt(125000), netMinor: BigInt(375000), transactionCount: 2 },
     { currency: "USD", incomeMinor: BigInt(0), expenseMinor: BigInt(10), netMinor: BigInt(-10), transactionCount: 1 },
   ]);
+});
+
+test("limits report transaction details while preserving full aggregate counts", () => {
+  const transactions = Array.from({ length: 55 }, (_, index) => transaction({
+    transactionId: `txn_${index}`,
+    transactionDate: `2026-08-${String((index % 9) + 1).padStart(2, "0")}`,
+  }));
+  const report = buildFinancialReport(transactions, period, 100);
+  assert.equal(report.transactionCount, 55);
+  assert.equal(report.transactions.length, 50);
 });
 
 test("returns an empty report when the selected month has no active transactions", () => {

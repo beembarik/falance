@@ -8,6 +8,8 @@ export const runtime = "nodejs";
 type MiniAppReportRequest = {
   initData?: unknown;
   month?: unknown;
+  startDate?: unknown;
+  endDate?: unknown;
 };
 
 export async function POST(request: Request): Promise<Response> {
@@ -21,7 +23,11 @@ export async function POST(request: Request): Promise<Response> {
   if (typeof payload.initData !== "string" || !payload.initData.trim()) {
     return Response.json({ error: "Mini App authorization is required." }, { status: 400 });
   }
-  if (payload.month !== undefined && typeof payload.month !== "string") {
+  if (
+    (payload.month !== undefined && typeof payload.month !== "string") ||
+    (payload.startDate !== undefined && typeof payload.startDate !== "string") ||
+    (payload.endDate !== undefined && typeof payload.endDate !== "string")
+  ) {
     return Response.json({ error: "Invalid report period." }, { status: 400 });
   }
 
@@ -40,6 +46,8 @@ export async function POST(request: Request): Promise<Response> {
     const report = await service.getFinancialReport(
       validated.telegramUser.telegramUserId,
       typeof payload.month === "string" && payload.month.trim() ? payload.month.trim() : undefined,
+      typeof payload.startDate === "string" && payload.startDate.trim() ? payload.startDate.trim() : undefined,
+      typeof payload.endDate === "string" && payload.endDate.trim() ? payload.endDate.trim() : undefined,
     );
 
     return Response.json({
@@ -58,6 +66,14 @@ export async function POST(request: Request): Promise<Response> {
           netMinor: summary.netMinor.toString(),
           transactionCount: summary.transactionCount,
         })),
+        transactions: report.transactions.map((transaction) => ({
+          transactionId: transaction.transactionId,
+          transactionType: transaction.transactionType,
+          amountMinor: transaction.amountMinor.toString(),
+          currency: transaction.currency,
+          transactionDate: transaction.transactionDate,
+          description: transaction.description,
+        })),
       },
     });
   } catch (error) {
@@ -65,7 +81,7 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json({ error: "Mini App authorization is invalid or expired." }, { status: 401 });
     }
     if (error instanceof ReportPeriodError) {
-      return Response.json({ error: "Report period must use YYYY-MM format." }, { status: 400 });
+      return Response.json({ error: "Report period or date range is invalid." }, { status: 400 });
     }
     if (error instanceof FamilyServiceError) {
       return Response.json({ error: "Mini App access denied." }, { status: 403 });

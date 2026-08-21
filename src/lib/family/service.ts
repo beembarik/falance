@@ -652,10 +652,15 @@ export class FamilyService {
       .filter((transaction) => transaction.status === "ACTIVE");
   }
 
-  async getFinancialReport(telegramUserId: string, month?: string): Promise<FinancialReport> {
+  async getFinancialReport(
+    telegramUserId: string,
+    month?: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<FinancialReport> {
     const member = await this.requireActiveMember(telegramUserId);
     await this.requireActiveFamily(member.familyId);
-    const period = getFinancialReportPeriod(month);
+    const period = getFinancialReportPeriod(month, startDate, endDate);
     return buildFinancialReport(
       await this.repository.findTransactionsByFamilyId(member.familyId),
       period,

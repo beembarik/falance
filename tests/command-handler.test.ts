@@ -307,6 +307,7 @@ test("renders a family-scoped financial report for the requested month", async (
     period: { month: "2026-08", startDate: "2026-08-01", endDate: "2026-08-31", label: "Agustus 2026" },
     transactionCount: 2,
     currencies: [{ currency: "IDR", incomeMinor: BigInt(500000), expenseMinor: BigInt(125000), netMinor: BigInt(375000), transactionCount: 2 }],
+    transactions: [],
   };
   let receivedUserId: string | undefined;
   let receivedMonth: string | undefined;

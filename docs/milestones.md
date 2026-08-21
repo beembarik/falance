@@ -158,6 +158,7 @@ Report access follows this role boundary: all active roles may view reports thro
 - [ ] Date filtering and concise report commands in Telegram
 - [x] Read-only Telegram reports sebagai slice pertama sebelum Mini App dan export
 - [x] Mini App auth/API/UI implementation dengan validated Telegram `initData` dan family-scoped report response
+- [x] Mini App date-range filter maksimal satu tahun dan bounded transaction detail list maksimal 50 row
 - [ ] Role-safe CSV/print/PDF export untuk `OWNER` dan `ADMIN`, dengan optional server-side PDF password
 - [ ] Regression tests untuk report family isolation, role permission, date filters, dan export authorization
 - [ ] First authorized report views in the Telegram Mini App
