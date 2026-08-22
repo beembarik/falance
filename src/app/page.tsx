@@ -62,6 +62,8 @@ export default function Home() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [data, setData] = useState<ReportResponse | null>(null);
+  const [comparison, setComparison] = useState<ReportResponse | null>(null);
+  const [comparisonLoading, setComparisonLoading] = useState(false);
   const [error, setError] = useState("");
   const [exportError, setExportError] = useState("");
   const [printError, setPrintError] = useState("");
@@ -96,6 +98,23 @@ export default function Home() {
       const payload = await response.json() as ReportResponse & { error?: string };
       if (!response.ok) throw new Error(payload.error || "Laporan tidak dapat dimuat.");
       setData(payload);
+      setComparison(null);
+      const previousPeriod = getPreviousPeriodInput(payload.report.period);
+      if (previousPeriod) {
+        setComparisonLoading(true);
+        void fetch("/api/mini-app/report", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ initData: initDataRef.current, ...previousPeriod }),
+        }).then(async (comparisonResponse) => {
+          if (!comparisonResponse.ok) return null;
+          return await comparisonResponse.json() as ReportResponse;
+        }).then((comparisonPayload) => {
+          if (comparisonPayload) setComparison(comparisonPayload);
+        }).catch(() => {
+          setComparison(null);
+        }).finally(() => setComparisonLoading(false));
+      }
     } catch (loadError) {
       setData(null);
       setError(loadError instanceof Error ? loadError.message : "Laporan tidak dapat dimuat.");
@@ -220,6 +239,8 @@ export default function Home() {
         {data && activeNav === "reports" && (
           <ReportsView
             data={data}
+            comparison={comparison}
+            comparisonLoading={comparisonLoading}
             month={month}
             startDate={startDate}
             endDate={endDate}
@@ -396,8 +417,26 @@ function TransactionDetail({ transaction, onClose }: { transaction: ReportRespon
   return <div className="fixed inset-0 z-30 flex items-end justify-center bg-[rgba(34,48,41,0.38)] p-0 sm:items-center sm:p-4" role="presentation" onClick={onClose}><section role="dialog" aria-modal="true" aria-labelledby="transaction-detail-title" className="w-full max-w-[480px] rounded-t-3xl bg-[var(--surface)] p-5 shadow-[0_12px_40px_rgba(20,40,25,0.18)] sm:rounded-3xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Detail transaksi</p><h2 id="transaction-detail-title" className="mt-1 text-xl font-bold">{transaction.description}</h2></div><button type="button" onClick={onClose} aria-label="Tutup detail transaksi" className="grid h-11 w-11 place-items-center rounded-full bg-[var(--surface-soft)] text-xl text-[var(--text-secondary)] transition hover:bg-[var(--brand-green-100)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">×</button></div><div className="mt-5 rounded-2xl bg-[var(--surface-soft)] p-4"><p className={`text-2xl font-bold ${transaction.transactionType === "INCOME" ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{transaction.transactionType === "INCOME" ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Jenis</dt><dd className="font-semibold">{transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran"}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Tanggal</dt><dd className="font-semibold">{formatLongDate(transaction.transactionDate)}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Transaction ID</dt><dd className="max-w-[55%] break-all text-right font-mono text-xs font-semibold">{transaction.transactionId}</dd></div></dl></div><p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Detail ini bersifat read-only. Edit dan void transaksi akan tersedia setelah write path Mini App dirancang dan divalidasi.</p><button type="button" onClick={onClose} className="mt-5 min-h-11 w-full rounded-xl bg-[var(--brand-green-700)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-600)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2">Tutup</button></section></div>;
 }
 
-function ReportsView({ data, month, startDate, endDate, loading, onMonthChange, onStartDateChange, onEndDateChange, onLoad, exporting, printing, pdfExporting, pdfPassword, setPdfPassword, exportError, printError, pdfError, onExportCsv, onPrint, onExportPdf }: {
+function ComparisonSummary({ current, previous }: { current: ReportResponse; previous: ReportResponse }) {
+  const previousByCurrency = new Map(previous.report.currencies.map((summary) => [summary.currency, summary]));
+  const currencies = current.report.currencies.filter((summary) => previousByCurrency.has(summary.currency));
+  if (currencies.length === 0) return <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Belum ada mata uang yang dapat dibandingkan dengan periode sebelumnya.</p>;
+  return <div className="mt-4 space-y-3"><p className="text-xs text-[var(--text-secondary)]">Perubahan dihitung per mata uang dari laporan server-side. Tidak ada konversi antar mata uang.</p>{currencies.map((summary) => { const prior = previousByCurrency.get(summary.currency); if (!prior) return null; return <article key={summary.currency} className="rounded-xl bg-[var(--surface-soft)] p-4"><div className="flex items-center justify-between gap-3"><h3 className="text-sm font-bold">{summary.currency}</h3><span className="text-xs text-[var(--text-secondary)]">{previous.report.period.label}</span></div><div className="mt-3 grid grid-cols-2 gap-3"><ComparisonMetric label="Pemasukan" current={summary.incomeMinor} previous={prior.incomeMinor} currency={summary.currency} positiveIsGood /><ComparisonMetric label="Pengeluaran" current={summary.expenseMinor} previous={prior.expenseMinor} currency={summary.currency} positiveIsGood={false} /></div></article>; })}</div>;
+}
+
+function ComparisonMetric({ label, current, previous, currency, positiveIsGood }: { label: string; current: string; previous: string; currency: string; positiveIsGood: boolean }) {
+  const currentValue = BigInt(current);
+  const previousValue = BigInt(previous);
+  const delta = currentValue - previousValue;
+  const direction = delta === BigInt(0) ? "Sama" : delta > BigInt(0) ? "Naik" : "Turun";
+  const tone = delta === BigInt(0) ? "text-[var(--text-secondary)]" : (delta > BigInt(0)) === positiveIsGood ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]";
+  return <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3"><p className="text-xs text-[var(--text-secondary)]">{label}</p><p className="mt-1 text-sm font-bold">{formatAmount(current, currency)}</p><p className={`mt-1 text-xs font-semibold ${tone}`}>{direction} {formatSignedAmount(delta, currency)} dari periode lalu</p></div>;
+}
+
+function ReportsView({ data, comparison, comparisonLoading, month, startDate, endDate, loading, onMonthChange, onStartDateChange, onEndDateChange, onLoad, exporting, printing, pdfExporting, pdfPassword, setPdfPassword, exportError, printError, pdfError, onExportCsv, onPrint, onExportPdf }: {
   data: ReportResponse;
+  comparison: ReportResponse | null;
+  comparisonLoading: boolean;
   month: string;
   startDate: string;
   endDate: string;
@@ -432,6 +471,11 @@ function ReportsView({ data, month, startDate, endDate, loading, onMonthChange, 
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Ringkasan {data.report.period.label}</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">{data.report.currencies.map((summary) => <MetricCard key={summary.currency} summary={summary} />)}</div>
         {data.report.currencies.length === 0 && <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm text-[var(--text-secondary)]">Belum ada transaksi aktif pada periode ini.</p>}
+      </section>
+
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
+        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Perbandingan</p><h2 className="mt-1 text-lg font-bold">Dibanding periode sebelumnya</h2></div><span className="rounded-full bg-[var(--brand-purple-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-purple-800)]">Insight dasar</span></div>
+        {comparisonLoading ? <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="skeleton h-20 rounded-xl" /><div className="skeleton h-20 rounded-xl" /></div> : comparison ? <ComparisonSummary current={data} previous={comparison} /> : <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Perbandingan belum tersedia untuk periode ini.</p>}
       </section>
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
@@ -472,6 +516,30 @@ function NavButton({ item, active, onClick }: { item: { key: NavKey; label: stri
 
 function formatAmount(value: string, currency: string): string {
   return `${currency} ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(BigInt(value))}`;
+}
+
+function formatSignedAmount(value: bigint, currency: string): string {
+  const sign = value > BigInt(0) ? "+" : value < BigInt(0) ? "−" : "";
+  const absoluteValue = value < BigInt(0) ? -value : value;
+  return `${sign}${currency} ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(absoluteValue)}`;
+}
+
+function getPreviousPeriodInput(period: ReportResponse["report"]["period"]): { month?: string; startDate?: string; endDate?: string } | null {
+  if (period.month) {
+    const [year, month] = period.month.split("-").map(Number);
+    const previous = new Date(Date.UTC(year, month - 2, 1));
+    return { month: `${previous.getUTCFullYear()}-${String(previous.getUTCMonth() + 1).padStart(2, "0")}` };
+  }
+  const start = new Date(`${period.startDate}T00:00:00.000Z`);
+  const end = new Date(`${period.endDate}T00:00:00.000Z`);
+  const days = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+  const previousEnd = new Date(start.getTime() - 86_400_000);
+  const previousStart = new Date(previousEnd.getTime() - ((days - 1) * 86_400_000));
+  return { startDate: toIsoDate(previousStart), endDate: toIsoDate(previousEnd) };
+}
+
+function toIsoDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
 }
 
 function formatDisplayDate(value: string): string {
