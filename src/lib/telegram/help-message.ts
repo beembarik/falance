@@ -1,5 +1,5 @@
 import type { MemberRole } from "../family/types";
-import { telegramCode } from "./html";
+import { escapeTelegramHtml, telegramCode } from "./html";
 
 type HelpAudience = "PUBLIC" | "UNREGISTERED" | "ACTIVE" | "ADMIN" | "OWNER";
 
@@ -79,7 +79,7 @@ export function formatHelpMessage(role: MemberRole | null): string {
   for (const section of sections) {
     lines.push(`— ${section.title} —`);
     for (const entry of section.entries) {
-      lines.push(`${telegramCode(entry.command)} — ${entry.description}`);
+      lines.push(`${formatHelpCommand(entry.command)} — ${entry.description}`);
     }
     lines.push("");
   }
@@ -92,6 +92,12 @@ export function formatHelpMessage(role: MemberRole | null): string {
   }
 
   return lines.join("\n");
+}
+
+function formatHelpCommand(commandSyntax: string): string {
+  const [command, ...parameters] = commandSyntax.split(" ");
+  const parameterText = parameters.length > 0 ? ` ${telegramCode(parameters.join(" "))}` : "";
+  return `${escapeTelegramHtml(command)}${parameterText}`;
 }
 
 function isVisible(audience: HelpAudience, role: MemberRole | null): boolean {
