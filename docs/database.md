@@ -165,6 +165,14 @@ Approval claims are durable server state used before transaction creation. The s
 
 Transactions are appended to the central registry by the repository and read back by `family_id`. Every active `OWNER`, `ADMIN`, and `MEMBER` may create a transaction for their server-resolved family. Successful creation appends a privacy-preserving `CREATE_TRANSACTION` entry to the `Audit Log`; structured Telegram transaction commands and VOID confirmation flows are implemented, while AI draft approval reuses the same service boundary.
 
+### Mini App data-contract boundary
+
+The current Mini App may safely consume the existing family-scoped transaction and report fields: transaction type, amount, currency, transaction date, description, status, family name, role, and aggregate counts/balances. These values must continue to be resolved and shaped by the service/API layer rather than read directly by browser components.
+
+The following fields are intentionally **not** part of the current authoritative schema: `category`, `payment_method`, account, budget limit, recurring schedule, receipt attachment, and financial insight. `categorySuggestion` and `descriptionSuggestion` belong only to temporary AI drafts and must not be treated as persisted transaction data. Category summaries, per-category budget progress, payment-method filtering, and category-based insights require an accepted schema and repository/service changes before they can appear as factual Mini App data. A UI placeholder must not display fabricated totals or progress values.
+
+A future Mini App write endpoint must use the same transaction contract and validation rules as the Telegram path, resolve `family_id` from the authenticated member on the server, and persist through `FamilyService` and the repository. The client must never submit `family_id` as a tenant selector.
+
 ## Registry integrity and recovery
 
 `npm run check:registry` membaca seluruh worksheet registry pusat dan menghasilkan report metadata yang hanya berisi `healthy`, `rowCounts`, worksheet, row number, field, dan issue code. Pemeriksaan mencakup header schema, duplicate key, enum/status, foreign reference, active OWNER invariant, orphan member, dan consistency antara `Draft Approval Claims` dengan `Transactions`. Report tidak mengeluarkan row values, credential, spreadsheet ID, Telegram ID, atau family name.

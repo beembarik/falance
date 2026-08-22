@@ -52,6 +52,22 @@ Users must never receive direct access to the central Google Spreadsheet. Report
 
 CSV, print-friendly HTML, and server-side PDF are family-scoped artifacts, not spreadsheet links. PDF bytes are generated in memory and streamed directly; no PDF artifact is persisted. Download responses are `no-store` and do not expose family identifiers, spreadsheet IDs, report contents, or PDF passwords. Download URLs must be short-lived and must not contain `family_id`, spreadsheet IDs, report contents, or PDF passwords. A PDF password is optional and selected before export; when enabled, the backend encrypts the PDF, keeps the password ephemeral, and excludes it from logs, analytics, persistent Sheets data, and the download URL.
 
+## Mini App design and application boundary
+
+Milestone 10 expands the authenticated read-only report surface into a responsive family-finance workspace. The design is mobile-first but not mobile-only: phone layouts prioritize one-handed use and bottom navigation, while tablet and desktop layouts may use a wider grid or navigation rail/sidebar. The same domain components, service contracts, and authorization rules are reused in every viewport and in ordinary-browser fallback mode.
+
+The visual system follows the Falancé logo without treating its black background as an application color. Brand green is the primary action and navigation color, lavender-purple is a restrained identity accent, coral is reserved for expense and attention semantics, the application background is off-white, cards are white, and text uses an accessible dark green-neutral. The initial token set is documented in ADR-010 and must be validated through contrast and device testing before being treated as final.
+
+The intended core screens are `Beranda`, `Transaksi`, `Tambah Transaksi`, `Laporan`, and `Akun/Keluarga`. `Anggaran`, category summaries, AI financial insight, and Mini App receipt scanning are future surfaces and must not display fabricated or non-authoritative values. Because reports support multiple currencies, balances must remain grouped by currency; the UI must never add amounts with different currencies into one total.
+
+The UI consumes domain data through the server boundary:
+
+```text
+Central repository → FamilyService → authenticated Mini App API → domain-shaped UI state
+```
+
+Components must not call Google Sheets, receive spreadsheet identifiers, or resolve family membership themselves. A future Mini App write endpoint must validate raw Telegram `initData`, resolve active membership and `family_id` server-side, enforce the role and lifecycle rules in `FamilyService`, and then persist through the repository abstraction. Client-provided `family_id`, spreadsheet IDs, Telegram user IDs, or other storage identifiers are never authorization inputs.
+
 ## Family creation
 
 The `/createfamily` flow checks the Telegram identity and active membership, replaces the user’s bounded pending request, and waits for a family name. On submission, the server validates the pending request and expiry, rechecks membership, generates a `family_id`, and writes the `Families` and OWNER `Members` rows to the central spreadsheet. Pending state is marked `COMPLETED` only after those writes succeed.

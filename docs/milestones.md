@@ -179,17 +179,41 @@ When password protection is selected, the backend must encrypt the PDF before de
 
 ## Milestone 10 — Telegram Mini App Expansion
 
-Status: IN PROGRESS — SLICE 1: Dashboard read-only
+Status: IN PROGRESS — SLICE 1 COMPLETE; APP SHELL AND BRANDING NEXT
 
-This milestone expands the first authorized report views into a broader application experience. Slice 1 reuses the authoritative Milestone 9 report payload, so it adds no client-controlled family selection and no new write path.
+This milestone expands the first authorized report view into a family-finance workspace while preserving the existing server-side authorization boundary. The Mini App is mobile-first but not mobile-only: the same component and domain-data system should adapt to Telegram phone, tablet, desktop, and ordinary browser fallback contexts.
 
-- [x] Read-only Dashboard summary with family name, viewer role, selected period, transaction count, and per-currency balance cards
-- [x] Dashboard loading, empty, and error states using the existing report boundary
-- [ ] Telegram authentication hardening beyond the initial report surface
-- [ ] Authorized mobile-first transaction workspace
-- [ ] Transactions, reports, and PWA support beyond the Milestone 9 report surface
-- [ ] Pagination, filters, and interaction patterns for larger datasets
-- [ ] Tests for session expiry, authorization, family isolation, and mobile interaction flows
+The target experience is **open → understand the family’s financial condition → record a transaction → finish**. The visual direction follows the Falancé logo rather than the black logo background: warm brand green as the primary color, lavender-purple as a restrained identity accent, coral as a controlled expense/attention accent, off-white application background, white cards, soft shadows, accessible contrast, generous whitespace, and one-handed mobile interaction.
+
+Every family selector or family context control must remain server-authorized. The browser must never provide `family_id` as an authorization input. A Mini App write must validate raw Telegram `initData`, resolve the active membership and family on the server, enforce the role boundary, and call `FamilyService`; the UI must never write directly to Google Sheets.
+
+### Mini App screen and slice roadmap
+
+| Slice | Scope | Boundary | Status |
+| --- | --- | --- | --- |
+| 1 | Read-only Dashboard summary using the authoritative report payload: family name, viewer role, selected period, transaction count, and per-currency balance cards | Existing report API; no client-selected family and no write path | Complete |
+| 2 | App shell, Falancé brand tokens, responsive layout, bottom navigation (`Beranda`, `Transaksi`, `+`, `Laporan`, `Akun`), and loading/empty/error states | UI and navigation only; no new persistence | Next |
+| 3 | Read-only Transaksi workspace with income/expense/all filters, period navigation, transaction list, and transaction detail | Existing family-scoped report/service reads; bounded initial list with a later pagination boundary | Planned |
+| 4 | Dedicated Laporan screen with summary, period comparison where data is available, and progressive disclosure for OWNER/ADMIN exports | Existing report and export authorization; MEMBER remains view-only | Planned |
+| 5 | Read-only Akun & Keluarga screen with profile context, family name, role, active members, and permission-aware presentation | Existing family service reads; administrative mutations remain server-side | Planned |
+| 6 | Minimal Tambah Transaksi flow for `INCOME`/`EXPENSE`, amount, currency, date, and description | New Mini App write endpoints using validated `initData` and `FamilyService` | Planned |
+| 7 | Transaction detail/edit and soft-void interactions with explicit confirmation semantics | New authorized endpoints; no hard deletion and no client-controlled family ID | Planned |
+| 8 | Optional family administration actions such as invitation and lifecycle management | Existing service authorization, role checks, audit, Y/N confirmation, and last-OWNER invariant | Planned |
+| 9 | Category and analytics contract preparation before category summaries or budget UI | New persisted schema decision required; no use of AI `categorySuggestion` as authoritative data | Planned |
+
+### Explicitly deferred from the current Mini App scope
+
+- `category` and category summaries remain deferred until a persisted transaction category schema is accepted.
+- `payment_method` remains deferred because it is not part of the current transaction model or worksheet.
+- Budget totals, per-category budget progress, and the `/budget` surface remain deferred until category and budget schemas exist.
+- AI financial insight remains a later layer over server-derived structured metrics; AI must never be the source of financial totals.
+- Scan Struk AI from the Mini App remains deferred; the existing Telegram receipt flow is not implicitly exposed as a browser upload endpoint.
+- Planned transactions and recurring liabilities remain outside actual balance calculations.
+- PWA/offline support, larger-dataset pagination, and cross-instance validation remain separate hardening concerns.
+
+### Exit criteria
+
+Milestone 10 is complete only when the core Mini App screens have loading, empty, error, accessibility, responsive, session-expiry, authorization, and family-isolation coverage; all writes use the existing service boundary; multi-currency balances are never mixed; and production validation confirms the Mini App works in the intended Telegram contexts. Category, budget, AI insight, and Mini App receipt scanning are not completion blockers for the read-only workspace, but they must remain explicitly deferred until their data contracts are ready.
 
 ## Milestone 11 — AI Usage, Quota, and Provider Reliability
 

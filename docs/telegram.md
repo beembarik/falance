@@ -102,6 +102,16 @@ Milestone 9 now provides authorized Telegram summaries, authenticated Mini App v
 
 If a user requests a password-protected PDF, the password is collected through the Mini App password input and sent to the server over HTTPS only to prepare an encrypted short-lived PDF action token. The plaintext password is not placed in a URL, Telegram log, Sheets row, analytics event, or response message. The GET download route decrypts it in memory for PDF generation, and the client clears the input after preparing the download action.
 
+## Mini App workspace UX
+
+Milestone 10 expands `/reportapp` from a read-only report page into a responsive family-finance workspace. The planned core screens are `Beranda`, `Transaksi`, `Tambah Transaksi`, `Laporan`, and `Akun/Keluarga`, with `Anggaran` remaining deferred until category and budget schemas are available. The preferred mobile navigation is `Beranda · Transaksi · + · Laporan · Akun`; the same components may adapt to a navigation rail or sidebar on wider viewports.
+
+The Mini App visual direction follows the Falancé logo: warm brand green for primary actions and active navigation, restrained lavender-purple for identity accents, coral for expense and attention semantics, an off-white application background, white cards, soft shadows, and accessible dark green-neutral text. The black background shown in the logo asset is not part of the application palette. Multi-currency balances remain separated and must never be added together across currencies.
+
+The UI must handle Telegram mobile, tablet, desktop, and ordinary-browser fallback without assuming `window.Telegram.WebApp` is present. Loading, empty, error, session-expiry, and retry states must be explicit. Export controls remain progressively disclosed and role-safe: `OWNER` and `ADMIN` may export; `MEMBER` may view reports but may not export.
+
+The current Mini App is still report/dashboard read-only. A future `Tambah Transaksi` or management action from the Mini App requires a separate authenticated endpoint. That endpoint must validate raw `initData`, resolve the actor’s membership and `family_id` server-side, enforce the same role and lifecycle rules as Telegram commands, call `FamilyService`, and use the repository abstraction. No browser field may select a family by sending `family_id`, and no component may write directly to Google Sheets. The first write slice is limited to the authoritative transaction fields currently supported: type, amount, currency, date, and description.
+
 ## Roles
 
 `OWNER` and `ADMIN` may create invitations. Invitation revocation is available to both roles and uses a server-persisted Y/N confirmation that expires after five minutes. Only `OWNER` may change an active member between `MEMBER` and `ADMIN`; the `OWNER` role is immutable through role management. Only `OWNER` may deactivate an active non-OWNER member, and the operation uses the same Y/N confirmation flow; deactivation writes soft-state `SUSPENDED` rather than deleting the row. Only `OWNER` may reactivate a `SUSPENDED` membership, with explicit `CONFIRM`; reactivation restores the original row and `member_id`. Only `OWNER` may rename, archive, or reactivate the family. The service rejects any operation that would remove or demote the last active `OWNER`.
