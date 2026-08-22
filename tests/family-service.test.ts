@@ -559,6 +559,7 @@ test("rejects invalid transaction input and archived-family transaction access",
   await assert.rejects(service.createTransaction(owner, { ...valid, transactionDate: nextDate(getBusinessDate()) }), /Tanggal transaksi tidak boleh lebih dari hari ini/);
   await assert.rejects(service.createTransaction(owner, { ...valid, description: "   " }), TransactionError);
   await assert.rejects(service.createTransaction(owner, { ...valid, currency: "RUPIAH" }), TransactionError);
+  await assert.rejects(service.createTransaction(owner, { ...valid, currency: "IDE" }), TransactionError);
 
   repository.families[0].status = "SUSPENDED";
   await assert.rejects(service.createTransaction(owner, valid), UnauthorizedError);
@@ -592,6 +593,14 @@ test("updates an active transaction in its server-resolved family and records an
   assert.equal(updated.description, "Baru dinormalisasi");
   assert.equal(repository.transactions.length, 1);
   assert.equal(repository.auditLogs.at(-1)?.action, "UPDATE_TRANSACTION");
+  await assert.rejects(service.updateTransaction(owner, created.transactionId, {
+    transactionType: "INCOME",
+    amountMinor: 2500,
+    currency: "IDE",
+    transactionDate: "2026-08-20",
+    description: "Currency tidak valid",
+  }), TransactionError);
+  assert.equal(repository.transactions[0]?.currency, "IDR");
 });
 
 test("rejects editing or voiding a transaction from another family", async () => {

@@ -189,6 +189,12 @@ export default function Home() {
   }, [endDate, loadReport, month, startDate]);
 
   const openEditTransaction = useCallback((transaction: ReportResponse["report"]["transactions"][number]) => {
+    const currentInitData = initDataRef.current || window.Telegram?.WebApp?.initData || "";
+    if (!currentInitData) {
+      setNotice("Buka halaman ini dari Telegram Mini App agar transaksi dapat diperbarui.");
+      return;
+    }
+    setFormInitData(currentInitData);
     setSelectedTransaction(null);
     setTransactionActionError("");
     setEditingTransaction(transaction);

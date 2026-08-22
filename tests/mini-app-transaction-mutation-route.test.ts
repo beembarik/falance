@@ -93,6 +93,25 @@ test("Mini App PATCH updates only an active transaction in the server-resolved f
   }
 });
 
+test("Mini App transaction mutation rejects an unsupported currency code", async () => {
+  const response = await PATCH(new Request("https://falance.example.com/api/mini-app/transaction", {
+    method: "PATCH",
+    body: JSON.stringify({
+      initData: signedInitData("100"),
+      transactionId: transaction.transactionId,
+      transactionType: "EXPENSE",
+      amountMinor: "125000",
+      currency: "IDE",
+      transactionDate: "2026-08-22",
+      description: "Currency typo",
+    }),
+    headers: { "content-type": "application/json" },
+  }));
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "Currency harus berupa kode ISO 4217 yang didukung, misalnya IDR." });
+});
+
 test("Mini App soft-void requires server-persisted confirmation before changing status", async () => {
   const originalToken = process.env.TELEGRAM_BOT_TOKEN;
   process.env.TELEGRAM_BOT_TOKEN = botToken;

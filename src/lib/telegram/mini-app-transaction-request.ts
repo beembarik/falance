@@ -1,4 +1,5 @@
 import type { CreateTransactionInput } from "../family/service";
+import { isSupportedCurrencyCode } from "../family/currency";
 import type { TransactionType } from "../family/types";
 import { parseAmountMinor, TransactionCommandError } from "./transaction-command";
 
@@ -40,8 +41,8 @@ export function parseMiniAppTransactionInput(payload: MiniAppTransactionPayload)
   if (!transactionDate || !description) return new TransactionCommandError("Tanggal dan deskripsi wajib diisi.");
 
   const currencyValue = stringValue(payload.currency);
-  if (currencyValue && !/^[A-Za-z]{3}$/.test(currencyValue)) {
-    return new TransactionCommandError("Currency harus berupa kode tiga huruf, misalnya IDR.");
+  if (currencyValue && !isSupportedCurrencyCode(currencyValue.toUpperCase())) {
+    return new TransactionCommandError("Currency harus berupa kode ISO 4217 yang didukung, misalnya IDR.");
   }
 
   return {

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { getBusinessDate } from "../time/business-date";
+import { DEFAULT_CURRENCY_CODE, isSupportedCurrencyCode } from "./currency";
 import { buildFinancialReport, getFinancialReportPeriod, type FinancialReport } from "./report";
 import { withKeyLocks } from "../concurrency/keyed-mutex";
 import type { FamilyRepository } from "./repository";
@@ -951,8 +952,10 @@ export function validateTransactionInput(input: CreateTransactionInput): void {
 }
 
 function normalizeCurrency(currency: string | undefined): string {
-  const normalized = (currency ?? "IDR").trim().toUpperCase();
-  if (!/^[A-Z]{3}$/.test(normalized)) throw new TransactionError("Currency must be a three-letter code.");
+  const normalized = (currency ?? DEFAULT_CURRENCY_CODE).trim().toUpperCase();
+  if (!isSupportedCurrencyCode(normalized)) {
+    throw new TransactionError("Currency must be a supported ISO 4217 three-letter code, for example IDR.");
+  }
   return normalized;
 }
 
