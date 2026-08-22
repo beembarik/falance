@@ -13,6 +13,7 @@ import type {
   TransactionStatus,
   TransactionType,
 } from "../family/types";
+import { CATEGORY_CODES } from "../family/category-analytics";
 
 export interface RegistryIntegrityIssue {
   sheet: string;
@@ -36,13 +37,15 @@ const CONFIRMATION_ACTIONS = new Set<ConfirmationAction>(["REVOKE_INVITATION", "
 const CONFIRMATION_STATUSES = new Set<ConfirmationStatus>(["PENDING", "COMPLETED", "CANCELLED", "EXPIRED"]);
 const TRANSACTION_TYPES = new Set<TransactionType>(["INCOME", "EXPENSE"]);
 const TRANSACTION_STATUSES = new Set<TransactionStatus>(["ACTIVE", "VOID"]);
+const TRANSACTION_CATEGORIES = new Set<string>(CATEGORY_CODES);
 const TRANSACTION_DRAFT_STATUSES = new Set<TransactionDraftStatus>(["PENDING", "EDITING", "COMPLETED", "CANCELLED", "EXPIRED"]);
 const DRAFT_APPROVAL_CLAIM_STATUSES = new Set<DraftApprovalClaimStatus>(["CLAIMED", "COMPLETED"]);
 const AUDIT_TARGET_TYPES = new Set<AuditTargetType>(["INVITATION", "MEMBER", "FAMILY", "TRANSACTION"]);
 const AUDIT_ACTIONS = new Set<AuditAction>([
   "CREATE_INVITATION", "REVOKE_INVITATION", "CHANGE_MEMBER_ROLE", "DEACTIVATE_MEMBER",
   "REACTIVATE_MEMBER", "RENAME_FAMILY", "ARCHIVE_FAMILY", "REACTIVATE_FAMILY",
-  "CREATE_TRANSACTION", "UPDATE_TRANSACTION", "VOID_TRANSACTION",
+      "CREATE_TRANSACTION", "UPDATE_TRANSACTION", "UPDATE_TRANSACTION_CATEGORY", "VOID_TRANSACTION",
+
 ]);
 
 export async function inspectRegistryIntegrity(
@@ -187,11 +190,12 @@ function validateTransactions(rows: string[][], familyRows: string[][], memberRo
   const members = new Set(memberRows.filter((row) => row[1]).map((row) => `${row[1]}:${row[0]}`));
   const ids = new Set<string>();
   forEachRow("Transactions", rows, (row, rowNumber) => {
-    required("Transactions", row, rowNumber, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], issues);
+    required("Transactions", row, rowNumber, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], issues);
     unique("Transactions", row[0], ids, rowNumber, issues);
     foreign("Transactions", rowNumber, "family_id", row[1], familyIds, issues);
     if (!TRANSACTION_TYPES.has(row[2] as TransactionType)) issue(issues, "Transactions", rowNumber, "transaction_type", "INVALID_ENUM");
     if (!TRANSACTION_STATUSES.has(row[9] as TransactionStatus)) issue(issues, "Transactions", rowNumber, "status", "INVALID_ENUM");
+    if (!TRANSACTION_CATEGORIES.has(row[10])) issue(issues, "Transactions", rowNumber, "category", "INVALID_ENUM");
     if (!members.has(`${row[1]}:${row[7]}`)) issue(issues, "Transactions", rowNumber, "created_by_member_id", "ORPHAN_MEMBER");
     if (!Number.isSafeInteger(Number(row[3])) || Number(row[3]) <= 0) issue(issues, "Transactions", rowNumber, "amount_minor", "INVALID_AMOUNT");
   });

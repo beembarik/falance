@@ -603,6 +603,27 @@ test("updates an active transaction in its server-resolved family and records an
   assert.equal(repository.transactions[0]?.currency, "IDR");
 });
 
+test("assigns a validated category through the family service and records an audit event", async () => {
+  const repository = setupMember("OWNER");
+  const service = new FamilyService(repository);
+  const created = await service.createTransaction(owner, {
+    transactionType: "EXPENSE",
+    amountMinor: 1000,
+    transactionDate: "2026-08-19",
+    description: "Makan",
+  });
+
+  const categorized = await service.updateTransactionCategory(owner, created.transactionId, "food");
+  assert.equal(categorized.category, "FOOD");
+  assert.equal(repository.transactions[0]?.category, "FOOD");
+  assert.equal(repository.auditLogs.at(-1)?.action, "UPDATE_TRANSACTION_CATEGORY");
+  assert.equal(repository.auditLogs.at(-1)?.previousValue, "UNCATEGORIZED");
+  assert.equal(repository.auditLogs.at(-1)?.newValue, "FOOD");
+
+  await assert.rejects(service.updateTransactionCategory(owner, created.transactionId, "not-a-category"), TransactionError);
+  assert.equal(repository.transactions[0]?.category, "FOOD");
+});
+
 test("rejects editing or voiding a transaction from another family", async () => {
   const otherOwner: TelegramUser = { telegramUserId: "300", name: "Other Owner", username: "other" };
   const repository = new FakeFamilyRepository();
@@ -618,6 +639,7 @@ test("rejects editing or voiding a transaction from another family", async () =>
     description: "Tidak boleh",
   }), TransactionError);
   await assert.rejects(service.requestTransactionVoid(owner, "txn_foreign"), TransactionError);
+  await assert.rejects(service.updateTransactionCategory(owner, "txn_foreign", "FOOD"), TransactionError);
   assert.equal(repository.confirmations.length, 0);
   assert.equal(repository.transactions[0].status, "ACTIVE");
 });

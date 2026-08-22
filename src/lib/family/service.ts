@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { getBusinessDate } from "../time/business-date";
 import { DEFAULT_CURRENCY_CODE, isSupportedCurrencyCode } from "./currency";
 import { buildFinancialReport, getFinancialReportPeriod, type FinancialReport } from "./report";
+import { isTransactionCategory } from "./category-analytics";
 import { withKeyLocks } from "../concurrency/keyed-mutex";
 import type { FamilyRepository } from "./repository";
 import type {
@@ -714,6 +715,32 @@ export class FamilyService {
     return updated;
   }
 
+  async updateTransactionCategory(
+    user: TelegramUser,
+    transactionId: string,
+    category: string,
+  ): Promise<Transaction> {
+    const member = await this.requireActiveMember(user.telegramUserId);
+    await this.requireActiveFamily(member.familyId);
+    const normalizedCategory = normalizeTransactionCategoryInput(category);
+    const target = (await this.repository.findTransactionsByFamilyId(member.familyId)).find(
+      (transaction) => transaction.transactionId === transactionId && transaction.status === "ACTIVE",
+    );
+    if (!target) throw new TransactionError("Active transaction is not found in the family.");
+
+    const updated: Transaction = { ...target, category: normalizedCategory };
+    await this.repository.updateTransaction(transactionId, updated);
+    await this.recordAudit(
+      member,
+      "UPDATE_TRANSACTION_CATEGORY",
+      "TRANSACTION",
+      transactionId,
+      target.category ?? "UNCATEGORIZED",
+      normalizedCategory,
+    );
+    return updated;
+  }
+
   async requestTransactionVoid(user: TelegramUser, transactionId: string): Promise<PendingConfirmation> {
     const member = await this.requireActiveMember(user.telegramUserId);
     await this.requireActiveFamily(member.familyId);
@@ -959,8 +986,14 @@ function normalizeCurrency(currency: string | undefined): string {
   return normalized;
 }
 
-function normalizeTransactionDescription(description: string): string {
-  return description.replace(/\s+/g, " ").trim();
+function normalizeTransactionCategoryInput(value: string): string {
+  const normalized = value.trim().toUpperCase();
+  if (!isTransactionCategory(normalized)) throw new TransactionError("Category is not supported.");
+  return normalized;
+}
+
+function normalizeTransactionDescription(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function normalizeInvitationCode(code: string): string {

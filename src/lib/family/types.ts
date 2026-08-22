@@ -33,6 +33,7 @@ export const AUDIT_ACTIONS = [
   "REACTIVATE_FAMILY",
   "CREATE_TRANSACTION",
   "UPDATE_TRANSACTION",
+  "UPDATE_TRANSACTION_CATEGORY",
   "VOID_TRANSACTION",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -51,6 +52,7 @@ export interface Transaction {
   currency: string;
   transactionDate: string;
   description: string;
+  category?: string;
   createdByMemberId: string;
   createdAt: string;
   status: TransactionStatus;

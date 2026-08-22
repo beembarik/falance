@@ -124,6 +124,7 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
       transaction.createdByMemberId,
       transaction.createdAt,
       transaction.status,
+      transaction.category ?? "UNCATEGORIZED",
     ], "createTransaction");
   }
 
@@ -142,6 +143,7 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
       transaction.createdByMemberId,
       transaction.createdAt,
       transaction.status,
+      transaction.category ?? "UNCATEGORIZED",
     ]], "updateTransaction");
   }
 
@@ -612,6 +614,7 @@ function transactionFromRow(row: string[]): Transaction {
     createdByMemberId: row[7],
     createdAt: row[8],
     status: row[9] as Transaction["status"],
+    category: row[10] || "UNCATEGORIZED",
   };
 }
 

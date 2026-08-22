@@ -179,7 +179,7 @@ When password protection is selected, the backend must encrypt the PDF before de
 
 ## Milestone 10 — Telegram Mini App Expansion
 
-Status: IN PROGRESS — SLICES 1–8 IMPLEMENTED; PRODUCTION VALIDATION PENDING
+Status: IN PROGRESS — SLICES 1–9 IMPLEMENTED; PRODUCTION VALIDATION PENDING
 
 This milestone expands the first authorized report view into a family-finance workspace while preserving the existing server-side authorization boundary. The Mini App is mobile-first but not mobile-only: the same component and domain-data system should adapt to Telegram phone, tablet, desktop, and ordinary browser fallback contexts.
 
@@ -199,11 +199,11 @@ Every family selector or family context control must remain server-authorized. T
 | 6 | Minimal Tambah Transaksi flow for `INCOME`/`EXPENSE`, amount, currency, date, and description | New Mini App write endpoint using validated `initData` and `FamilyService`; no category/payment method, no client-controlled family ID, and no automatic retry | Implemented locally; production validation pending |
 | 7 | Transaction detail/edit and soft-void interactions with explicit confirmation semantics | `PATCH` edit endpoint plus request-confirm-cancel endpoint using `PendingConfirmation`; no hard deletion and no client-controlled family ID | Implemented locally; validation pending |
 | 8 | Family administration actions from the Account screen: create invitation, rename family, change MEMBER/ADMIN role, and deactivate active members | Existing service authorization, role checks, audit, Y/N confirmation for deactivation, and last-OWNER invariant; no client-controlled family ID | Implemented locally; production validation pending |
-| 9 | Category and analytics contract preparation before category summaries or budget UI | New persisted schema decision required; no use of AI `categorySuggestion` as authoritative data | Planned |
+| 9 | Category and analytics contract preparation before category summaries or budget UI | Accepted stable category codes, deterministic family/currency-scoped summaries, legacy fallback, legacy-safe Transactions migration, service-level assignment, and no use of AI `categorySuggestion` as authoritative data | Implemented locally; registry migration and production validation pending |
 
 ### Explicitly deferred from the current Mini App scope
 
-- `category` and category summaries remain deferred until a persisted transaction category schema is accepted.
+- Category selectors and category summaries remain deferred until the Slice 9 registry migration is validated in production and the UI/service exposure is separately reviewed; the accepted contract and migration plan are in [`docs/category-analytics.md`](category-analytics.md).
 - `payment_method` remains deferred because it is not part of the current transaction model or worksheet.
 - Budget totals, per-category budget progress, and the `/budget` surface remain deferred until category and budget schemas exist.
 - AI financial insight remains a later layer over server-derived structured metrics; AI must never be the source of financial totals.

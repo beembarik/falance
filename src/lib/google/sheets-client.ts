@@ -291,7 +291,8 @@ export type GoogleOperation =
   | "readRegistryIntegrity"
   | "migrateInvitationsSchema"
   | "migratePendingFamilyCreationsSchema"
-  | "migrateFamiliesSchema";
+  | "migrateFamiliesSchema"
+  | "migrateTransactionsSchema";
 
 function logGoogleFailure(
   operation: GoogleOperation | undefined,
@@ -431,6 +432,14 @@ function getLegacyRegistryMigration(
         : [row[0] ?? "", "", row[1] ?? "", row[2] ?? "", row[3] ?? ""],
     };
   }
+  if (sheetName === "Transactions" && sameHeader(header, [
+    "transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status",
+  ])) {
+    return {
+      operation: "migrateTransactionsSchema",
+      transformRow: (row) => [...row.slice(0, 10), "UNCATEGORIZED"],
+    };
+  }
   return null;
 }
 
@@ -455,7 +464,7 @@ export const REGISTRY_SHEETS = [
   { name: "Pending Confirmations", headers: ["confirmation_id", "telegram_user_id", "family_id", "action", "target", "created_at", "expires_at", "status"] },
   { name: "Pending Transaction Drafts", headers: ["draft_id", "telegram_user_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "confidence", "created_at", "expires_at", "status"] },
   { name: "Audit Log", headers: ["audit_id", "family_id", "actor_member_id", "actor_role", "action", "target_type", "target_id", "previous_value", "new_value", "created_at"] },
-  { name: "Transactions", headers: ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"] },
+  { name: "Transactions", headers: ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status", "category"] },
   { name: "Processed Telegram Updates", headers: ["update_id", "claimed_at", "completed_at", "status"] },
   { name: "AI Vision Usage", headers: ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"] },
   { name: "Draft Approval Claims", headers: ["draft_id", "telegram_user_id", "family_id", "transaction_id", "claimed_at", "completed_at", "lease_until", "status"] },

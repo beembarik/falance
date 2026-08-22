@@ -174,7 +174,7 @@ test("reports registry foreign references without exposing row values", async ()
     "Pending Confirmations": ["confirmation_id", "telegram_user_id", "family_id", "action", "target", "created_at", "expires_at", "status"],
     "Pending Transaction Drafts": ["draft_id", "telegram_user_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "confidence", "created_at", "expires_at", "status"],
     "Audit Log": ["audit_id", "family_id", "actor_member_id", "actor_role", "action", "target_type", "target_id", "previous_value", "new_value", "created_at"],
-    Transactions: ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"],
+    Transactions: ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status", "category"],
     "Processed Telegram Updates": ["update_id", "claimed_at", "completed_at", "status"],
     "AI Vision Usage": ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"],
     "Draft Approval Claims": ["draft_id", "telegram_user_id", "family_id", "transaction_id", "claimed_at", "completed_at", "lease_until", "status"],
@@ -182,7 +182,7 @@ test("reports registry foreign references without exposing row values", async ()
   const values: Record<string, string[][]> = Object.fromEntries(Object.entries(headers).map(([name, header]) => [name, [header]]));
   values.Families.push(["fam_1", "Keluarga Rahasia", "ACTIVE", "2026-01-01T00:00:00.000Z", "100", "MVP"]);
   values.Members.push(["mem_1", "fam_1", "100", "Owner Rahasia", "owner", "OWNER", "ACTIVE", "2026-01-01T00:00:00.000Z"]);
-  values.Transactions.push(["txn_1", "fam_missing", "EXPENSE", "1000", "IDR", "2026-08-21", "Data Rahasia", "mem_1", "2026-08-21T00:00:00.000Z", "ACTIVE"]);
+  values.Transactions.push(["txn_1", "fam_missing", "EXPENSE", "1000", "IDR", "2026-08-21", "Data Rahasia", "mem_1", "2026-08-21T00:00:00.000Z", "ACTIVE", "UNCATEGORIZED"]);
   const client = {
     ensureRegistry: async () => {},
     getValues: async (_spreadsheetId: string, sheetName: string) => values[sheetName],
@@ -253,7 +253,7 @@ test("initializes the single central registry without Drive or spreadsheet creat
       ["confirmation_id", "telegram_user_id", "family_id", "action", "target", "created_at", "expires_at", "status"],
       ["draft_id", "telegram_user_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "confidence", "created_at", "expires_at", "status"],
       ["audit_id", "family_id", "actor_member_id", "actor_role", "action", "target_type", "target_id", "previous_value", "new_value", "created_at"],
-      ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"],
+      ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status", "category"],
       ["update_id", "claimed_at", "completed_at", "status"],
       ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"],
       ["draft_id", "telegram_user_id", "family_id", "transaction_id", "claimed_at", "completed_at", "lease_until", "status"],
@@ -277,6 +277,7 @@ test("migrates legacy invitation and pending family creation schemas without del
   const expectedHeaders = new Map<string, string[]>(REGISTRY_SHEETS.map((sheet) => [sheet.name, [...sheet.headers]]));
   const legacyInvitationHeader = ["invitation_id", "family_id", "code", "created_by", "created_at", "expires_at", "status", "used_by", "used_at"];
   const legacyPendingHeader = ["telegram_user_id", "created_at", "expires_at", "status"];
+  const legacyTransactionHeader = ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"];
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url === "https://oauth2.googleapis.com/token") {
@@ -287,8 +288,10 @@ test("migrates legacy invitation and pending family creation schemas without del
     }
     if (url.endsWith("/values/Invitations!1%3A1")) return jsonResponse({ values: [legacyInvitationHeader] });
     if (url.endsWith("/values/Pending%20Family%20Creations!1%3A1")) return jsonResponse({ values: [legacyPendingHeader] });
+    if (url.endsWith("/values/Transactions!1%3A1")) return jsonResponse({ values: [legacyTransactionHeader] });
     if (url.endsWith("/values/Invitations")) return jsonResponse({ values: [legacyInvitationHeader, ["inv_1", "fam_1", "FAL-AAAAAA", "100", "2026-01-01", "2026-01-02", "PENDING", "", ""]] });
     if (url.endsWith("/values/Pending%20Family%20Creations")) return jsonResponse({ values: [legacyPendingHeader, ["100", "2026-01-01", "2026-01-02", "PENDING"]] });
+    if (url.endsWith("/values/Transactions")) return jsonResponse({ values: [legacyTransactionHeader, ["txn_1", "fam_1", "EXPENSE", "1000", "IDR", "2026-08-19", "Makan", "mem_100", "2026-08-19T00:00:00.000Z", "ACTIVE"]] });
     if (url.includes("/values/") && init?.method === "PUT") {
       updates.push({ url, values: JSON.parse(String(init.body)).values, operation: undefined });
       return jsonResponse({});
@@ -301,6 +304,7 @@ test("migrates legacy invitation and pending family creation schemas without del
     await new GoogleSheetsClient().ensureRegistry("central-registry-id");
     const invitationUpdates = updates.filter((update) => update.url.includes("Invitations"));
     const pendingUpdates = updates.filter((update) => update.url.includes("Pending%20Family%20Creations"));
+    const transactionUpdates = updates.filter((update) => update.url.includes("Transactions"));
     assert.deepEqual(invitationUpdates.map((update) => update.values), [
       [["inv_1", "fam_1", "FAL-AAAAAA", "100", "2026-01-01", "2026-01-02", "", "", "PENDING"]],
       [expectedHeaders.get("Invitations")],
@@ -308,6 +312,10 @@ test("migrates legacy invitation and pending family creation schemas without del
     assert.deepEqual(pendingUpdates.map((update) => update.values), [
       [["100", "", "2026-01-01", "2026-01-02", "PENDING"]],
       [expectedHeaders.get("Pending Family Creations")],
+    ]);
+    assert.deepEqual(transactionUpdates.map((update) => update.values), [
+      [["txn_1", "fam_1", "EXPENSE", "1000", "IDR", "2026-08-19", "Makan", "mem_100", "2026-08-19T00:00:00.000Z", "ACTIVE", "UNCATEGORIZED"]],
+      [expectedHeaders.get("Transactions")],
     ]);
     assert.equal(updates.some((update) => update.url.includes("deleteDimension")), false);
   } finally {
@@ -433,7 +441,7 @@ test("appends a transaction row with the mandatory family_id and typed fields", 
   const appends: Array<{ spreadsheetId: string; sheetName: string; values: readonly (readonly string[])[]; operation: string | undefined }> = [];
   const client = {
     ensureRegistry: async () => {},
-    getValues: async () => [["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"]],
+    getValues: async () => [["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status", "category"]],
     appendRows: async (
       spreadsheetId: string,
       sheetName: string,
@@ -458,7 +466,7 @@ test("appends a transaction row with the mandatory family_id and typed fields", 
     assert.deepEqual(appends, [{
       spreadsheetId: "central-registry-id",
       sheetName: "Transactions",
-      values: [["txn_1", "fam_1", "EXPENSE", "15000", "IDR", "2026-08-19", "Makan siang", "mem_100", "2026-08-19T00:00:00.000Z", "ACTIVE"]],
+      values: [["txn_1", "fam_1", "EXPENSE", "15000", "IDR", "2026-08-19", "Makan siang", "mem_100", "2026-08-19T00:00:00.000Z", "ACTIVE", "UNCATEGORIZED"]],
       operation: "createTransaction",
     }]);
   } finally {
@@ -519,8 +527,8 @@ test("updates a transaction row in place without creating a new transaction row"
   const client = {
     ensureRegistry: async () => {},
     getValues: async () => [
-      ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"],
-      ["txn_1", "fam_1", "EXPENSE", "15000", "IDR", "2026-08-19", "Makan siang", "mem_100", "2026-08-19T00:00:00.000Z", "ACTIVE"],
+      ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status", "category"],
+      ["txn_1", "fam_1", "EXPENSE", "15000", "IDR", "2026-08-19", "Makan siang", "mem_100", "2026-08-19T00:00:00.000Z", "ACTIVE", "UNCATEGORIZED"],
     ],
     updateValues: async (
       spreadsheetId: string,
@@ -546,9 +554,28 @@ test("updates a transaction row in place without creating a new transaction row"
     assert.deepEqual(updates, [{
       spreadsheetId: "central-registry-id",
       range: "Transactions!A2",
-      values: [["txn_1", "fam_1", "EXPENSE", "20000", "IDR", "2026-08-20", "Belanja baru", "mem_100", "2026-08-19T00:00:00.000Z", "VOID"]],
+      values: [["txn_1", "fam_1", "EXPENSE", "20000", "IDR", "2026-08-20", "Belanja baru", "mem_100", "2026-08-19T00:00:00.000Z", "VOID", "UNCATEGORIZED"]],
       operation: "updateTransaction",
     }]);
+  } finally {
+    restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
+  }
+});
+
+test("reads a legacy transaction row without category as UNCATEGORIZED", async () => {
+  const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
+  process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";
+  const client = {
+    ensureRegistry: async () => {},
+    getValues: async () => [["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"], [
+      "txn_legacy", "fam_1", "EXPENSE", "1000", "IDR", "2026-08-19", "Makan", "mem_100", "2026-08-19T00:00:00.000Z", "ACTIVE",
+    ]],
+  } as unknown as GoogleSheetsClient;
+
+  try {
+    const transactions = await new GoogleSheetsFamilyRepository(client).findTransactionsByFamilyId("fam_1");
+    assert.equal(transactions[0]?.transactionId, "txn_legacy");
+    assert.equal(transactions[0]?.category, "UNCATEGORIZED");
   } finally {
     restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
   }
