@@ -82,19 +82,19 @@ Persisted transaction categories, payment methods, budgets, category summaries, 
 
 ## ADR-011: Category and analytics contract before persistence
 
-**Status:** Accepted; M10 Slices 9–12 production validated. M10 Slice 13 extends Laporan with server-derived cash-flow analytics and awaits production validation.
+**Status:** Accepted; M10 Slices 9–13 production validated. M10 Slice 14 adds read-only category filter and drill-down in Laporan and awaits production validation.
 
 Falancé will use stable uppercase category codes with separate display labels rather than persisting translated labels. The proposed initial code set and deterministic summary shape are defined in [`docs/category-analytics.md`](category-analytics.md). Existing AI `categorySuggestion` values remain draft-only candidates and cannot be persisted or used as the source of financial totals without explicit user approval and service validation.
 
 Category analytics must be grouped by both category and normalized ISO currency. It must include only active transactions in the server-resolved family and selected inclusive date range, exclude `VOID` rows, and calculate income, expense, net, and transaction count using integer minor units. Amounts in different currencies must never be combined.
 
-The implementation appends `category` as the final column of the existing central `Transactions` worksheet, migrates legacy rows by writing `UNCATEGORIZED`, reads absent values with the same fallback, and writes only validated stable codes through the repository. The operator completed the central registry backup and production integrity check with `healthy: true` and `issues: []`. M10 Slice 10 exposes explicit category selection in authenticated Mini App create/edit flows and has been production validated. M10 Slice 11 exposes read-only summaries and expense distribution per currency in the analytics presentation layer; M10 Slice 12 places that visualization in Laporan while keeping Beranda focused on snapshot and activity. A future Supabase mapping must preserve the same codes and legacy semantics. No per-family spreadsheet or Drive API is introduced.
+The implementation appends `category` as the final column of the existing central `Transactions` worksheet, migrates legacy rows by writing `UNCATEGORIZED`, reads absent values with the same fallback, and writes only validated stable codes through the repository. The operator completed the central registry backup and production integrity check with `healthy: true` and `issues: []`. M10 Slice 10 exposes explicit category selection in authenticated Mini App create/edit flows and has been production validated. M10 Slice 11 exposes read-only summaries and expense distribution per currency in the analytics presentation layer; M10 Slice 12 places that visualization in Laporan while keeping Beranda focused on snapshot and activity; M10 Slice 13 adds cash-flow points using the same period/currency boundary. A future Supabase mapping must preserve the same codes and legacy semantics. No per-family spreadsheet or Drive API is introduced.
 
 This ADR authorizes the read-only category summary and per-currency expense visualization in M10 Slice 11, with the Laporan placement validated in M10 Slice 12. It does not authorize budgets, payment methods, recurring liabilities, AI financial insight, or Mini App receipt scanning. Those remain separate decisions and implementation slices.
 
 ## ADR-012: Dashboard snapshot, report analytics, and transaction provenance
 
-**Status:** Accepted; M10 Slice 12 production validated. M10 Slice 13 is the next implementation slice.
+**Status:** Accepted; M10 Slices 12–13 production validated. M10 Slice 14 is the next implementation slice.
 
 Falancé will keep Beranda focused on a family financial snapshot and recent family activity. Category analytics belong to Laporan, where users explicitly seek analysis and export. Moving the presentation of the category chart does not remove or weaken the server-side category summary contract introduced by ADR-011.
 
@@ -106,7 +106,7 @@ The slice may reduce duplicate primary CTAs on Beranda while preserving the pers
 
 ## ADR-013: Server-derived cash-flow analytics per currency
 
-**Status:** Accepted; implemented locally as M10 Slice 13 and awaiting production validation.
+**Status:** Accepted; M10 Slice 13 production validated. M10 Slice 14 is the next implementation slice.
 
 Falancé will expose a read-only cash-flow view in Laporan using server-derived monthly points for the selected report period. Each point contains `INCOME`, `EXPENSE`, and `NET` values plus transaction count, grouped by normalized currency. The server resolves the active family from validated Telegram `initData`, filters only `ACTIVE` transactions within the inclusive period, and never combines amounts from different currencies.
 

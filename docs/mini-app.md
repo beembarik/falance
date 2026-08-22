@@ -21,8 +21,8 @@ Milestone 9 telah menyediakan report read-only, autentikasi Telegram `initData`,
 | Akun & Keluarga read-only | Direncanakan pada Slice 5 |
 | Tambah Transaksi dari Mini App | Tersedia melalui Slice 6 |
 | Edit dan void transaksi dari Mini App | Tersedia melalui Slice 7 |
-| Administrasi keluarga dari Mini App | Tersedia lokal melalui Slice 8; validasi production pending |
-| Kategori dan category summaries | Deferred sampai schema persisted diterima |
+| Administrasi keluarga dari Mini App | Tersedia melalui Slice 8; validasi historis tetap dicatat pada roadmap |
+| Kategori, category summaries, dan cash-flow analytics | Tersedia read-only melalui Slice 9–13; filter dan drill-down kategori dikerjakan pada Slice 14 |
 | Anggaran | Deferred sampai schema budget dan kategori tersedia |
 | AI financial insight | Deferred; rule-based metrics didahulukan |
 | Scan Struk AI dari Mini App | Deferred; alur Telegram tetap menjadi boundary saat ini |
@@ -106,9 +106,9 @@ Mini App harus memanggil `Telegram.WebApp.ready()` dan `expand()` jika API terse
 
 ### Beranda
 
-Beranda menjawab pertanyaan: **“Bagaimana kondisi keuangan keluarga pada periode ini?”** Hierarki yang disarankan adalah header, konteks keluarga, periode, ringkasan pemasukan/pengeluaran/saldo, transaksi terbaru, lalu navigasi.
+Beranda menjawab pertanyaan: **“Bagaimana kondisi keuangan keluarga pada periode ini?”** Hierarki yang disarankan adalah header, konteks keluarga, periode, ringkasan pemasukan/pengeluaran/surplus-defisit, transaksi terbaru, lalu navigasi.
 
-Saldo tidak boleh digabung lintas currency. Jika terdapat beberapa currency, gunakan beberapa summary block atau grouping per currency. Card saldo dapat mengarahkan pengguna ke screen Laporan.
+Surplus/defisit periode tidak boleh digabung lintas currency. Jika terdapat beberapa currency, gunakan beberapa summary block atau grouping per currency. Ringkasan dapat mengarahkan pengguna ke screen Laporan.
 
 ### Transaksi
 
@@ -124,7 +124,7 @@ Endpoint write harus memvalidasi raw Telegram `initData`, mencari membership akt
 
 ### Laporan
 
-Screen Laporan memakai report read model yang deterministic. Ringkasan pemasukan, pengeluaran, saldo, transaction count, currency, filter bulan/rentang, dan export role-safe dapat ditampilkan dalam satu alur yang progressive.
+Screen Laporan memakai report read model yang deterministic. Ringkasan pemasukan, pengeluaran, surplus/defisit periode, transaction count, currency, filter bulan/rentang, cash-flow analytics, category analytics, dan export role-safe dapat ditampilkan dalam satu alur yang progressive. Slice 14 menambahkan filter kategori serta drill-down read-only tanpa mengubah data transaksi.
 
 `OWNER` dan `ADMIN` dapat meminta CSV, print, dan PDF sesuai endpoint yang ada. `MEMBER` dapat melihat laporan tetapi tidak dapat melakukan export, walaupun endpoint dipanggil langsung di luar UI.
 

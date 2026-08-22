@@ -2,6 +2,35 @@
 
 All notable changes to Falancé are documented in this file.
 
+## [0.5.0] — 2026-08-22
+
+### Added
+
+- Added server-derived cash-flow analytics to the authenticated Mini App Laporan, with monthly Income, Expense, and Net Cash Flow points per currency.
+- Added per-currency cash-flow visualization with explicit empty states and no cross-currency totals.
+
+### Changed
+
+- Extended the report API with precise minor-unit cash-flow values serialized as strings.
+- Kept transaction detail limits independent from full-period analytics aggregation.
+- Preserved the existing category analytics, provenance, export, and Dashboard/Laporan information architecture.
+
+### Security and integrity
+
+- Cash-flow aggregation remains restricted to the server-resolved family, the selected inclusive report period, and `ACTIVE` transactions; `VOID` rows and other families are excluded.
+- No account, transfer, savings, budget, forecast, or AI insight semantics were introduced by this release.
+- Preserved the central single-spreadsheet architecture, FamilyService/repository boundary, Telegram `initData` validation, multi-currency separation, and no-client-controlled-family-ID invariant.
+
+### Verification
+
+- M10 Slice 13 was validated in the production Mini App.
+- `npm run lint` passes.
+- `npm run build` passes.
+- `npm test` passes with 193 tests.
+- `git diff --check` passes.
+
+[0.5.0]: https://github.com/beembarik/falance/releases/tag/v0.5.0
+
 ## [0.4.0] — 2026-08-22
 
 ### Added
