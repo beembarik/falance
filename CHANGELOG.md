@@ -1,6 +1,22 @@
 # Changelog
 All notable changes to Falancé are documented in this file.
 
+## [0.7.4] — 2026-08-23
+
+### Changed
+
+- Updated both registered-member and unregistered-user `/start` responses to direct users to the clickable `/help` command for onboarding and command discovery.
+
+### Verification
+
+- Added regression coverage for both `/start` response variants.
+- `npm run lint` passes.
+- `npm run build` passes.
+- `npm test` passes with 201 tests.
+- `git diff --check` passes.
+
+[0.7.4]: https://github.com/beembarik/falance/releases/tag/v0.7.4
+
 ## [0.7.3] — 2026-08-23
 
 ### Added

@@ -43,12 +43,13 @@ import {
 } from "./transaction-draft-message";
 
 const UNREGISTERED_START = `👋 Halo! Selamat datang di Falancé.
-
 Kamu belum terdaftar dalam keluarga.
-
 Kamu bisa:
 • membuat keluarga baru
-• bergabung menggunakan invitation code.`;
+• bergabung menggunakan invitation code.
+
+Ketik /help untuk melihat panduan lengkap command Falancé.`;
+
 
 export interface TelegramHandlerResponse {
   text: string;
@@ -323,7 +324,7 @@ export async function handleTelegramCallbackQuery(
 
 function startMessage(member: { role: string } | null): string {
   return member
-    ? `👋 Halo! Kamu terdaftar sebagai ${member.role} di Falancé.`
+    ? `👋 Halo! Kamu terdaftar sebagai ${member.role} di Falancé.\n\nKetik /help untuk melihat panduan lengkap command Falancé.`
     : UNREGISTERED_START;
 }
 

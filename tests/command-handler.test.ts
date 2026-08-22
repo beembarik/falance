@@ -14,7 +14,25 @@ import type { TransactionTextParser } from "../src/lib/ai/transaction-text-parse
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
 
- test("shows onboarding commands to an unregistered user without exposing active-family commands", async () => {
+test("guides an unregistered user from /start to /help", async () => {
+  const response = await handleTelegramTextMessage(
+    fakeService({ getActiveMembership: async () => null }),
+    owner,
+    "/start",
+  );
+
+  assert.match(response, /belum terdaftar/);
+  assert.match(response, /Ketik \/help untuk melihat panduan lengkap/);
+});
+
+test("guides an active member from /start to /help", async () => {
+  const response = await handleTelegramTextMessage(fakeService({}), owner, "/start");
+
+  assert.match(response, /terdaftar sebagai OWNER/);
+  assert.match(response, /Ketik \/help untuk melihat panduan lengkap/);
+});
+
+test("shows onboarding commands to an unregistered user without exposing active-family commands", async () => {
   const response = await handleTelegramTextMessage(
     fakeService({ getActiveMembership: async () => null }),
     owner,
@@ -22,8 +40,9 @@ const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "o
   );
 
   assert.match(response, /Panduan command Falancé/);
-  assert.match(response, /<code>\/createfamily<\/code>/);
-  assert.match(response, /<code>\/join FAL-XXXXXX<\/code>/);
+  assert.match(response, /\/createfamily/);
+  assert.match(response, /\/join <code>FAL-XXXXXX<\/code>/);
+  assert.doesNotMatch(response, /<code>\/createfamily<\/code>/);
   assert.doesNotMatch(response, /<code>\/addincome/);
   assert.doesNotMatch(response, /<code>\/invite<\/code>/);
 });
@@ -36,8 +55,9 @@ test("shows common commands to a MEMBER and hides administration commands", asyn
   );
 
   assert.match(response, /Akses kamu: MEMBER/);
-  assert.match(response, /<code>\/transactions<\/code>/);
-  assert.match(response, /<code>\/report \[YYYY-MM\]<\/code>/);
+  assert.match(response, /\/transactions/);
+  assert.match(response, /\/report <code>\[YYYY-MM\]<\/code>/);
+  assert.doesNotMatch(response, /<code>\/transactions<\/code>/);
   assert.doesNotMatch(response, /<code>\/invite<\/code>/);
   assert.doesNotMatch(response, /<code>\/changerole/);
   assert.doesNotMatch(response, /<code>\/createfamily<\/code>/);
@@ -47,9 +67,10 @@ test("shows family administration commands to an OWNER", async () => {
   const response = await handleTelegramTextMessage(fakeService({}), owner, "/help");
 
   assert.match(response, /Akses kamu: OWNER/);
-  assert.match(response, /<code>\/invite<\/code>/);
-  assert.match(response, /<code>\/changerole/);
-  assert.match(response, /<code>\/archivefamily<\/code>/);
+  assert.match(response, /\/invite/);
+  assert.match(response, /\/changerole <code>/);
+  assert.match(response, /\/archivefamily/);
+  assert.doesNotMatch(response, /<code>\/invite<\/code>/);
   assert.doesNotMatch(response, /<code>\/createfamily<\/code>/);
 });
 
