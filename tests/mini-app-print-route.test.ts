@@ -119,6 +119,12 @@ test("Mini App print returns family-scoped HTML for a valid OWNER", async () => 
     const html = await response.text();
     assert.match(html, /Keluarga &lt;Test&gt;/);
     assert.match(html, /Belanja &lt;keluarga&gt;/);
+    assert.match(html, /Falancé/);
+    assert.match(html, /class="toolbar no-print"/);
+    assert.match(html, /Unduh PDF/);
+    assert.match(html, /Unduh CSV/);
+    assert.match(html, /Dicetak pada/);
+    assert.match(html, /window\.print\(\)/);
   } finally {
     restoreRepository();
     restoreEnv("TELEGRAM_BOT_TOKEN", originalToken);

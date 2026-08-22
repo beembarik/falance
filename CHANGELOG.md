@@ -2,6 +2,37 @@
 
 All notable changes to Falancé are documented in this file.
 
+## [0.7.0] — 2026-08-23
+
+### Added
+
+- Added a single `Buka tampilan cetak` entry inside the active-period report summary for OWNER and ADMIN users, removing the separate export card from the Mini App Laporan page.
+- Added a branded, server-rendered Falancé print-preview workspace with server-generated timestamp, printer-friendly report sections, and non-printing controls for print, CSV, PDF, and optional password-protected PDF export.
+- Added signed CSV and PDF actions inside the preview workspace while retaining five-minute encrypted action tokens and server-side authorization on every download.
+- Added transparent Falancé symbol assets for browser and Apple icons, with the supplied black presentation background excluded.
+
+### Changed
+
+- Preserved report API category codes for client compatibility while rendering stable human-readable category labels in print output.
+- Added PDF preparation from a signed print-preview token, with repeated OWNER/ADMIN authorization and no plaintext password in URLs, logs, or Sheets.
+- Documented the M10 Slice 15 export and branding contract across the Mini App, category analytics, milestone roadmap, and decision log.
+
+### Security and integrity
+
+- Export remains restricted to the server-resolved family and OWNER/ADMIN roles; MEMBER users do not receive the preview entry point.
+- Print, CSV, and PDF actions remain encrypted, signed, short-lived, and re-authorized through `FamilyService`/`getFinancialExportReport`.
+- The central single-spreadsheet architecture, Telegram `initData` validation, multi-currency separation, no-client-controlled-family-ID invariant, and ephemeral PDF password handling remain unchanged.
+
+### Verification
+
+- M10 Slice 15 implementation gates passed locally.
+- `npm run lint` passes.
+- `npm run build` passes.
+- `npm test` passes with 196 tests.
+- `git diff --check` passes.
+
+[0.7.0]: https://github.com/beembarik/falance/releases/tag/v0.7.0
+
 ## [0.6.0] — 2026-08-22
 
 ### Added

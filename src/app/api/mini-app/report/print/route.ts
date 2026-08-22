@@ -1,8 +1,9 @@
 import { GoogleSheetsFamilyRepository } from "../../../../../lib/family/google-sheets-repository";
 import { FamilyService, FamilyServiceError, UnauthorizedError } from "../../../../../lib/family/service";
-import { ReportPeriodError, buildFinancialPrintHtml } from "../../../../../lib/family/report";
+import { ReportPeriodError, buildFinancialPrintHtml, formatReportGeneratedAt } from "../../../../../lib/family/report";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../../lib/telegram/mini-app-auth";
 import { readMiniAppReportRequest, type MiniAppReportRequestPayload } from "../../../../../lib/telegram/mini-app-request";
+import { buildReportDownloadAction } from "../../../../../lib/telegram/report-download-token";
 
 export const runtime = "nodejs";
 
@@ -41,7 +42,33 @@ export async function POST(request: Request): Promise<Response> {
       stringValue(payload.startDate),
       stringValue(payload.endDate),
     );
-    const html = buildFinancialPrintHtml(exported.family.familyName, exported.report);
+    const printAction = buildReportDownloadAction(request, {
+      telegramUserId: validated.telegramUser.telegramUserId,
+      format: "print",
+      period: exported.report.period,
+      fileName: `falance-report-${exported.report.period.startDate}-${exported.report.period.endDate}.html`,
+    });
+    const printToken = new URL(printAction.url).searchParams.get("token");
+    const csvAction = buildReportDownloadAction(request, {
+      telegramUserId: validated.telegramUser.telegramUserId,
+      format: "csv",
+      period: exported.report.period,
+      fileName: `falance-report-${exported.report.period.startDate}-${exported.report.period.endDate}.csv`,
+    });
+    const pdfAction = buildReportDownloadAction(request, {
+      telegramUserId: validated.telegramUser.telegramUserId,
+      format: "pdf",
+      period: exported.report.period,
+      fileName: `falance-report-${exported.report.period.startDate}-${exported.report.period.endDate}.pdf`,
+    });
+    if (!printToken) throw new Error("Print preview token could not be created.");
+    const html = buildFinancialPrintHtml(exported.family.familyName, exported.report, {
+      generatedAt: formatReportGeneratedAt(),
+      csvUrl: csvAction.url,
+      pdfUrl: pdfAction.url,
+      pdfPrepareUrl: new URL("/api/mini-app/report/pdf/prepare", request.url).toString(),
+      previewToken: printToken,
+    });
     return new Response(html, {
       status: 200,
       headers: {

@@ -179,7 +179,7 @@ When password protection is selected, the backend must encrypt the PDF before de
 
 ## Milestone 10 — Telegram Mini App Expansion
 
-Status: IN PROGRESS — SLICES 1–14 IMPLEMENTED LOCALLY; SLICES 9–14 PRODUCTION VALIDATED
+Status: IN PROGRESS — SLICES 1–15 IMPLEMENTED LOCALLY; SLICES 9–14 PRODUCTION VALIDATED; SLICE 15 IN DEVELOPMENT
 
 This milestone expands the first authorized report view into a family-finance workspace while preserving the existing server-side authorization boundary. The Mini App is mobile-first but not mobile-only: the same component and domain-data system should adapt to Telegram phone, tablet, desktop, and ordinary browser fallback contexts.
 
@@ -205,6 +205,7 @@ Every family selector or family context control must remain server-authorized. T
 | 12 | Dashboard refinement and transaction provenance | Simplify Beranda into family financial snapshot plus recent activity, move category chart presentation to Laporan, display server-resolved creator name on transaction list/detail, clarify surplus/deficit terminology, and reduce duplicate primary actions; no account/transfer/savings model | Complete; production validated |
 | 13 | Cash-flow analytics in Laporan | Add server-derived Income versus Expense trend for the selected period, grouped by currency and based on complete family transaction data; present net cash flow without introducing savings, account, budget, or AI insight semantics | Complete; production validated |
 | 14 | Category filter and drill-down in Laporan | Allow read-only category filtering and navigation from category analytics to matching family transactions within the selected period and currency; preserve server-derived totals, family isolation, and multi-currency separation; no budget or AI insight semantics | Complete; production validated |
+| 15 | Branded report preview and export workspace | Consolidate Laporan export into one summary-card entry point, add branded print preview with server timestamp and screen-only toolbar for print/PDF/CSV, preserve OWNER/ADMIN export boundary and PDF password handling, and integrate transparent Falancé symbol favicon | In development |
 
 ### Explicitly deferred from the current Mini App scope
 
@@ -219,7 +220,7 @@ Every family selector or family context control must remain server-authorized. T
 
 ### Exit criteria
 
-Milestone 10 is complete only when the core Mini App screens have loading, empty, error, accessibility, responsive, session-expiry, authorization, and family-isolation coverage; all writes use the existing service boundary; multi-currency balances are never mixed; and production validation confirms the Mini App works in the intended Telegram contexts. Budget, AI insight, account/transfer/savings, and Mini App receipt scanning remain explicitly deferred; Slices 11–14 are read-only analytics and presentation refinements, not a budget or savings model.
+Milestone 10 is complete only when the core Mini App screens have loading, empty, error, accessibility, responsive, session-expiry, authorization, and family-isolation coverage; all writes use the existing service boundary; multi-currency balances are never mixed; and production validation confirms the Mini App works in the intended Telegram contexts. Budget, AI insight, account/transfer/savings, and Mini App receipt scanning remain explicitly deferred; Slices 11–15 are read-only analytics and presentation/export refinements, not a budget or savings model.
 
 ## Milestone 11 — AI Usage, Quota, and Provider Reliability
 

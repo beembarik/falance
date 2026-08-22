@@ -5,6 +5,7 @@ import test from "node:test";
 import { POST } from "../src/app/api/mini-app/report/pdf/route";
 import { POST as preparePdf } from "../src/app/api/mini-app/report/pdf/prepare/route";
 import { GoogleSheetsFamilyRepository } from "../src/lib/family/google-sheets-repository";
+import { createReportDownloadToken } from "../src/lib/telegram/report-download-token";
 import type { Family, FamilyMember, Transaction } from "../src/lib/family/types";
 
 const botToken = "test-token";
@@ -147,6 +148,64 @@ test("Mini App PDF prepare returns a signed action URL for an OWNER", async () =
   } finally {
     restoreRepository();
     restoreEnv("TELEGRAM_BOT_TOKEN", originalToken);
+    restoreEnv("FALANCE_REPORT_TOKEN_SECRET", originalSecret);
+  }
+});
+
+test("Mini App PDF prepare accepts a signed print token and keeps password out of the URL", async () => {
+  const originalSecret = process.env.FALANCE_REPORT_TOKEN_SECRET;
+  process.env.FALANCE_REPORT_TOKEN_SECRET = "report-secret";
+  const restoreRepository = mockRepository(owner);
+  try {
+    const token = createReportDownloadToken({ uid: "100", format: "print", month: "2026-08" }, "report-secret");
+    const response = await preparePdf(new Request("https://falance.example.com/api/mini-app/report/pdf/prepare", {
+      method: "POST",
+      body: JSON.stringify({ token, password: "rahasia-pdf" }),
+      headers: { "content-type": "application/json" },
+    }));
+    assert.equal(response.status, 200);
+    const payload = await response.json() as { action?: { url: string; fileName: string } };
+    assert.match(payload.action?.url ?? "", /^https:\/\/falance\.example\.com\/api\/mini-app\/report\/download\?token=/);
+    assert.equal(payload.action?.fileName, "falance-report-2026-08-01-2026-08-31.pdf");
+    assert.equal(payload.action?.url.includes("rahasia-pdf"), false);
+  } finally {
+    restoreRepository();
+    restoreEnv("FALANCE_REPORT_TOKEN_SECRET", originalSecret);
+  }
+});
+
+test("Mini App PDF prepare rejects a non-print preview token", async () => {
+  const originalSecret = process.env.FALANCE_REPORT_TOKEN_SECRET;
+  process.env.FALANCE_REPORT_TOKEN_SECRET = "report-secret";
+  try {
+    const token = createReportDownloadToken({ uid: "100", format: "csv", month: "2026-08" }, "report-secret");
+    const response = await preparePdf(new Request("https://falance.example.com/api/mini-app/report/pdf/prepare", {
+      method: "POST",
+      body: JSON.stringify({ token, password: "rahasia-pdf" }),
+      headers: { "content-type": "application/json" },
+    }));
+    assert.equal(response.status, 401);
+    assert.deepEqual(await response.json(), { error: "Preview report tidak valid atau sudah kedaluwarsa." });
+  } finally {
+    restoreEnv("FALANCE_REPORT_TOKEN_SECRET", originalSecret);
+  }
+});
+
+test("Mini App PDF prepare repeats OWNER or ADMIN authorization for a signed print token", async () => {
+  const originalSecret = process.env.FALANCE_REPORT_TOKEN_SECRET;
+  process.env.FALANCE_REPORT_TOKEN_SECRET = "report-secret";
+  const restoreRepository = mockRepository(member);
+  try {
+    const token = createReportDownloadToken({ uid: "200", format: "print", month: "2026-08" }, "report-secret");
+    const response = await preparePdf(new Request("https://falance.example.com/api/mini-app/report/pdf/prepare", {
+      method: "POST",
+      body: JSON.stringify({ token, password: "rahasia-pdf" }),
+      headers: { "content-type": "application/json" },
+    }));
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { error: "PDF hanya tersedia untuk OWNER dan ADMIN." });
+  } finally {
+    restoreRepository();
     restoreEnv("FALANCE_REPORT_TOKEN_SECRET", originalSecret);
   }
 });

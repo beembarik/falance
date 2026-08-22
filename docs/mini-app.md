@@ -158,6 +158,12 @@ Slice 13 menambahkan analitik arus kas read-only pada Laporan. Server menghitung
 
 Slice 14 memungkinkan pengguna mengetuk kategori utama pada chart Laporan untuk memfilter detail transaksi yang telah dimuat berdasarkan kategori dan currency. Filter ini hanya mengubah presentation state; tidak ada total yang dihitung ulang di browser, tidak ada perubahan transaksi, dan tidak ada `family_id` yang dikirim sebagai authorization input. Daftar detail tetap memiliki batas 50 transaksi terbaru, sehingga UI mengungkapkan batas tersebut ketika drill-down aktif. Bucket sintetis `Lainnya` tidak dapat dipilih sebagai kategori persisted.
 
+### Branded report preview dan export — M10 Slice 15
+
+Laporan menggunakan satu tombol export pada card ringkasan periode aktif untuk membuka server-generated print preview. Preview menyediakan toolbar layar untuk `Cetak`, `Unduh PDF`, `Unduh CSV`, dan kembali ke Laporan. Toolbar tidak ikut tercetak. Preview menampilkan symbol/wordmark Falancé, periode, nama family, timestamp server yang mengikuti `FALANCE_TIME_ZONE`, ringkasan per currency, analytics, detail transaksi, dan catatan bahwa currency tidak digabung.
+
+CSV/PDF/print tetap OWNER/ADMIN-only, memakai signed short-lived report actions, dan mempertahankan optional PDF password yang ephemeral. Favicon menggunakan symbol Falancé transparan tanpa background hitam pekat. Slice ini hanya mengubah presentation/export layer dan tidak mengubah authorization atau schema transaksi.
+
 ### Anggaran dan insight
 
 Screen Anggaran belum boleh menampilkan angka contoh sebagai data nyata. Budget memerlukan schema, periode, kategori, nominal limit, status, repository, service, dan perhitungan server-side. Insight juga harus berasal dari structured metrics; AI tidak boleh menghitung saldo atau menjadi sumber angka finansial.

@@ -1,6 +1,6 @@
 import type { Transaction } from "./types";
-import { getBusinessDate } from "../time/business-date";
-import { buildCategorySummaries, type CategorySummary } from "./category-analytics";
+import { getBusinessDate, getBusinessTimeZone } from "../time/business-date";
+import { buildCategorySummaries, CATEGORY_LABELS, normalizeTransactionCategory, type CategorySummary } from "./category-analytics";
 
 const DEFAULT_TRANSACTION_LIMIT = 50;
 const MAX_TRANSACTION_LIMIT = 50;
@@ -49,6 +49,14 @@ export interface FinancialReport {
   categorySummaries: CategorySummary[];
   cashFlow: FinancialReportCashFlowPoint[];
   transactions: FinancialReportTransaction[];
+}
+
+export interface FinancialPrintPreviewOptions {
+  generatedAt: string;
+  csvUrl: string;
+  pdfUrl: string;
+  pdfPrepareUrl: string;
+  previewToken: string;
 }
 
 export function getFinancialReportPeriod(
@@ -220,28 +228,36 @@ function csvCell(value: string): string {
   return `"${normalized.replaceAll('"', '""')}"`;
 }
 
-export function buildFinancialPrintHtml(familyName: string, report: FinancialReport): string {
-  const currencyRows = report.currencies.length === 0
-    ? '<tr><td colspan="5">Belum ada transaksi aktif pada periode ini.</td></tr>'
-    : report.currencies.map((summary) => `
+export function buildFinancialPrintHtml(familyName: string, report: FinancialReport, options: FinancialPrintPreviewOptions): string {
+  const categoryRows = report.categorySummaries.filter((summary) => summary.expenseMinor > BigInt(0)).map((summary) => `
       <tr>
+        <td>${escapeHtml(summary.label)}</td>
         <td>${escapeHtml(summary.currency)}</td>
-        <td class="amount positive">${escapeHtml(formatReportAmount(summary.incomeMinor, summary.currency))}</td>
         <td class="amount negative">${escapeHtml(formatReportAmount(summary.expenseMinor, summary.currency))}</td>
-        <td class="amount">${escapeHtml(formatReportAmount(summary.netMinor, summary.currency))}</td>
-        <td>${summary.transactionCount}</td>
-      </tr>`).join('');
+        <td>${escapeHtml(String(summary.transactionCount))}</td>
+      </tr>`).join('') || '<tr><td colspan="4">Belum ada pengeluaran berkategori pada periode ini.</td></tr>';
+  const cashFlowRows = report.cashFlow.map((point) => `
+      <tr>
+        <td>${escapeHtml(point.label)}</td>
+        <td>${escapeHtml(point.currency)}</td>
+        <td class="amount positive">${escapeHtml(formatReportAmount(point.incomeMinor, point.currency))}</td>
+        <td class="amount negative">${escapeHtml(formatReportAmount(point.expenseMinor, point.currency))}</td>
+        <td class="amount">${escapeHtml(formatReportAmount(point.netMinor, point.currency))}</td>
+      </tr>`).join('') || '<tr><td colspan="5">Belum ada arus kas pada periode ini.</td></tr>';
   const transactionRows = report.transactions.length === 0
-    ? '<tr><td colspan="6">Belum ada transaksi aktif pada periode ini.</td></tr>'
+    ? '<tr><td colspan="8">Belum ada transaksi aktif pada periode ini.</td></tr>'
     : report.transactions.map((transaction) => `
       <tr>
         <td>${escapeHtml(transaction.transactionDate)}</td>
         <td>${escapeHtml(transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran")}</td>
+        <td>${escapeHtml(CATEGORY_LABELS[normalizeTransactionCategory(transaction.category)])}</td>
         <td>${escapeHtml(transaction.currency)}</td>
         <td class="amount">${escapeHtml(formatReportAmount(transaction.amountMinor, transaction.currency))}</td>
         <td>${escapeHtml(transaction.description)}</td>
+        <td>${escapeHtml(transaction.creatorName)}</td>
         <td><code>${escapeHtml(transaction.transactionId)}</code></td>
       </tr>`).join('');
+  const previewToken = JSON.stringify(options.previewToken);
   return `<!doctype html>
 <html lang="id">
 <head>
@@ -249,57 +265,114 @@ export function buildFinancialPrintHtml(familyName: string, report: FinancialRep
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(`Falancé — ${familyName} — ${report.period.label}`)}</title>
   <style>
-    :root { color-scheme: light; font-family: Arial, sans-serif; }
-    body { color: #0f172a; margin: 0; padding: 32px; background: #fff; }
+    :root { color-scheme: light; font-family: Arial, Helvetica, sans-serif; }
+    body { color: #223029; margin: 0; padding: 32px; background: #fafbf8; }
     main { max-width: 1080px; margin: 0 auto; }
     h1, h2, p { margin: 0; }
-    h1 { font-size: 24px; margin-bottom: 6px; }
-    h2 { font-size: 16px; margin: 28px 0 10px; }
-    .muted { color: #475569; font-size: 13px; }
-    .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
-    button { border: 0; border-radius: 8px; background: #0f766e; color: #fff; cursor: pointer; padding: 10px 16px; font-weight: 700; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th, td { border-bottom: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
-    th { background: #f1f5f9; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    h1 { color: #185a42; font-size: 26px; margin-bottom: 6px; }
+    h2 { color: #6650a7; font-size: 16px; margin: 28px 0 10px; }
+    .brand-header { border-bottom: 4px solid #267a5a; padding-bottom: 18px; }
+    .brand-line { align-items: center; display: flex; gap: 12px; }
+    .brand-mark { align-items: center; background: linear-gradient(135deg, #b9a6d2, #61b89c 60%, #f28a7c); border-radius: 12px 18px 12px 18px; color: #fff; display: inline-flex; font-size: 20px; font-weight: 800; height: 42px; justify-content: center; width: 42px; }
+    .brand-name { color: #185a42; font-size: 22px; font-weight: 800; letter-spacing: .02em; }
+    .muted { color: #68756e; font-size: 13px; }
+    .toolbar { align-items: center; background: #e3f3ed; border: 1px solid #b8dfd0; border-radius: 12px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin-bottom: 24px; padding: 12px; }
+    .toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    button, .action-link { border: 0; border-radius: 8px; background: #267a5a; color: #fff; cursor: pointer; display: inline-block; font-size: 13px; padding: 10px 14px; text-decoration: none; font-weight: 700; }
+    .action-link.secondary { background: #8e72d6; }
+    .action-link.neutral { background: #fff; border: 1px solid #b8dfd0; color: #185a42; }
+    .password-form { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; }
+    .password-form input { border: 1px solid #b8dfd0; border-radius: 8px; min-height: 36px; padding: 0 9px; }
+    .notice { background: #f1edfa; border-left: 4px solid #8e72d6; color: #6650a7; font-size: 12px; margin-top: 10px; padding: 9px 12px; }
+    .summary-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin-top: 12px; }
+    .summary-card { background: #fff; border: 1px solid #e2eae5; border-radius: 12px; padding: 14px; }
+    table { background: #fff; border-collapse: collapse; width: 100%; font-size: 12px; }
+    th, td { border-bottom: 1px solid #e2eae5; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #e3f3ed; color: #185a42; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
     .amount { text-align: right; white-space: nowrap; }
-    .positive { color: #047857; }
-    .negative { color: #be123c; }
+    .positive { color: #267a5a; }
+    .negative { color: #c85a4d; }
     code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
-    @media print { body { padding: 0; } .no-print { display: none !important; } th { background: #f1f5f9 !important; print-color-adjust: exact; } }
+    footer { border-top: 1px solid #e2eae5; color: #68756e; font-size: 11px; margin-top: 32px; padding-top: 12px; }
+    @media print { body { background: #fff; padding: 0; } .no-print { display: none !important; } th { background: #e3f3ed !important; print-color-adjust: exact; } .summary-card, table { break-inside: avoid; } }
     @media (max-width: 720px) { body { padding: 16px; } .toolbar { align-items: flex-start; flex-direction: column; } table { font-size: 11px; } th, td { padding: 6px; } }
   </style>
 </head>
 <body>
   <main>
     <div class="toolbar no-print">
-      <p class="muted">Dokumen print-friendly Falancé</p>
-      <button type="button" onclick="window.print()">Cetak / Simpan PDF</button>
+      <div><strong>Export report</strong><p class="muted">Gunakan kontrol ini untuk mencetak atau mengunduh dokumen.</p></div>
+      <div class="toolbar-actions">
+        <button type="button" onclick="window.print()">Cetak</button>
+        <a class="action-link secondary" href="${escapeHtml(options.pdfUrl)}">Unduh PDF</a>
+        <a class="action-link neutral" href="${escapeHtml(options.csvUrl)}">Unduh CSV</a>
+      </div>
+      <form class="password-form" id="pdf-password-form">
+        <input id="pdf-password" type="password" minlength="8" maxlength="127" autocomplete="new-password" placeholder="Password PDF (opsional)" aria-label="Password PDF opsional">
+        <button type="submit">PDF ber-password</button>
+      </form>
+      <p class="notice" id="pdf-status" role="status" hidden></p>
     </div>
-    <header>
-      <h1>Laporan Keuangan — ${escapeHtml(familyName)}</h1>
-      <p class="muted">${escapeHtml(report.period.label)} · ${escapeHtml(report.period.startDate)} s/d ${escapeHtml(report.period.endDate)}</p>
-      <p class="muted">${report.transactionCount} transaksi aktif</p>
+    <header class="brand-header">
+      <div class="brand-line"><span class="brand-mark" aria-hidden="true">F</span><span class="brand-name">Falancé</span></div>
+      <h1>Laporan Keuangan Keluarga</h1>
+      <p class="muted">${escapeHtml(familyName)} · ${escapeHtml(report.period.label)} · ${escapeHtml(report.period.startDate)} s/d ${escapeHtml(report.period.endDate)}</p>
+      <p class="muted">${report.transactionCount} transaksi aktif · Dicetak pada ${escapeHtml(options.generatedAt)}</p>
     </header>
     <section>
       <h2>Ringkasan per mata uang</h2>
-      <table>
-        <thead><tr><th>Mata uang</th><th>Pemasukan</th><th>Pengeluaran</th><th>Saldo</th><th>Transaksi</th></tr></thead>
-        <tbody>${currencyRows}</tbody>
-      </table>
+      <div class="summary-grid">${report.currencies.length === 0 ? '<div class="summary-card muted">Belum ada transaksi aktif pada periode ini.</div>' : report.currencies.map((summary) => `<div class="summary-card"><strong>${escapeHtml(summary.currency)}</strong><p class="positive">Pemasukan: ${escapeHtml(formatReportAmount(summary.incomeMinor, summary.currency))}</p><p class="negative">Pengeluaran: ${escapeHtml(formatReportAmount(summary.expenseMinor, summary.currency))}</p><p><strong>${summary.netMinor >= BigInt(0) ? "Surplus" : "Defisit"}: ${escapeHtml(formatReportAmount(summary.netMinor, summary.currency))}</strong></p></div>`).join('')}</div>
+    </section>
+    <section>
+      <h2>Arus kas per periode</h2>
+      <table><thead><tr><th>Periode</th><th>Mata uang</th><th>Pemasukan</th><th>Pengeluaran</th><th>Surplus/Defisit</th></tr></thead><tbody>${cashFlowRows}</tbody></table>
+    </section>
+    <section>
+      <h2>Pengeluaran per kategori</h2>
+      <table><thead><tr><th>Kategori</th><th>Mata uang</th><th>Pengeluaran</th><th>Transaksi</th></tr></thead><tbody>${categoryRows}</tbody></table>
     </section>
     <section>
       <h2>Detail transaksi</h2>
-      <table>
-        <thead><tr><th>Tanggal</th><th>Jenis</th><th>Mata uang</th><th>Jumlah</th><th>Deskripsi</th><th>ID</th></tr></thead>
-        <tbody>${transactionRows}</tbody>
-      </table>
+      <table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Kategori</th><th>Mata uang</th><th>Jumlah</th><th>Deskripsi</th><th>Dicatat oleh</th><th>ID</th></tr></thead><tbody>${transactionRows}</tbody></table>
     </section>
+    <footer>Generated by Falancé · Dicetak pada ${escapeHtml(options.generatedAt)} · Nilai antar-mata uang tidak digabungkan.</footer>
   </main>
+  <script>
+    (() => {
+      const form = document.getElementById("pdf-password-form");
+      const password = document.getElementById("pdf-password");
+      const status = document.getElementById("pdf-status");
+      const previewToken = ${previewToken};
+      form?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!password || !status) return;
+        status.hidden = false;
+        status.textContent = "Menyiapkan PDF ber-password…";
+        try {
+          const response = await fetch("${escapeHtml(options.pdfPrepareUrl)}", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: previewToken, password: password.value }) });
+          const payload = await response.json();
+          if (!response.ok || !payload.action?.url) throw new Error(payload.error || "PDF tidak dapat disiapkan.");
+          window.location.assign(payload.action.url);
+          status.textContent = "PDF sedang diunduh.";
+        } catch (error) {
+          status.textContent = error instanceof Error ? error.message : "PDF tidak dapat disiapkan.";
+        }
+      });
+    })();
+  </script>
 </body>
 </html>`;
 }
 
-function formatReportAmount(amount: bigint, currency: string): string {
+export function formatReportGeneratedAt(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: getBusinessTimeZone(),
+  }).format(now);
+}
+
+function formatReportAmount(amount: bigint | number, currency: string): string {
   return `${currency} ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(amount)}`;
 }
 

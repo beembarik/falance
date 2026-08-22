@@ -78,7 +78,14 @@ test("Mini App download returns print HTML for an authorized OWNER", async () =>
     const response = await GET(new Request(`https://falance.example.com/api/mini-app/report/download?token=${token}`));
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("content-type"), "text/html; charset=utf-8");
-    assert.match(await response.text(), /Keluarga Download/);
+    const html = await response.text();
+    assert.match(html, /Keluarga Download/);
+    assert.match(html, /Falancé/);
+    assert.match(html, /class="toolbar no-print"/);
+    assert.match(html, /Unduh PDF/);
+    assert.match(html, /Unduh CSV/);
+    assert.match(html, /Dicetak pada/);
+    assert.match(html, /\/api\/mini-app\/report\/pdf\/prepare/);
   } finally {
     restoreRepository();
     restoreEnv("FALANCE_REPORT_TOKEN_SECRET", originalSecret);

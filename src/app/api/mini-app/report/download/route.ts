@@ -1,8 +1,8 @@
 import { GoogleSheetsFamilyRepository } from "../../../../../lib/family/google-sheets-repository";
 import { FamilyService, FamilyServiceError, UnauthorizedError } from "../../../../../lib/family/service";
-import { ReportPeriodError, buildFinancialCsv, buildFinancialPrintHtml } from "../../../../../lib/family/report";
+import { ReportPeriodError, buildFinancialCsv, buildFinancialPrintHtml, formatReportGeneratedAt } from "../../../../../lib/family/report";
 import { buildFinancialPdf, validatePdfPassword } from "../../../../../lib/family/pdf";
-import { getReportDownloadSecret, verifyReportDownloadToken } from "../../../../../lib/telegram/report-download-token";
+import { buildReportDownloadAction, getReportDownloadSecret, verifyReportDownloadToken } from "../../../../../lib/telegram/report-download-token";
 
 export const runtime = "nodejs";
 
@@ -40,7 +40,27 @@ export async function GET(request: Request): Promise<Response> {
     }
 
     if (payload.format === "print") {
-      return new Response(buildFinancialPrintHtml(exported.family.familyName, exported.report), {
+      const token = new URL(request.url).searchParams.get("token");
+      if (!token) return Response.json({ error: "Download link tidak valid atau sudah kedaluwarsa." }, { status: 401 });
+      const csvAction = buildReportDownloadAction(request, {
+        telegramUserId: payload.uid,
+        format: "csv",
+        period: exported.report.period,
+        fileName: `falance-report-${period.startDate}-${period.endDate}.csv`,
+      });
+      const pdfAction = buildReportDownloadAction(request, {
+        telegramUserId: payload.uid,
+        format: "pdf",
+        period: exported.report.period,
+        fileName: `falance-report-${period.startDate}-${period.endDate}.pdf`,
+      });
+      return new Response(buildFinancialPrintHtml(exported.family.familyName, exported.report, {
+        generatedAt: formatReportGeneratedAt(),
+        csvUrl: csvAction.url,
+        pdfUrl: pdfAction.url,
+        pdfPrepareUrl: new URL("/api/mini-app/report/pdf/prepare", request.url).toString(),
+        previewToken: token,
+      }), {
         status: 200,
         headers: {
           ...headers,

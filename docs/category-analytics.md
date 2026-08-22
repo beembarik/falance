@@ -80,6 +80,12 @@ Slice 14 adds a presentation-only category filter to Laporan. Selecting a catego
 
 The `Lainnya` aggregate is not an authoritative persisted category and is not clickable as a single category. Any future complete category pagination or server-filtered detail endpoint requires a separate slice.
 
+## Slice 15 — Branded report preview and export workspace
+
+Slice 15 changes the export presentation layer without changing the category or transaction data contract. Laporan exposes one export entry point from the active period summary, while the server-generated print preview provides screen-only controls for printing, CSV download, and PDF download with optional password protection. The preview includes Falancé branding, a server-generated print timestamp using `FALANCE_TIME_ZONE`, and currency-separated report content.
+
+Export authorization remains OWNER/ADMIN-only and must be enforced server-side for every action. Signed short-lived report tokens remain the only browser-facing export capability; the preview must not accept a client-controlled family selector, spreadsheet ID, Telegram identity, or storage identifier. The transparent symbol favicon is a static brand asset and is not an authorization input.
+
 ## Explicitly deferred
 
 Budgets, payment methods, recurring liabilities, AI financial insight, and Mini App receipt upload remain deferred. Any future drill-down, category filter, or insight UI must preserve the same family/date/currency-scoped contract and undergo separate regression and production validation.

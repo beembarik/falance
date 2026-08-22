@@ -107,15 +107,10 @@ export default function Home() {
   const [comparisonLoading, setComparisonLoading] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<{ category: string; currency: string } | null>(null);
   const [error, setError] = useState("");
-  const [exportError, setExportError] = useState("");
   const [printError, setPrintError] = useState("");
-  const [pdfError, setPdfError] = useState("");
-  const [pdfPassword, setPdfPassword] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
   const [printing, setPrinting] = useState(false);
-  const [pdfExporting, setPdfExporting] = useState(false);
   const [formInitData, setFormInitData] = useState("");
   const initDataRef = useRef("");
 
@@ -331,23 +326,6 @@ export default function Home() {
     }
   }, [voidConfirmation]);
 
-  const exportCsv = useCallback(() => {
-    const action = data?.actions?.csv;
-    if (!initDataRef.current || !action || data.viewer.role === "MEMBER") return;
-    setExporting(true);
-    setExportError("");
-    try {
-      requestTelegramDownload(action, (message) => {
-        setExporting(false);
-        if (message) setExportError(message);
-      });
-      window.setTimeout(() => setExporting(false), 10_000);
-    } catch (exportLoadError) {
-      setExporting(false);
-      setExportError(exportLoadError instanceof Error ? exportLoadError.message : "Export tidak dapat dibuat.");
-    }
-  }, [data]);
-
   const printReport = useCallback(() => {
     const action = data?.actions?.print;
     if (!initDataRef.current || !action || data.viewer.role === "MEMBER") return;
@@ -361,41 +339,6 @@ export default function Home() {
       setPrintError(printLoadError instanceof Error ? printLoadError.message : "Tampilan cetak tidak dapat dibuat.");
     }
   }, [data]);
-
-  const exportPdf = useCallback(async () => {
-    const action = data?.actions?.pdf;
-    if (!initDataRef.current || !action || data.viewer.role === "MEMBER") return;
-    setPdfExporting(true);
-    setPdfError("");
-    try {
-      let downloadAction = action;
-      if (pdfPassword) {
-        const response = await fetch("/api/mini-app/report/pdf/prepare", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            initData: initDataRef.current,
-            month: data.report.period.month || undefined,
-            startDate: data.report.period.month ? undefined : data.report.period.startDate,
-            endDate: data.report.period.month ? undefined : data.report.period.endDate,
-            password: pdfPassword,
-          }),
-        });
-        const payload = await response.json() as { action?: ReportAction; error?: string };
-        if (!response.ok || !payload.action) throw new Error(payload.error || "PDF tidak dapat dibuat.");
-        downloadAction = payload.action;
-      }
-      requestTelegramDownload(downloadAction, (message) => {
-        setPdfExporting(false);
-        if (message) setPdfError(message);
-      });
-      setPdfPassword("");
-      window.setTimeout(() => setPdfExporting(false), 10_000);
-    } catch (pdfLoadError) {
-      setPdfExporting(false);
-      setPdfError(pdfLoadError instanceof Error ? pdfLoadError.message : "PDF tidak dapat dibuat.");
-    }
-  }, [data, pdfPassword]);
 
   useEffect(() => {
     const webApp = window.Telegram?.WebApp;
@@ -458,17 +401,9 @@ export default function Home() {
               setCategoryFilter(null);
             }}
             onLoad={() => void loadReport(month, startDate, endDate)}
-            exporting={exporting}
             printing={printing}
-            pdfExporting={pdfExporting}
-            pdfPassword={pdfPassword}
-            setPdfPassword={setPdfPassword}
-            exportError={exportError}
             printError={printError}
-            pdfError={pdfError}
-            onExportCsv={exportCsv}
             onPrint={printReport}
-            onExportPdf={() => void exportPdf()}
             categoryFilter={categoryFilter}
             onCategoryFilterChange={setCategoryFilter}
           />
@@ -892,7 +827,7 @@ function ComparisonMetric({ label, current, previous, currency, positiveIsGood }
   return <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3"><p className="text-xs text-[var(--text-secondary)]">{label}</p><p className="mt-1 text-sm font-bold">{formatAmount(current, currency)}</p><p className={`mt-1 text-xs font-semibold ${tone}`}>{direction} {formatSignedAmount(delta, currency)} dari periode lalu</p></div>;
 }
 
-function ReportsView({ data, comparison, comparisonLoading, month, startDate, endDate, loading, onMonthChange, onStartDateChange, onEndDateChange, onLoad, exporting, printing, pdfExporting, pdfPassword, setPdfPassword, exportError, printError, pdfError, onExportCsv, onPrint, onExportPdf, categoryFilter, onCategoryFilterChange }: {
+function ReportsView({ data, comparison, comparisonLoading, month, startDate, endDate, loading, onMonthChange, onStartDateChange, onEndDateChange, onLoad, printing, printError, onPrint, categoryFilter, onCategoryFilterChange }: {
   data: ReportResponse;
   comparison: ReportResponse | null;
   comparisonLoading: boolean;
@@ -904,17 +839,9 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
   onStartDateChange: (value: string) => void;
   onEndDateChange: (value: string) => void;
   onLoad: () => void;
-  exporting: boolean;
   printing: boolean;
-  pdfExporting: boolean;
-  pdfPassword: string;
-  setPdfPassword: (value: string) => void;
-  exportError: string;
   printError: string;
-  pdfError: string;
-  onExportCsv: () => void;
   onPrint: () => void;
-  onExportPdf: () => void;
   categoryFilter: { category: string; currency: string } | null;
   onCategoryFilterChange: (value: { category: string; currency: string } | null) => void;
 }) {
@@ -932,9 +859,10 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
       </section>
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Ringkasan {data.report.period.label}</p>
+        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Ringkasan {data.report.period.label}</p><p className="mt-1 text-sm text-[var(--text-secondary)]">Snapshot arus keuangan pada periode yang dipilih.</p></div>{(data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") && <button type="button" onClick={onPrint} disabled={printing} className="min-h-10 shrink-0 rounded-xl bg-[var(--brand-green-700)] px-3 text-xs font-bold text-white transition hover:bg-[var(--brand-green-800)] disabled:cursor-wait disabled:opacity-60">{printing ? "Membuka…" : "Buka tampilan cetak"}</button>}</div>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">{data.report.currencies.map((summary) => <MetricCard key={summary.currency} summary={summary} />)}</div>
         {data.report.currencies.length === 0 && <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm text-[var(--text-secondary)]">Belum ada transaksi aktif pada periode ini.</p>}
+        {printError && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{printError}</p>}
       </section>
 
       <CashFlowSection points={data.report.cashFlow} />
@@ -944,12 +872,6 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
         <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Perbandingan</p><h2 className="mt-1 text-lg font-bold">Dibanding periode sebelumnya</h2></div><span className="rounded-full bg-[var(--brand-purple-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-purple-800)]">Insight dasar</span></div>
         {comparisonLoading ? <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="skeleton h-20 rounded-xl" /><div className="skeleton h-20 rounded-xl" /></div> : comparison ? <ComparisonSummary current={data} previous={comparison} /> : <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Perbandingan belum tersedia untuk periode ini.</p>}
-      </section>
-
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
-        <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Export laporan</h2><p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">Tersedia untuk OWNER dan ADMIN. Member tetap dapat melihat laporan tanpa export.</p></div><span className="rounded-full bg-[var(--brand-coral-100)] px-3 py-1 text-xs font-semibold text-[#B94B40]">Role-safe</span></div>
-        {(data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") ? <><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={onExportCsv} disabled={exporting || printing || pdfExporting} className="min-h-10 rounded-xl bg-[var(--brand-green-100)] px-3 text-xs font-semibold text-[var(--brand-green-700)] transition hover:bg-[var(--brand-green-500)]/30 disabled:cursor-wait disabled:opacity-60">{exporting ? "Menyiapkan CSV…" : "Unduh CSV"}</button><button type="button" onClick={onPrint} disabled={exporting || printing || pdfExporting} className="min-h-10 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 text-xs font-semibold text-[var(--text-primary)] transition hover:border-[var(--brand-green-500)] disabled:cursor-wait disabled:opacity-60">{printing ? "Menyiapkan cetak…" : "Tampilan cetak"}</button></div><details className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-3"><summary className="cursor-pointer text-xs font-semibold text-[var(--text-primary)]">Unduh PDF (opsional password)</summary><div className="mt-3 space-y-3"><label className="block text-xs font-semibold text-[var(--text-secondary)]">Password PDF<input type="password" autoComplete="new-password" value={pdfPassword} maxLength={127} onChange={(event) => setPdfPassword(event.target.value)} placeholder="Kosongkan jika tanpa password" className="mt-1 min-h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-normal outline-none transition focus:border-[var(--brand-green-600)] focus:ring-2 focus:ring-[var(--brand-green-100)]" /></label><p className="text-xs leading-5 text-[var(--text-secondary)]">Jika diisi, gunakan minimal 8 karakter. Password hanya digunakan saat pembuatan PDF dan tidak disimpan.</p><button type="button" onClick={onExportPdf} disabled={exporting || printing || pdfExporting} className="min-h-10 rounded-xl bg-[var(--text-primary)] px-3 text-xs font-semibold text-white transition hover:bg-[var(--brand-green-700)] disabled:cursor-wait disabled:opacity-60">{pdfExporting ? "Menyiapkan PDF…" : "Unduh PDF"}</button></div></details></> : <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Akun MEMBER hanya memiliki akses baca laporan.</p>}
-        {(exportError || printError || pdfError) && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{exportError || printError || pdfError}</p>}
       </section>
 
       {(categoryFilter || filteredTransactions.length > 0) && <section id="category-drilldown" className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Detail transaksi</h2>{categoryFilter && <p className="mt-1 text-xs text-[var(--text-secondary)]">{getCategoryLabel(categoryFilter.category)} · {categoryFilter.currency}</p>}</div><div className="flex items-center gap-2"><span className="text-xs text-[var(--text-secondary)]">{filteredTransactions.length} dimuat</span>{categoryFilter && <button type="button" onClick={() => onCategoryFilterChange(null)} className="min-h-9 rounded-lg px-2 text-xs font-semibold text-[var(--brand-green-700)] hover:bg-[var(--brand-green-50)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">Hapus filter</button>}</div></div>{filteredTransactions.length > 0 ? <div className="mt-3 divide-y divide-[var(--border)]">{filteredTransactions.map((transaction) => <TransactionRow key={transaction.transactionId} transaction={transaction} />)}</div> : <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Belum ada transaksi yang cocok pada daftar report yang dimuat.</p>}{categoryFilter && data.report.transactions.length === 50 && <p className="mt-4 rounded-xl bg-[var(--brand-purple-100)] p-3 text-xs leading-5 text-[var(--brand-purple-800)]">Drill-down menampilkan transaksi yang tersedia pada daftar report (maksimal 50 transaksi terbaru).</p>}</section>}
@@ -1025,22 +947,6 @@ function formatDisplayDate(value: string): string {
 function formatLongDate(value: string): string {
   const [year, month, day] = value.split("-").map(Number);
   return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, day)));
-}
-
-function requestTelegramDownload(action: ReportAction, onResult: (message?: string) => void): void {
-  const webApp = window.Telegram?.WebApp;
-  if (webApp?.downloadFile) {
-    webApp.downloadFile({ url: action.url, file_name: action.fileName }, (accepted) => {
-      if (!accepted) onResult("Telegram membatalkan permintaan download.");
-    });
-    return;
-  }
-  if (webApp?.openLink) {
-    webApp.openLink(action.url);
-    return;
-  }
-  const opened = window.open(action.url, "_blank", "noopener,noreferrer");
-  if (!opened) throw new Error("Telegram tidak menyediakan fitur download dan popup diblokir browser.");
 }
 
 function requestTelegramPrint(url: string): void {

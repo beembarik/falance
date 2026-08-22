@@ -4,7 +4,7 @@ import { ReportPeriodError } from "../../../../../../lib/family/report";
 import { validatePdfPassword } from "../../../../../../lib/family/pdf";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../../../lib/telegram/mini-app-auth";
 import { readMiniAppReportRequest, type MiniAppReportRequestPayload } from "../../../../../../lib/telegram/mini-app-request";
-import { buildReportDownloadAction } from "../../../../../../lib/telegram/report-download-token";
+import { buildReportDownloadAction, getReportDownloadSecret, verifyReportDownloadToken } from "../../../../../../lib/telegram/report-download-token";
 
 export const runtime = "nodejs";
 
@@ -17,16 +17,14 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
-  if (typeof payload.initData !== "string" || !payload.initData.trim()) {
-    return Response.json({ error: "Mini App authorization is required." }, { status: 400 });
-  }
   if (
     (payload.month !== undefined && typeof payload.month !== "string") ||
     (payload.startDate !== undefined && typeof payload.startDate !== "string") ||
     (payload.endDate !== undefined && typeof payload.endDate !== "string") ||
-    (payload.password !== undefined && typeof payload.password !== "string")
+    (payload.password !== undefined && typeof payload.password !== "string") ||
+    (payload.token !== undefined && typeof payload.token !== "string")
   ) {
-    return Response.json({ error: "Invalid report period or password." }, { status: 400 });
+    return Response.json({ error: "Invalid report period, password, or preview token." }, { status: 400 });
   }
 
   let password: string | undefined;
@@ -36,23 +34,51 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: "Password harus berisi 8–127 byte UTF-8." }, { status: 400 });
   }
 
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  if (!botToken) {
-    console.error("[MiniApp] Telegram bot token is not configured");
-    return Response.json({ error: "Service unavailable." }, { status: 503 });
+  const suppliedToken = stringValue(payload.token);
+  let telegramUserId: string;
+  let month: string | undefined;
+  let startDate: string | undefined;
+  let endDate: string | undefined;
+
+  if (suppliedToken) {
+    const secret = getReportDownloadSecret();
+    if (!secret) return Response.json({ error: "Service unavailable." }, { status: 503 });
+    const tokenPayload = verifyReportDownloadToken(suppliedToken, secret);
+    if (!tokenPayload || tokenPayload.format !== "print") {
+      return Response.json({ error: "Preview report tidak valid atau sudah kedaluwarsa." }, { status: 401 });
+    }
+    telegramUserId = tokenPayload.uid;
+    month = tokenPayload.month;
+    startDate = tokenPayload.startDate;
+    endDate = tokenPayload.endDate;
+  } else {
+    if (typeof payload.initData !== "string" || !payload.initData.trim()) {
+      return Response.json({ error: "Mini App authorization is required." }, { status: 400 });
+    }
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) {
+      console.error("[MiniApp] Telegram bot token is not configured");
+      return Response.json({ error: "Service unavailable." }, { status: 503 });
+    }
+    try {
+      const validated = validateMiniAppInitData(payload.initData, botToken);
+      telegramUserId = validated.telegramUser.telegramUserId;
+      month = stringValue(payload.month);
+      startDate = stringValue(payload.startDate);
+      endDate = stringValue(payload.endDate);
+    } catch (error) {
+      if (error instanceof MiniAppAuthError) {
+        return Response.json({ error: "Mini App authorization is invalid or expired." }, { status: 401 });
+      }
+      throw error;
+    }
   }
 
   try {
-    const validated = validateMiniAppInitData(payload.initData, botToken);
     const service = new FamilyService(new GoogleSheetsFamilyRepository());
-    const exported = await service.getFinancialExportReport(
-      validated.telegramUser.telegramUserId,
-      stringValue(payload.month),
-      stringValue(payload.startDate),
-      stringValue(payload.endDate),
-    );
+    const exported = await service.getFinancialExportReport(telegramUserId, month, startDate, endDate);
     const action = buildReportDownloadAction(request, {
-      telegramUserId: validated.telegramUser.telegramUserId,
+      telegramUserId,
       format: "pdf",
       period: exported.report.period,
       fileName: `falance-report-${exported.report.period.startDate}-${exported.report.period.endDate}.pdf`,
@@ -63,9 +89,6 @@ export async function POST(request: Request): Promise<Response> {
       headers: { "cache-control": "no-store" },
     });
   } catch (error) {
-    if (error instanceof MiniAppAuthError) {
-      return Response.json({ error: "Mini App authorization is invalid or expired." }, { status: 401 });
-    }
     if (error instanceof UnauthorizedError) {
       return Response.json({ error: "PDF hanya tersedia untuk OWNER dan ADMIN." }, { status: 403 });
     }

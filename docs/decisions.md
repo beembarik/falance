@@ -119,3 +119,13 @@ The Mini App may render income and expense bars and a surplus/deficit net label 
 The Laporan category chart may act as a presentation control. Selecting a persisted category and currency filters the already loaded report transaction details for the selected period; the client does not recalculate category totals or mutate transactions. The filter uses the server-derived category code and the chart currency together, so the same category in two currencies can never be conflated.
 
 The report detail list remains independently bounded to the latest 50 active transactions. When that boundary applies, the UI must disclose that the drill-down covers the loaded detail rows while the server-derived category summary remains authoritative. The synthetic `Lainnya` bucket is not a persisted category and is not clickable. Complete server-filtered pagination is a future slice.
+
+## ADR-015: Branded report preview and consolidated export actions
+
+**Status:** Accepted; M10 Slice 15 in development.
+
+Laporan Mini App will expose one export entry point from the active period summary rather than separate export cards. The entry point opens a server-generated print preview that acts as the export workspace and provides screen-only controls for print, CSV, and PDF, including optional PDF password preparation. The preview keeps the selected period and family-scoped report context.
+
+The print preview is a presentation layer only. Every export action remains OWNER/ADMIN-only and must be backed by signed short-lived report tokens with repeated server-side authorization. The preview must not accept client-controlled family IDs, spreadsheet IDs, Telegram IDs, or storage identifiers. The server supplies the generation timestamp using `FALANCE_TIME_ZONE`; the browser clock is not authoritative for report metadata.
+
+The preview uses Falancé green, lavender-purple, and coral as semantic accents with grayscale-readable text and a toolbar hidden from printed output. The symbol-only Falancé mark is used as a transparent favicon and must not include the source image's black background.
