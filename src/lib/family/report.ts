@@ -29,6 +29,7 @@ export interface FinancialReportTransaction {
   transactionDate: string;
   description: string;
   category: string;
+  creatorName: string;
 }
 
 export interface FinancialReport {
@@ -89,6 +90,7 @@ export function buildFinancialReport(
   period: FinancialReportPeriod,
   transactionLimit: number | null = DEFAULT_TRANSACTION_LIMIT,
   familyId?: string,
+  creatorNames?: ReadonlyMap<string, string>,
 ): FinancialReport {
   const boundedLimit = transactionLimit === null
     ? null
@@ -131,6 +133,7 @@ export function buildFinancialReport(
       transactionDate: transaction.transactionDate,
       description: transaction.description,
       category: transaction.category ?? "UNCATEGORIZED",
+      creatorName: creatorNames?.get(transaction.createdByMemberId) ?? "Member",
     }));
 
   return {

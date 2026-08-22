@@ -41,10 +41,12 @@ test("Mini App report returns signed export actions for an authorized OWNER", as
     findActiveMemberByTelegramUserId: typeof prototype.findActiveMemberByTelegramUserId;
     findFamilyById: typeof prototype.findFamilyById;
     findTransactionsByFamilyId: typeof prototype.findTransactionsByFamilyId;
+    findMembersByFamilyId: typeof prototype.findMembersByFamilyId;
   };
   const originalFindMember = repository.findActiveMemberByTelegramUserId;
   const originalFindFamily = repository.findFamilyById;
   const originalFindTransactions = repository.findTransactionsByFamilyId;
+  const originalFindMembers = repository.findMembersByFamilyId;
   repository.findActiveMemberByTelegramUserId = async () => ({
     memberId: "mem_100",
     familyId: "fam_1",
@@ -63,6 +65,16 @@ test("Mini App report returns signed export actions for an authorized OWNER", as
     createdBy: "100",
     plan: "MVP",
   });
+  repository.findMembersByFamilyId = async () => [{
+    memberId: "mem_100",
+    familyId: "fam_1",
+    telegramUserId: "100",
+    name: "Owner",
+    username: "owner",
+    role: "OWNER",
+    status: "ACTIVE",
+    joinedAt: "2026-01-01T00:00:00.000Z",
+  }];
   repository.findTransactionsByFamilyId = async () => [{
     transactionId: "txn_category",
     familyId: "fam_1",
@@ -91,7 +103,7 @@ test("Mini App report returns signed export actions for an authorized OWNER", as
       headers: { "content-type": "application/json" },
     }));
     assert.equal(response.status, 200);
-    const payload = await response.json() as { actions?: { csv?: { url: string }; pdf?: { url: string }; print?: { url: string } }; report?: { categorySummaries?: Array<{ category: string; currency: string; expenseMinor: string }>; transactions?: Array<{ transactionId: string; category: string }> } };
+    const payload = await response.json() as { actions?: { csv?: { url: string }; pdf?: { url: string }; print?: { url: string } }; report?: { categorySummaries?: Array<{ category: string; currency: string; expenseMinor: string }>; transactions?: Array<{ transactionId: string; category: string; creatorName: string }> } };
     assert.deepEqual(payload.report?.categorySummaries, [{ category: "FOOD", label: "Makanan & Minuman", currency: "IDR", incomeMinor: "0", expenseMinor: "25000", netMinor: "-25000", transactionCount: 1 }]);
     assert.deepEqual(payload.report?.transactions, [{
       transactionId: "txn_category",
@@ -101,6 +113,7 @@ test("Mini App report returns signed export actions for an authorized OWNER", as
       transactionDate: "2026-08-20",
       description: "Belanja",
       category: "FOOD",
+      creatorName: "Owner",
     }]);
     assert.match(payload.actions?.csv?.url ?? "", /^https:\/\/falance\.example\.com\/api\/mini-app\/report\/download\?token=/);
     assert.match(payload.actions?.pdf?.url ?? "", /^https:\/\/falance\.example\.com\/api\/mini-app\/report\/download\?token=/);
@@ -109,6 +122,7 @@ test("Mini App report returns signed export actions for an authorized OWNER", as
     repository.findActiveMemberByTelegramUserId = originalFindMember;
     repository.findFamilyById = originalFindFamily;
     repository.findTransactionsByFamilyId = originalFindTransactions;
+    repository.findMembersByFamilyId = originalFindMembers;
     restoreEnv("TELEGRAM_BOT_TOKEN", originalToken);
     restoreEnv("FALANCE_REPORT_TOKEN_SECRET", originalSecret);
   }

@@ -665,11 +665,14 @@ export class FamilyService {
     const member = await this.requireActiveMember(telegramUserId);
     await this.requireActiveFamily(member.familyId);
     const period = getFinancialReportPeriod(month, startDate, endDate);
+    const transactions = await this.repository.findTransactionsByFamilyId(member.familyId);
+    const creatorNames = new Map((await this.repository.findMembersByFamilyId(member.familyId)).map((familyMember) => [familyMember.memberId, familyMember.name] as const));
     return buildFinancialReport(
-      await this.repository.findTransactionsByFamilyId(member.familyId),
+      transactions,
       period,
       undefined,
       member.familyId,
+      creatorNames,
     );
   }
 
@@ -685,8 +688,9 @@ export class FamilyService {
     }
     const family = await this.requireActiveFamily(member.familyId);
     const period = getFinancialReportPeriod(month, startDate, endDate);
+    const transactions = await this.repository.findTransactionsByFamilyId(member.familyId);
     const report = buildFinancialReport(
-      await this.repository.findTransactionsByFamilyId(member.familyId),
+      transactions,
       period,
       null,
       member.familyId,

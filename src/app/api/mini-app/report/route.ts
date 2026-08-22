@@ -108,6 +108,7 @@ export async function POST(request: Request): Promise<Response> {
           transactionDate: transaction.transactionDate,
           description: transaction.description,
           category: transaction.category,
+          creatorName: transaction.creatorName,
         })),
       },
     });

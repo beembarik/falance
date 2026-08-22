@@ -179,7 +179,7 @@ When password protection is selected, the backend must encrypt the PDF before de
 
 ## Milestone 10 — Telegram Mini App Expansion
 
-Status: IN PROGRESS — SLICES 1–11 IMPLEMENTED LOCALLY; SLICES 9–10 PRODUCTION VALIDATED
+Status: IN PROGRESS — SLICES 1–12 IMPLEMENTED LOCALLY; SLICES 9–11 PRODUCTION VALIDATED
 
 This milestone expands the first authorized report view into a family-finance workspace while preserving the existing server-side authorization boundary. The Mini App is mobile-first but not mobile-only: the same component and domain-data system should adapt to Telegram phone, tablet, desktop, and ordinary browser fallback contexts.
 
@@ -201,11 +201,12 @@ Every family selector or family context control must remain server-authorized. T
 | 8 | Family administration actions from the Account screen: create invitation, rename family, change MEMBER/ADMIN role, and deactivate active members | Existing service authorization, role checks, audit, Y/N confirmation for deactivation, and last-OWNER invariant; no client-controlled family ID | Implemented locally; production validation pending |
 | 9 | Category and analytics contract preparation before category summaries or budget UI | Accepted stable category codes, deterministic family/currency-scoped summaries, legacy fallback, legacy-safe Transactions migration, service-level assignment, and no use of AI `categorySuggestion` as authoritative data | Complete; production registry validated (`healthy: true`, `issues: []`) |
 | 10 | Explicit category assignment in Mini App transaction create/edit flow | Authenticated category selector using stable codes and Indonesian labels; server-side validation, family isolation, legacy fallback, and persisted service/repository writes; no category summaries, budgets, or AI auto-persistence | Complete; production validated |
-| 11 | Read-only category analytics on the Mini App Dashboard | Server-derived category summaries filtered by active family and selected period, grouped by currency; horizontal expense chart with top categories and multi-currency separation; no budgets, AI insight, or client-side financial calculation | Implemented locally; production validation pending |
+| 11 | Read-only category analytics on the Mini App Dashboard | Server-derived category summaries filtered by active family and selected period, grouped by currency; horizontal expense chart with top categories and multi-currency separation; no budgets, AI insight, or client-side financial calculation | Complete; production validated |
+| 12 | Dashboard refinement and transaction provenance | Simplify Beranda into family financial snapshot plus recent activity, move category chart presentation to Laporan, display server-resolved creator name on transaction list/detail, clarify surplus/deficit terminology, and reduce duplicate primary actions; no account/transfer/savings model | Implemented locally; production validation pending |
 
 ### Explicitly deferred from the current Mini App scope
 
-- Category summaries are being introduced in M10 Slice 11 as a read-only Dashboard visualization. They must remain server-derived, ACTIVE-only, family-scoped, period-scoped, and separated by currency; the accepted contract is in [`docs/category-analytics.md`](category-analytics.md). Slices 9–10 are production validated.
+- Category summaries were introduced and production validated in M10 Slice 11. Slice 12 refines their presentation by treating Laporan as the analytics surface while keeping summaries server-derived, ACTIVE-only, family-scoped, period-scoped, and separated by currency; the accepted contract is in [`docs/category-analytics.md`](category-analytics.md). Slices 9–11 are production validated.
 - `payment_method` remains deferred because it is not part of the current transaction model or worksheet.
 - Budget totals, per-category budget progress, and the `/budget` surface remain deferred until category and budget schemas exist.
 - AI financial insight remains a later layer over server-derived structured metrics; AI must never be the source of financial totals.
@@ -216,7 +217,7 @@ Every family selector or family context control must remain server-authorized. T
 
 ### Exit criteria
 
-Milestone 10 is complete only when the core Mini App screens have loading, empty, error, accessibility, responsive, session-expiry, authorization, and family-isolation coverage; all writes use the existing service boundary; multi-currency balances are never mixed; and production validation confirms the Mini App works in the intended Telegram contexts. Budget, AI insight, and Mini App receipt scanning remain explicitly deferred; Slice 11 category analytics is read-only and must not be treated as a budget or AI insight feature.
+Milestone 10 is complete only when the core Mini App screens have loading, empty, error, accessibility, responsive, session-expiry, authorization, and family-isolation coverage; all writes use the existing service boundary; multi-currency balances are never mixed; and production validation confirms the Mini App works in the intended Telegram contexts. Budget, AI insight, account/transfer/savings, and Mini App receipt scanning remain explicitly deferred; Slices 11–12 are read-only analytics and presentation refinements, not a budget or savings model.
 
 ## Milestone 11 — AI Usage, Quota, and Provider Reliability
 

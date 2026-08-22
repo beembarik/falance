@@ -38,7 +38,7 @@ A `/createfamily` request is retained for 15 minutes. A new request replaces the
 
 **Status:** Planned.
 
-Supabase is the planned future storage implementation. Milestone 2 deliberately did not introduce Supabase or transaction commands. The Milestone 4 transaction foundation now provides central transaction persistence and service authorization; financial parsing, AI, payment, and subscription systems remain future work. Milestone 9 now provides authenticated Telegram/Mini App reports and role-safe CSV, print, and server-side PDF export. Milestone 10 begins with a read-only Dashboard surface derived from the same authoritative report payload; persisted category summaries remain deferred until a transaction category schema is defined.
+Supabase is the planned future storage implementation. Milestone 2 deliberately did not introduce Supabase or transaction commands. The Milestone 4 transaction foundation now provides central transaction persistence and service authorization; financial parsing, AI, payment, and subscription systems remain future work. Milestone 9 now provides authenticated Telegram/Mini App reports and role-safe CSV, print, and server-side PDF export. Milestone 10 begins with a read-only Dashboard surface derived from the same authoritative report payload; persisted category summaries and their read-only analytics presentation are defined by ADR-011, while Slice 12 refines their placement into Laporan.
 
 ## ADR-007: Quota-aware registry initialization and safe diagnostics
 
@@ -82,7 +82,7 @@ Persisted transaction categories, payment methods, budgets, category summaries, 
 
 ## ADR-011: Category and analytics contract before persistence
 
-**Status:** Accepted; M10 Slices 9–10 production validated. M10 Slice 11 implements read-only Dashboard category analytics and awaits production validation.
+**Status:** Accepted; M10 Slices 9–11 production validated. M10 Slice 12 refines the placement and presentation of the same category analytics contract and awaits production validation.
 
 Falancé will use stable uppercase category codes with separate display labels rather than persisting translated labels. The proposed initial code set and deterministic summary shape are defined in [`docs/category-analytics.md`](category-analytics.md). Existing AI `categorySuggestion` values remain draft-only candidates and cannot be persisted or used as the source of financial totals without explicit user approval and service validation.
 
@@ -91,3 +91,15 @@ Category analytics must be grouped by both category and normalized ISO currency.
 The implementation appends `category` as the final column of the existing central `Transactions` worksheet, migrates legacy rows by writing `UNCATEGORIZED`, reads absent values with the same fallback, and writes only validated stable codes through the repository. The operator completed the central registry backup and production integrity check with `healthy: true` and `issues: []`. M10 Slice 10 exposes explicit category selection in authenticated Mini App create/edit flows and has been production validated. M10 Slice 11 exposes read-only summaries and expense distribution per currency on the Dashboard; a future Supabase mapping must preserve the same codes and legacy semantics. No per-family spreadsheet or Drive API is introduced.
 
 This ADR authorizes the read-only category summary and per-currency expense visualization in M10 Slice 11. It does not authorize budgets, payment methods, recurring liabilities, AI financial insight, or Mini App receipt scanning. Those remain separate decisions and implementation slices.
+
+## ADR-012: Dashboard snapshot, report analytics, and transaction provenance
+
+**Status:** Accepted; implemented locally as M10 Slice 12 and awaiting production validation.
+
+Falancé will keep Beranda focused on a family financial snapshot and recent family activity. Category analytics belong to Laporan, where users explicitly seek analysis and export. Moving the presentation of the category chart does not remove or weaken the server-side category summary contract introduced by ADR-011.
+
+Transaction provenance is a presentation concern backed by the existing `createdByMemberId`. The server may resolve that opaque member reference to the display name of an active or historical member in the same family and return only a safe display field such as `createdByName`. Telegram IDs, raw member identifiers, credentials, and family selectors must not be sent to the browser for this purpose. Missing names use a generic fallback.
+
+The period value `income - expense` must be labeled as `Surplus periode`, `Defisit periode`, or `Arus bersih`, not as an account balance, until Falancé has an opening-balance and account model. This slice does not introduce saving transactions, accounts, transfers, savings rates, or savings goals. Any future savings feature must be built on an explicit account/money-bucket and transfer contract.
+
+The slice may reduce duplicate primary CTAs on Beranda while preserving the persistent bottom-navigation `+` action. All existing family isolation, multi-currency separation, and FamilyService/repository boundaries remain unchanged.

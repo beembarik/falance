@@ -68,6 +68,7 @@ test("aggregates active transactions by currency and excludes VOID or out-of-per
     transactionDate: "2026-08-19",
     description: "Test",
     category: "INCOME",
+    creatorName: "Member",
   });
   assert.deepEqual(report.currencies.map((summary) => ({
     currency: summary.currency,
@@ -78,6 +79,18 @@ test("aggregates active transactions by currency and excludes VOID or out-of-per
   })), [
     { currency: "IDR", incomeMinor: BigInt(500000), expenseMinor: BigInt(125000), netMinor: BigInt(375000), transactionCount: 2 },
     { currency: "USD", incomeMinor: BigInt(0), expenseMinor: BigInt(10), netMinor: BigInt(-10), transactionCount: 1 },
+  ]);
+});
+
+test("adds creator display names without exposing member identifiers", () => {
+  const report = buildFinancialReport([
+    transaction({ transactionId: "txn_named", createdByMemberId: "mem_1" }),
+    transaction({ transactionId: "txn_missing", createdByMemberId: "mem_missing" }),
+  ], period, 50, "fam_1", new Map([["mem_1", "Ibu"]]));
+
+  assert.deepEqual(report.transactions.map((item) => ({ transactionId: item.transactionId, creatorName: item.creatorName })), [
+    { transactionId: "txn_named", creatorName: "Ibu" },
+    { transactionId: "txn_missing", creatorName: "Member" },
   ]);
 });
 

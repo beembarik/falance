@@ -58,7 +58,7 @@ Milestone 10 expands the authenticated read-only report surface into a responsiv
 
 The visual system follows the Falancé logo without treating its black background as an application color. Brand green is the primary action and navigation color, lavender-purple is a restrained identity accent, coral is reserved for expense and attention semantics, the application background is off-white, cards are white, and text uses an accessible dark green-neutral. The initial token set is documented in ADR-010 and must be validated through contrast and device testing before being treated as final.
 
-The intended core screens are `Beranda`, `Transaksi`, `Tambah Transaksi`, `Laporan`, and `Akun/Keluarga`. `Anggaran`, category summaries, AI financial insight, and Mini App receipt scanning are future surfaces and must not display fabricated or non-authoritative values. Because reports support multiple currencies, balances must remain grouped by currency; the UI must never add amounts with different currencies into one total.
+The intended core screens are `Beranda`, `Transaksi`, `Tambah Transaksi`, `Laporan`, and `Akun/Keluarga`. `Beranda` is a family financial snapshot and recent-activity surface, while category summaries are a read-only analytics surface within `Laporan`. `Anggaran`, AI financial insight, account/transfer/savings, and Mini App receipt scanning remain future surfaces and must not display fabricated or non-authoritative values. Because reports support multiple currencies, balances and category analytics must remain grouped by currency; the UI must never add amounts with different currencies into one total.
 
 The UI consumes domain data through the server boundary:
 

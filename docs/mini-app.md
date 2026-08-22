@@ -140,6 +140,16 @@ Slice 6 menyediakan form terotorisasi untuk transaksi aktual dengan `INCOME`/`EX
 
 Slice 7 menambahkan edit transaksi aktif melalui `PATCH /api/mini-app/transaction` dan soft-void melalui `POST /api/mini-app/transaction/void`. Edit menggunakan input authoritative yang sama, termasuk validasi kode currency ISO 4217, dan tetap memeriksa membership server-side. Saat modal edit dibuka, UI mengambil raw Telegram `initData` dari sesi Mini App agar request PATCH tidak kehilangan kredensial autentikasi. Void tidak langsung mengubah data: tahap `REQUEST` membuat `PendingConfirmation` berstatus `PENDING` dengan expiry lima menit, UI menampilkan pertanyaan konfirmasi `Ya, void` atau `Batal`, dan tahap `CONFIRM` hanya dapat mengeksekusi action `VOID_TRANSACTION` yang cocok. Status transaksi berubah menjadi `VOID`, tidak dihapus, tidak dihitung dalam saldo, dan dicatat dalam audit log. `transactionId` untuk CONFIRM diambil dari pending state server, bukan dari client.
 
+### Beranda dan Laporan — M10 Slice 12
+
+Beranda adalah **family financial snapshot plus aktivitas terbaru**, bukan halaman analytics yang penuh chart. Beranda memprioritaskan konteks keluarga dan periode, surplus/defisit atau arus bersih per currency, pemasukan, pengeluaran, transaksi terbaru, provenance pencatat, dan satu aksi utama untuk menambah transaksi. Nilai `income - expense` pada periode terpilih tidak boleh diberi label saldo rekening; gunakan istilah `Surplus periode`, `Defisit periode`, atau `Arus bersih` sampai Falancé memiliki opening balance dan account model.
+
+Laporan adalah permukaan analytics. Category chart dan analitik pengeluaran ditempatkan di Laporan, sementara Beranda mempertahankan ringkasan dan aktivitas yang dapat dipahami dalam beberapa detik. Kategori tetap server-derived, ACTIVE-only, family-scoped, period-scoped, serta terpisah per currency. Bottom navigation `+` adalah primary action; Beranda tidak perlu menampilkan lebih dari satu CTA utama yang bersaing.
+
+Transaction list dan detail dapat menampilkan provenance dalam bentuk display name, misalnya `22 Agu · dicatat oleh Ibu`. `createdByMemberId` di-resolve server-side ke nama anggota dari family yang sama. Telegram ID, raw member ID, dan credential tidak dikirim ke browser hanya untuk kebutuhan presentasi. Jika nama tidak tersedia, gunakan fallback generik seperti `Member`.
+
+Slice 12 tidak menambahkan account, transfer, savings transaction type, savings rate, atau savings goal. Saving baru dapat dimodelkan setelah konsep account/money bucket dan transfer tersedia.
+
 ### Anggaran dan insight
 
 Screen Anggaran belum boleh menampilkan angka contoh sebagai data nyata. Budget memerlukan schema, periode, kategori, nominal limit, status, repository, service, dan perhitungan server-side. Insight juga harus berasal dari structured metrics; AI tidak boleh menghitung saldo atau menjadi sumber angka finansial.
@@ -182,7 +192,7 @@ Milestone 10 dapat dianggap selesai apabila:
 6. Saldo multi-currency tidak pernah dicampur.
 7. Export tetap hanya tersedia untuk `OWNER` dan `ADMIN`.
 8. Test mencakup authorization, family isolation, dan interaction-critical paths.
-9. Category, budget, AI insight, payment method, dan Mini App receipt scanning tetap deferred sampai data contract masing-masing disetujui.
+9. Category contract dan read-only category analytics sudah disetujui serta divalidasi; budget, AI insight, payment method, account/transfer/savings, dan Mini App receipt scanning tetap deferred sampai data contract masing-masing disetujui.
 
 ## Referensi internal
 
