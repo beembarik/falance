@@ -14,6 +14,45 @@ import type { TransactionTextParser } from "../src/lib/ai/transaction-text-parse
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
 
+ test("shows onboarding commands to an unregistered user without exposing active-family commands", async () => {
+  const response = await handleTelegramTextMessage(
+    fakeService({ getActiveMembership: async () => null }),
+    owner,
+    "/help",
+  );
+
+  assert.match(response, /Panduan command Falancé/);
+  assert.match(response, /<code>\/createfamily<\/code>/);
+  assert.match(response, /<code>\/join FAL-XXXXXX<\/code>/);
+  assert.doesNotMatch(response, /<code>\/addincome/);
+  assert.doesNotMatch(response, /<code>\/invite<\/code>/);
+});
+
+test("shows common commands to a MEMBER and hides administration commands", async () => {
+  const response = await handleTelegramTextMessage(
+    fakeService({ getActiveMembership: async () => ({ role: "MEMBER" }) }),
+    owner,
+    "/help",
+  );
+
+  assert.match(response, /Akses kamu: MEMBER/);
+  assert.match(response, /<code>\/transactions<\/code>/);
+  assert.match(response, /<code>\/report \[YYYY-MM\]<\/code>/);
+  assert.doesNotMatch(response, /<code>\/invite<\/code>/);
+  assert.doesNotMatch(response, /<code>\/changerole/);
+  assert.doesNotMatch(response, /<code>\/createfamily<\/code>/);
+});
+
+test("shows family administration commands to an OWNER", async () => {
+  const response = await handleTelegramTextMessage(fakeService({}), owner, "/help");
+
+  assert.match(response, /Akses kamu: OWNER/);
+  assert.match(response, /<code>\/invite<\/code>/);
+  assert.match(response, /<code>\/changerole/);
+  assert.match(response, /<code>\/archivefamily<\/code>/);
+  assert.doesNotMatch(response, /<code>\/createfamily<\/code>/);
+});
+
 test("formats an invitation as a ready-to-share message with copyable join command", async () => {
   const originalBotUsername = process.env.FALANCE_TELEGRAM_BOT_USERNAME;
   process.env.FALANCE_TELEGRAM_BOT_USERNAME = "Falance_bot";

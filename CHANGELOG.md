@@ -1,6 +1,28 @@
 # Changelog
 All notable changes to Falancé are documented in this file.
 
+## [0.7.3] — 2026-08-23
+
+### Added
+
+- Added `/help` as a grouped Indonesian command catalog covering onboarding, family administration, transactions, reports/Mini App, and transaction drafts/AI.
+- Added server-side role-aware visibility for unregistered users, MEMBER, ADMIN, and OWNER without adding any permission to the underlying commands.
+
+### Security and integrity
+
+- `/help` reads only the requester’s active membership through `FamilyService`; command authorization remains enforced by the existing handler and service boundaries.
+- Help output uses escaped Telegram inline code and does not expose family IDs, Telegram IDs, credentials, or other sensitive identifiers.
+
+### Verification
+
+- M10 Slice 17 was validated in the production Telegram bot.
+- `npm run lint` passes.
+- `npm run build` passes.
+- `npm test` passes with 199 tests.
+- `git diff --check` passes.
+
+[0.7.3]: https://github.com/beembarik/falance/releases/tag/v0.7.3
+
 ## [0.7.2] — 2026-08-23
 
 ### Added

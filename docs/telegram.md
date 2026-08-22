@@ -47,6 +47,12 @@ The Google Sheets client caches registry initialization per spreadsheet ID for t
 
 Diagnostic failures are logged server-side using an operation label such as `createMember` or `completePendingFamilyCreation`, an HTTP status, and a redacted API path. Logs must not contain Telegram identifiers, family names, row values, spreadsheet IDs, bearer tokens, or private keys.
 
+## `/help` command catalog
+
+`/help` tersedia untuk semua pengguna dan hanya membaca membership aktif melalui `FamilyService`. Pengguna yang belum terdaftar melihat command onboarding (`/createfamily` dan `/join`), command publik (`/start` dan `/help`), serta petunjuk meminta invitation dari owner atau admin. Pengguna aktif melihat command transaksi, laporan, dan draft; `ADMIN` juga melihat command invitation; `OWNER` melihat seluruh command administrasi keluarga. Command yang tidak tersedia untuk role tersebut tidak ditampilkan, tetapi authorization tetap ditegakkan oleh handler dan service pada setiap command.
+
+Katalog dikelompokkan menjadi **Mulai dan akses**, **Keluarga dan anggota**, **Transaksi**, **Laporan dan Mini App**, serta **Draft transaksi dan AI**. Pesan menggunakan inline code untuk sintaks command, escaping HTML melalui formatter Telegram, dan tidak memasukkan identifier keluarga, Telegram ID, credential, atau data sensitif.
+
 ## Milestone 4 transaction foundation
 
 The transaction foundation is implemented below the Telegram command layer. The service accepts validated income and expense inputs, resolves the requester’s active family and creator membership server-side, persists rows in the central `Transactions` worksheet, records successful creation in the append-only `Audit Log`, and lists only active transactions from the resolved family. Archived families cannot create or list transactions, and transaction rows use soft `VOID` state rather than hard deletion.

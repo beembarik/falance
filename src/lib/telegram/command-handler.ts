@@ -33,6 +33,7 @@ import { formatTransactionCreatedMessage, formatTransactionsMessage } from "./tr
 import { parseEditDraftCommand, parseEditTransactionCommand, parseManualTransactionCommand, TransactionCommandError } from "./transaction-command";
 import { telegramCode } from "./html";
 import { buildInvitationShareMessage } from "./invitation-share";
+import { formatHelpMessage } from "./help-message";
 import {
   formatDraftActionMarkup,
   formatDraftCancelledMessage,
@@ -114,6 +115,7 @@ export async function handleTelegramTextMessageResponse(
   const command = text.trim();
   try {
     if (command === "/start") return startMessage(await service.getActiveMembership(user.telegramUserId));
+    if (command === "/help") return formatHelpMessage((await service.getActiveMembership(user.telegramUserId))?.role ?? null);
     if ((command.toUpperCase() === "Y" || command.toUpperCase() === "N") && await service.hasPendingConfirmation(user.telegramUserId)) {
       if (command.toUpperCase() === "Y") {
         return confirmationResultMessage(await service.confirmPendingAction(user));

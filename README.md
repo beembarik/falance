@@ -44,6 +44,7 @@ Pesan dan error yang dikirim bot kepada pengguna menggunakan Bahasa Indonesia. T
 | Command | Akses | Perilaku |
 | --- | --- | --- |
 | `/start` | Semua pengguna | Menampilkan status registrasi dan role pengguna. Pengguna tanpa membership diarahkan untuk membuat keluarga atau bergabung menggunakan invitation code. |
+| `/help` | Semua pengguna | Menampilkan katalog command Falancé yang dikelompokkan berdasarkan fungsi dan disaring sesuai status membership serta role pengguna. |
 | `/createfamily` | Pengguna tanpa membership aktif | Memulai pending request selama 15 menit. Pesan teks berikutnya digunakan sebagai nama keluarga. Pembuat keluarga otomatis menjadi `OWNER`. |
 | `/invite` | `OWNER`, `ADMIN` | Membuat invitation code baru untuk keluarga actor. Bot dan Mini App menampilkan pesan siap-share dengan tautan bot, masa berlaku, serta instruksi `/join <code>`; command join dibungkus sebagai inline code agar mudah disalin. Masa berlaku default adalah 24 jam dan dapat dikonfigurasi melalui environment variable. |
 | `/join <code>` | Pengguna tanpa membership aktif | Memvalidasi invitation code, membuat membership sebagai `MEMBER`, lalu menandai invitation sebagai `USED`. |
