@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type ReportAction = { url: string; fileName: string };
+type NavKey = "home" | "transactions" | "reports" | "account";
 
 type ReportResponse = {
   familyName: string;
@@ -45,7 +46,15 @@ declare global {
   }
 }
 
+const navItems: Array<{ key: NavKey; label: string; icon: string }> = [
+  { key: "home", label: "Beranda", icon: "⌂" },
+  { key: "transactions", label: "Transaksi", icon: "▤" },
+  { key: "reports", label: "Laporan", icon: "▥" },
+  { key: "account", label: "Akun", icon: "♙" },
+];
+
 export default function Home() {
+  const [activeNav, setActiveNav] = useState<NavKey>("home");
   const [month, setMonth] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -55,6 +64,7 @@ export default function Home() {
   const [printError, setPrintError] = useState("");
   const [pdfError, setPdfError] = useState("");
   const [pdfPassword, setPdfPassword] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [printing, setPrinting] = useState(false);
@@ -89,6 +99,20 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const selectNav = useCallback((key: NavKey) => {
+    setActiveNav(key);
+    setNotice("");
+    if (key === "transactions") {
+      setNotice("Workspace Transaksi read-only akan hadir pada slice berikutnya.");
+    } else if (key === "account") {
+      setNotice("Workspace Akun & Keluarga akan hadir pada slice berikutnya.");
+    }
+  }, []);
+
+  const showAddTransactionNotice = useCallback(() => {
+    setNotice("Tambah Transaksi akan dibuka setelah endpoint write Mini App selesai dan tervalidasi.");
   }, []);
 
   const exportCsv = useCallback(() => {
@@ -163,244 +187,244 @@ export default function Home() {
       initDataRef.current = webApp.initData;
       webApp.ready();
       webApp.expand();
-      webApp.setHeaderColor?.("#0f766e");
-      webApp.setBackgroundColor?.("#f4fbfa");
+      webApp.setHeaderColor?.("#267a5a");
+      webApp.setBackgroundColor?.("#fafbf8");
     }
     void loadReport("", "", "");
   }, [loadReport]);
 
   return (
-    <main className="min-h-screen bg-[#f4fbfa] px-4 pb-8 pt-5 text-slate-900">
-      <div className="mx-auto flex w-full max-w-xl flex-col gap-5">
-        <header className="rounded-3xl bg-[#0f766e] p-5 text-white shadow-lg shadow-teal-900/10">
-          <p className="text-sm font-medium text-teal-100">Falancé · Dashboard Mini App</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">Dashboard keluarga</h1>
-          <p className="mt-2 text-sm leading-6 text-teal-50">Ringkasan keluarga yang sedang aktif pada akun Telegram kamu.</p>
-        </header>
+    <main className="min-h-screen bg-[var(--app-background)] px-4 pb-28 pt-4 text-[var(--text-primary)] sm:px-6">
+      <div className="mx-auto flex w-full max-w-[480px] flex-col gap-4 lg:max-w-5xl">
+        <AppHeader data={data} activeNav={activeNav} onSelectNav={selectNav} />
 
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          <label className="block text-sm font-semibold text-slate-700" htmlFor="report-month">Periode laporan</label>
-          <div className="mt-2 flex gap-2">
-            <input
-              id="report-month"
-              type="month"
-              value={month}
-              onChange={(event) => {
-                setMonth(event.target.value);
-                setStartDate("");
-                setEndDate("");
-              }}
-              className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-            />
-            <button
-              type="button"
-              onClick={() => void loadReport(month, startDate, endDate)}
-              disabled={loading}
-              className="min-h-11 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-wait disabled:opacity-60"
-            >
-              {loading ? "Memuat…" : "Tampilkan"}
-            </button>
-          </div>
-          <p className="mt-2 text-xs text-slate-500">Kosongkan periode untuk menggunakan bulan berjalan.</p>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <label className="text-xs font-semibold text-slate-600">
-              Dari tanggal
-              <input
-                type="date"
-                value={startDate}
-                onChange={(event) => {
-                  setStartDate(event.target.value);
-                  setMonth("");
-                }}
-                className="mt-1 min-h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-normal outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-              />
-            </label>
-            <label className="text-xs font-semibold text-slate-600">
-              Sampai tanggal
-              <input
-                type="date"
-                value={endDate}
-                onChange={(event) => {
-                  setEndDate(event.target.value);
-                  setMonth("");
-                }}
-                className="mt-1 min-h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-normal outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-              />
-            </label>
-          </div>
-          <p className="mt-2 text-xs text-slate-500">Pilih bulan atau rentang tanggal maksimal satu tahun.</p>
-        </section>
+        {notice && (
+          <section role="status" className="rounded-2xl border border-[var(--brand-purple-100)] bg-[var(--brand-purple-100)] px-4 py-3 text-sm leading-5 text-[var(--brand-purple-800)]">
+            {notice}
+          </section>
+        )}
 
         {error && (
-          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
             {error}
           </section>
         )}
 
-        {loading && !data && !error && (
-          <section className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
-            Memuat laporan…
-          </section>
+        {loading && !data && !error && <LoadingState />}
+
+        {data && activeNav === "home" && (
+          <HomeView data={data} onAddTransaction={showAddTransactionNotice} onSelectReports={() => selectNav("reports")} />
         )}
 
-        {data && (
-          <>
-            <section aria-labelledby="dashboard-overview-title" className="rounded-2xl bg-slate-900 p-5 text-white shadow-lg shadow-slate-900/10">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-300">Dashboard overview</p>
-                  <h2 id="dashboard-overview-title" className="mt-1 text-xl font-bold">{data.familyName}</h2>
-                  <p className="mt-1 text-sm text-slate-300">{data.report.period.label}</p>
-                </div>
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-teal-200">{data.viewer.role}</span>
-              </div>
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <DashboardStat label="Transaksi aktif" value={String(data.report.transactionCount)} />
-                <DashboardStat label="Mata uang" value={String(data.report.currencies.length)} />
-              </div>
-            </section>
-
-            <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">Laporan detail</p>
-                  <h2 className="mt-1 text-xl font-bold text-slate-900">Periode terpilih</h2>
-                </div>
-                <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">Read-only</span>
-              </div>
-              <div className="mt-4 border-t border-slate-100 pt-4">
-                <p className="text-sm font-semibold text-slate-700">{data.report.period.label}</p>
-                <p className="mt-1 text-xs text-slate-500">{data.report.period.startDate} s/d {data.report.period.endDate}</p>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <p className="text-sm text-slate-600">{data.report.transactionCount} transaksi aktif</p>
-                  {(data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => void exportCsv()}
-                        disabled={exporting || printing || pdfExporting}
-                        className="min-h-10 rounded-xl border border-teal-200 bg-teal-50 px-3 text-xs font-semibold text-teal-800 transition hover:bg-teal-100 disabled:cursor-wait disabled:opacity-60"
-                      >
-                        {exporting ? "Menyiapkan CSV…" : "Unduh CSV"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void printReport()}
-                        disabled={exporting || printing || pdfExporting}
-                        className="min-h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-wait disabled:opacity-60"
-                      >
-                        {printing ? "Menyiapkan cetak…" : "Tampilan cetak"}
-                      </button>
-                    </>
-                  )}
-                </div>
-                {(data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") && (
-                  <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <summary className="cursor-pointer text-xs font-semibold text-slate-700">Unduh PDF (opsional password)</summary>
-                    <div className="mt-3 space-y-3">
-                      <label className="block text-xs font-semibold text-slate-600" htmlFor="pdf-password">
-                        Password PDF
-                        <input
-                          id="pdf-password"
-                          type="password"
-                          autoComplete="new-password"
-                          value={pdfPassword}
-                          maxLength={127}
-                          onChange={(event) => setPdfPassword(event.target.value)}
-                          placeholder="Kosongkan jika tanpa password"
-                          className="mt-1 min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-normal outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-                        />
-                      </label>
-                      <p className="text-xs leading-5 text-slate-500">Jika diisi, gunakan minimal 8 karakter. Password hanya digunakan saat pembuatan PDF dan tidak disimpan.</p>
-                      <button
-                        type="button"
-                        onClick={() => void exportPdf()}
-                        disabled={exporting || printing || pdfExporting}
-                        className="min-h-10 rounded-xl bg-slate-900 px-3 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:cursor-wait disabled:opacity-60"
-                      >
-                        {pdfExporting ? "Menyiapkan PDF…" : "Unduh PDF"}
-                      </button>
-                    </div>
-                  </details>
-                )}
-              </div>
-            </section>
-
-            {(exportError || printError || pdfError) && (
-              <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-                {exportError || printError || pdfError}
-              </section>
-            )}
-
-            {data.report.currencies.length === 0 ? (
-              <section className="rounded-2xl bg-white p-6 text-center text-sm leading-6 text-slate-500 shadow-sm ring-1 ring-slate-200">
-                Belum ada transaksi aktif pada periode ini.
-              </section>
-            ) : (
-              <section className="grid gap-4">
-                {data.report.currencies.map((summary) => (
-                  <article key={summary.currency} className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-bold text-slate-900">{summary.currency}</h3>
-                      <span className="text-xs text-slate-500">{summary.transactionCount} transaksi</span>
-                    </div>
-                    <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-                      <Metric label="Pemasukan" value={formatAmount(summary.incomeMinor, summary.currency)} tone="positive" />
-                      <Metric label="Pengeluaran" value={formatAmount(summary.expenseMinor, summary.currency)} tone="negative" />
-                      <Metric label="Saldo" value={formatAmount(summary.netMinor, summary.currency)} tone="neutral" />
-                    </dl>
-                  </article>
-                ))}
-              </section>
-            )}
-
-            {data.report.transactions.length > 0 && (
-              <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-slate-900">Transaksi terbaru</h2>
-                  <span className="text-xs text-slate-500">Maksimal 50</span>
-                </div>
-                <div className="mt-4 divide-y divide-slate-100">
-                  {data.report.transactions.map((transaction) => (
-                    <article key={transaction.transactionId} className="py-3 first:pt-0 last:pb-0">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-900">{transaction.description}</p>
-                          <p className="mt-1 text-xs text-slate-500">{formatDisplayDate(transaction.transactionDate)} · {transaction.currency}</p>
-                        </div>
-                        <p className={`shrink-0 text-sm font-bold ${transaction.transactionType === "INCOME" ? "text-emerald-700" : "text-rose-700"}`}>
-                          {transaction.transactionType === "INCOME" ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}
-                        </p>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            )}
-          </>
+        {data && activeNav === "reports" && (
+          <ReportsView
+            data={data}
+            month={month}
+            startDate={startDate}
+            endDate={endDate}
+            loading={loading}
+            onMonthChange={(value) => {
+              setMonth(value);
+              setStartDate("");
+              setEndDate("");
+            }}
+            onStartDateChange={(value) => {
+              setStartDate(value);
+              setMonth("");
+            }}
+            onEndDateChange={(value) => {
+              setEndDate(value);
+              setMonth("");
+            }}
+            onLoad={() => void loadReport(month, startDate, endDate)}
+            exporting={exporting}
+            printing={printing}
+            pdfExporting={pdfExporting}
+            pdfPassword={pdfPassword}
+            setPdfPassword={setPdfPassword}
+            exportError={exportError}
+            printError={printError}
+            pdfError={pdfError}
+            onExportCsv={exportCsv}
+            onPrint={printReport}
+            onExportPdf={() => void exportPdf()}
+          />
         )}
+
+        {data && activeNav === "transactions" && (
+          <PlaceholderView title="Transaksi" description="Daftar transaksi, filter pemasukan/pengeluaran, dan detail transaksi sedang disiapkan." actionLabel="Kembali ke Beranda" onAction={() => selectNav("home")} />
+        )}
+
+        {data && activeNav === "account" && (
+          <PlaceholderView title="Akun & Keluarga" description="Profil, keluarga aktif, anggota, dan permission-aware management akan tersedia pada slice berikutnya." actionLabel="Kembali ke Beranda" onAction={() => selectNav("home")} />
+        )}
+
+        {!data && !loading && !error && <PlaceholderView title="Belum ada data" description="Belum ada ringkasan yang dapat ditampilkan untuk periode ini." actionLabel="Coba lagi" onAction={() => void loadReport(month, startDate, endDate)} />}
       </div>
+
+      <BottomNavigation activeNav={activeNav} onSelect={selectNav} onAddTransaction={showAddTransactionNotice} />
     </main>
   );
 }
 
-function DashboardStat({ label, value }: { label: string; value: string }) {
+function AppHeader({ data, activeNav, onSelectNav }: { data: ReportResponse | null; activeNav: NavKey; onSelectNav: (key: NavKey) => void }) {
   return (
-    <div className="rounded-xl bg-white/10 p-3">
-      <p className="text-xs text-slate-300">{label}</p>
-      <p className="mt-1 text-2xl font-bold tracking-tight text-white">{value}</p>
-    </div>
+    <header className="app-header rounded-[24px] p-5 text-white shadow-[0_8px_28px_rgba(38,122,90,0.18)] sm:p-6">
+      <div className="flex items-start justify-between gap-4">
+        <button type="button" onClick={() => onSelectNav("home")} className="group text-left" aria-label="Buka Beranda Falancé">
+          <div className="flex items-center gap-2">
+            <span className="brand-mark" aria-hidden="true">F</span>
+            <span className="text-base font-bold tracking-tight">Falancé</span>
+          </div>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Family finance, made simple</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight">{activeNav === "home" ? "Beranda keluarga" : navItems.find((item) => item.key === activeNav)?.label}</h1>
+        </button>
+        <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-emerald-50">{data?.viewer.role || "Mini App"}</span>
+      </div>
+      <p className="mt-3 max-w-md text-sm leading-6 text-emerald-50">Ringkasan keuangan keluarga yang sedang aktif pada akun Telegram kamu.</p>
+    </header>
   );
 }
 
-function Metric({ label, value, tone }: { label: string; value: string; tone: "positive" | "negative" | "neutral" }) {
-  const color = tone === "positive" ? "text-emerald-700" : tone === "negative" ? "text-rose-700" : "text-slate-900";
+function HomeView({ data, onAddTransaction, onSelectReports }: { data: ReportResponse; onAddTransaction: () => void; onSelectReports: () => void }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-3">
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className={`mt-1 font-semibold ${color}`}>{value}</dd>
-    </div>
+    <>
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--card-shadow)]">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">Keluarga aktif</p>
+            <h2 className="mt-1 text-xl font-bold">{data.familyName}</h2>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">{data.report.period.label}</p>
+          </div>
+          <span className="rounded-full bg-[var(--brand-green-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-green-700)]">{data.viewer.role}</span>
+        </div>
+      </section>
+
+      <section className="rounded-2xl bg-[var(--brand-green-700)] p-5 text-white shadow-[0_8px_24px_rgba(38,122,90,0.16)]" aria-labelledby="home-summary-title">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100">Ringkasan periode</p>
+            <h2 id="home-summary-title" className="mt-1 text-lg font-bold">Kondisi keuangan</h2>
+          </div>
+          <button type="button" onClick={onSelectReports} className="rounded-full border border-white/25 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/70">Lihat laporan</button>
+        </div>
+        {data.report.currencies.length === 0 ? (
+          <p className="mt-6 rounded-xl bg-white/10 p-4 text-sm leading-6 text-emerald-50">Belum ada transaksi aktif pada periode ini.</p>
+        ) : (
+          <div className="mt-5 grid gap-3">
+            {data.report.currencies.map((summary) => (
+              <div key={summary.currency} className="rounded-xl bg-white/10 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold text-emerald-50">Saldo {summary.currency}</span>
+                  <span className="text-xl font-bold tracking-tight">{formatAmount(summary.netMinor, summary.currency)}</span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-lg bg-white/10 p-2"><span className="block text-emerald-100">Pemasukan</span><strong className="mt-1 block text-sm">{formatAmount(summary.incomeMinor, summary.currency)}</strong></div>
+                  <div className="rounded-lg bg-[var(--brand-coral-500)]/80 p-2"><span className="block text-white/80">Pengeluaran</span><strong className="mt-1 block text-sm">{formatAmount(summary.expenseMinor, summary.currency)}</strong></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="grid grid-cols-2 gap-3">
+        <button type="button" onClick={onAddTransaction} className="primary-action flex min-h-14 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold text-white shadow-[0_6px_18px_rgba(38,122,90,0.18)] transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2"><span className="text-xl leading-none">+</span> Tambah transaksi</button>
+        <button type="button" onClick={onSelectReports} className="min-h-14 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-bold text-[var(--brand-green-700)] shadow-[var(--card-shadow)] transition hover:border-[var(--brand-green-500)] hover:bg-[var(--brand-green-50)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2">Buka laporan</button>
+      </section>
+
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Aktivitas</p>
+            <h2 className="mt-1 text-lg font-bold">Transaksi terbaru</h2>
+          </div>
+          <span className="rounded-full bg-[var(--surface-soft)] px-3 py-1 text-xs text-[var(--text-secondary)]">{data.report.transactionCount} aktif</span>
+        </div>
+        {data.report.transactions.length === 0 ? (
+          <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Belum ada transaksi aktif. Mulai dengan mencatat pemasukan atau pengeluaran keluarga.</p>
+        ) : (
+          <div className="mt-3 divide-y divide-[var(--border)]">
+            {data.report.transactions.slice(0, 5).map((transaction) => <TransactionRow key={transaction.transactionId} transaction={transaction} />)}
+          </div>
+        )}
+      </section>
+    </>
   );
+}
+
+function ReportsView({ data, month, startDate, endDate, loading, onMonthChange, onStartDateChange, onEndDateChange, onLoad, exporting, printing, pdfExporting, pdfPassword, setPdfPassword, exportError, printError, pdfError, onExportCsv, onPrint, onExportPdf }: {
+  data: ReportResponse;
+  month: string;
+  startDate: string;
+  endDate: string;
+  loading: boolean;
+  onMonthChange: (value: string) => void;
+  onStartDateChange: (value: string) => void;
+  onEndDateChange: (value: string) => void;
+  onLoad: () => void;
+  exporting: boolean;
+  printing: boolean;
+  pdfExporting: boolean;
+  pdfPassword: string;
+  setPdfPassword: (value: string) => void;
+  exportError: string;
+  printError: string;
+  pdfError: string;
+  onExportCsv: () => void;
+  onPrint: () => void;
+  onExportPdf: () => void;
+}) {
+  return (
+    <>
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--card-shadow)]">
+        <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">Laporan</p><h2 className="mt-1 text-xl font-bold">Pilih periode</h2></div><span className="rounded-full bg-[var(--brand-green-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-green-700)]">Read-only</span></div>
+        <div className="mt-4 flex gap-2"><input aria-label="Pilih bulan laporan" type="month" value={month} onChange={(event) => onMonthChange(event.target.value)} className="min-h-11 min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 text-sm outline-none transition focus:border-[var(--brand-green-600)] focus:ring-2 focus:ring-[var(--brand-green-100)]" /><button type="button" onClick={onLoad} disabled={loading} className="min-h-11 rounded-xl bg-[var(--text-primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-700)] disabled:cursor-wait disabled:opacity-60">{loading ? "Memuat…" : "Tampilkan"}</button></div>
+        <p className="mt-2 text-xs text-[var(--text-secondary)]">Kosongkan bulan untuk menggunakan bulan berjalan.</p>
+        <div className="mt-4 grid grid-cols-2 gap-2"><label className="text-xs font-semibold text-[var(--text-secondary)]">Dari tanggal<input aria-label="Tanggal awal laporan" type="date" value={startDate} onChange={(event) => onStartDateChange(event.target.value)} className="mt-1 min-h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 text-sm font-normal outline-none transition focus:border-[var(--brand-green-600)] focus:ring-2 focus:ring-[var(--brand-green-100)]" /></label><label className="text-xs font-semibold text-[var(--text-secondary)]">Sampai tanggal<input aria-label="Tanggal akhir laporan" type="date" value={endDate} onChange={(event) => onEndDateChange(event.target.value)} className="mt-1 min-h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 text-sm font-normal outline-none transition focus:border-[var(--brand-green-600)] focus:ring-2 focus:ring-[var(--brand-green-100)]" /></label></div>
+        <p className="mt-2 text-xs text-[var(--text-secondary)]">Pilih bulan atau rentang tanggal maksimal satu tahun.</p>
+      </section>
+
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Ringkasan {data.report.period.label}</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">{data.report.currencies.map((summary) => <MetricCard key={summary.currency} summary={summary} />)}</div>
+        {data.report.currencies.length === 0 && <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm text-[var(--text-secondary)]">Belum ada transaksi aktif pada periode ini.</p>}
+      </section>
+
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
+        <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Export laporan</h2><p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">Tersedia untuk OWNER dan ADMIN. Member tetap dapat melihat laporan tanpa export.</p></div><span className="rounded-full bg-[var(--brand-coral-100)] px-3 py-1 text-xs font-semibold text-[#B94B40]">Role-safe</span></div>
+        {(data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") ? <><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={onExportCsv} disabled={exporting || printing || pdfExporting} className="min-h-10 rounded-xl bg-[var(--brand-green-100)] px-3 text-xs font-semibold text-[var(--brand-green-700)] transition hover:bg-[var(--brand-green-500)]/30 disabled:cursor-wait disabled:opacity-60">{exporting ? "Menyiapkan CSV…" : "Unduh CSV"}</button><button type="button" onClick={onPrint} disabled={exporting || printing || pdfExporting} className="min-h-10 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 text-xs font-semibold text-[var(--text-primary)] transition hover:border-[var(--brand-green-500)] disabled:cursor-wait disabled:opacity-60">{printing ? "Menyiapkan cetak…" : "Tampilan cetak"}</button></div><details className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-3"><summary className="cursor-pointer text-xs font-semibold text-[var(--text-primary)]">Unduh PDF (opsional password)</summary><div className="mt-3 space-y-3"><label className="block text-xs font-semibold text-[var(--text-secondary)]">Password PDF<input type="password" autoComplete="new-password" value={pdfPassword} maxLength={127} onChange={(event) => setPdfPassword(event.target.value)} placeholder="Kosongkan jika tanpa password" className="mt-1 min-h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-normal outline-none transition focus:border-[var(--brand-green-600)] focus:ring-2 focus:ring-[var(--brand-green-100)]" /></label><p className="text-xs leading-5 text-[var(--text-secondary)]">Jika diisi, gunakan minimal 8 karakter. Password hanya digunakan saat pembuatan PDF dan tidak disimpan.</p><button type="button" onClick={onExportPdf} disabled={exporting || printing || pdfExporting} className="min-h-10 rounded-xl bg-[var(--text-primary)] px-3 text-xs font-semibold text-white transition hover:bg-[var(--brand-green-700)] disabled:cursor-wait disabled:opacity-60">{pdfExporting ? "Menyiapkan PDF…" : "Unduh PDF"}</button></div></details></> : <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Akun MEMBER hanya memiliki akses baca laporan.</p>}
+        {(exportError || printError || pdfError) && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{exportError || printError || pdfError}</p>}
+      </section>
+
+      {data.report.transactions.length > 0 && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Detail transaksi</h2><span className="text-xs text-[var(--text-secondary)]">Maksimal 50</span></div><div className="mt-3 divide-y divide-[var(--border)]">{data.report.transactions.map((transaction) => <TransactionRow key={transaction.transactionId} transaction={transaction} />)}</div></section>}
+    </>
+  );
+}
+
+function MetricCard({ summary }: { summary: ReportResponse["report"]["currencies"][number] }) {
+  return <article className="rounded-xl bg-[var(--surface-soft)] p-3"><div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold text-[var(--text-secondary)]">{summary.currency}</span><span className="text-xs text-[var(--text-muted)]">{summary.transactionCount} transaksi</span></div><dl className="mt-3 space-y-2 text-sm"><div className="flex justify-between gap-2"><dt className="text-[var(--text-secondary)]">Masuk</dt><dd className="font-semibold text-[var(--brand-green-700)]">{formatAmount(summary.incomeMinor, summary.currency)}</dd></div><div className="flex justify-between gap-2"><dt className="text-[var(--text-secondary)]">Keluar</dt><dd className="font-semibold text-[#C85A4D]">{formatAmount(summary.expenseMinor, summary.currency)}</dd></div><div className="flex justify-between gap-2 border-t border-[var(--border)] pt-2"><dt className="font-semibold">Saldo</dt><dd className="font-bold">{formatAmount(summary.netMinor, summary.currency)}</dd></div></dl></article>;
+}
+
+function TransactionRow({ transaction }: { transaction: ReportResponse["report"]["transactions"][number] }) {
+  const isIncome = transaction.transactionType === "INCOME";
+  return <article className="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"><div className="flex min-w-0 items-start gap-3"><span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-bold ${isIncome ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : "bg-[var(--brand-coral-100)] text-[#C85A4D]"}`} aria-hidden="true">{isIncome ? "↑" : "↓"}</span><div className="min-w-0"><p className="truncate text-sm font-semibold">{transaction.description}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{formatDisplayDate(transaction.transactionDate)} · {transaction.currency}</p></div></div><p className={`shrink-0 text-sm font-bold ${isIncome ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{isIncome ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p></article>;
+}
+
+function PlaceholderView({ title, description, actionLabel, onAction }: { title: string; description: string; actionLabel: string; onAction: () => void }) {
+  return <section className="rounded-2xl border border-dashed border-[var(--brand-green-500)] bg-[var(--surface)] p-7 text-center shadow-[var(--card-shadow)]"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[var(--brand-green-100)] text-xl font-bold text-[var(--brand-green-700)]">F</div><h2 className="mt-4 text-xl font-bold">{title}</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--text-secondary)]">{description}</p><button type="button" onClick={onAction} className="mt-5 min-h-11 rounded-xl bg-[var(--brand-green-700)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-600)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2">{actionLabel}</button></section>;
+}
+
+function LoadingState() {
+  return <section aria-label="Memuat dashboard" className="space-y-3"><div className="skeleton h-32 rounded-2xl" /><div className="grid grid-cols-2 gap-3"><div className="skeleton h-14 rounded-2xl" /><div className="skeleton h-14 rounded-2xl" /></div><div className="skeleton h-52 rounded-2xl" /></section>;
+}
+
+function BottomNavigation({ activeNav, onSelect, onAddTransaction }: { activeNav: NavKey; onSelect: (key: NavKey) => void; onAddTransaction: () => void }) {
+  return <nav aria-label="Navigasi Mini App" className="bottom-nav fixed inset-x-0 bottom-0 z-20 border-t border-[var(--border)] bg-[color:var(--surface)]/95 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)] pt-2 backdrop-blur sm:px-6"><div className="mx-auto grid max-w-[480px] grid-cols-5 items-end gap-1 lg:max-w-5xl"><NavButton item={navItems[0]} active={activeNav === "home"} onClick={() => onSelect("home")} /><NavButton item={navItems[1]} active={activeNav === "transactions"} onClick={() => onSelect("transactions")} /><button type="button" onClick={onAddTransaction} aria-label="Tambah transaksi" className="primary-fab mx-auto -mt-7 grid h-14 w-14 place-items-center rounded-full border-4 border-[var(--app-background)] bg-[var(--brand-green-700)] text-3xl font-light leading-none text-white shadow-[0_6px_20px_rgba(38,122,90,0.28)] transition hover:-translate-y-0.5 hover:bg-[var(--brand-green-600)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">+</button><NavButton item={navItems[2]} active={activeNav === "reports"} onClick={() => onSelect("reports")} /><NavButton item={navItems[3]} active={activeNav === "account"} onClick={() => onSelect("account")} /></div></nav>;
+}
+
+function NavButton({ item, active, onClick }: { item: { key: NavKey; label: string; icon: string }; active: boolean; onClick: () => void }) {
+  return <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl px-2 text-[11px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] ${active ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]"}`}><span className="text-xl leading-5" aria-hidden="true">{item.icon}</span><span>{item.label}</span></button>;
 }
 
 function formatAmount(value: string, currency: string): string {
