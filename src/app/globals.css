@@ -10,6 +10,7 @@
   --text-primary: #223029;
   --text-secondary: #68756e;
   --text-muted: #969e98;
+  --brand-green-800: #185a42;
   --brand-green-700: #267a5a;
   --brand-green-600: #31946f;
   --brand-green-500: #61b89c;
@@ -65,6 +66,15 @@ button:disabled {
   background:
     radial-gradient(circle at 92% 10%, rgba(142, 114, 214, 0.42), transparent 27%),
     linear-gradient(135deg, #267a5a 0%, #31946f 58%, #61b89c 100%);
+}
+
+.primary-action {
+  background: var(--brand-green-700);
+  color: #ffffff;
+}
+
+.primary-action:hover {
+  background: var(--brand-green-800);
 }
 
 .brand-mark {

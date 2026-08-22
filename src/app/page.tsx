@@ -498,7 +498,7 @@ function AddTransactionForm({ initData, onClose, onCreated }: { initData: string
           </label>
 
           {submitError && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{submitError}</p>}
-          <button type="submit" disabled={submitting} className="primary-action min-h-12 w-full rounded-xl px-4 text-sm font-bold text-white shadow-[0_6px_18px_rgba(38,122,90,0.18)] disabled:cursor-wait disabled:opacity-60">{submitting ? "Menyimpan..." : "Simpan transaksi"}</button>
+          <button type="submit" disabled={submitting} className="primary-action min-h-12 w-full rounded-xl border-2 border-[var(--brand-green-700)] bg-[var(--brand-green-700)] px-4 text-sm font-bold text-white shadow-[0_8px_20px_rgba(38,122,90,0.28)] transition hover:bg-[var(--brand-green-800)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2 disabled:cursor-wait disabled:opacity-60">{submitting ? "Menyimpan..." : "Simpan transaksi"}</button>
         </form>
       </section>
     </div>
