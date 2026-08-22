@@ -71,6 +71,7 @@ export default function Home() {
   const [accountData, setAccountData] = useState<AccountResponse | null>(null);
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountError, setAccountError] = useState("");
+  const [addTransactionOpen, setAddTransactionOpen] = useState(false);
   const [comparison, setComparison] = useState<ReportResponse | null>(null);
   const [comparisonLoading, setComparisonLoading] = useState(false);
   const [error, setError] = useState("");
@@ -83,6 +84,7 @@ export default function Home() {
   const [exporting, setExporting] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [pdfExporting, setPdfExporting] = useState(false);
+  const [formInitData, setFormInitData] = useState("");
   const initDataRef = useRef("");
 
   const loadReport = useCallback(async (selectedMonth: string, selectedStartDate: string, selectedEndDate: string) => {
@@ -162,9 +164,23 @@ export default function Home() {
     if (key === "account") void loadAccount();
   }, [loadAccount]);
 
-  const showAddTransactionNotice = useCallback(() => {
-    setNotice("Tambah Transaksi akan dibuka setelah endpoint write Mini App selesai dan tervalidasi.");
+  const openAddTransaction = useCallback(() => {
+    const currentInitData = initDataRef.current || window.Telegram?.WebApp?.initData || "";
+    if (!currentInitData) {
+      setNotice("Buka halaman ini dari Telegram Mini App agar transaksi dapat disimpan.");
+      return;
+    }
+    setFormInitData(currentInitData);
+    setNotice("");
+    setAddTransactionOpen(true);
   }, []);
+
+  const handleTransactionCreated = useCallback(() => {
+    setAddTransactionOpen(false);
+    setActiveNav("transactions");
+    setNotice("Transaksi berhasil dicatat dan daftar transaksi sedang diperbarui.");
+    void loadReport(month, startDate, endDate);
+  }, [endDate, loadReport, month, startDate]);
 
   const exportCsv = useCallback(() => {
     const action = data?.actions?.csv;
@@ -264,7 +280,7 @@ export default function Home() {
         {loading && !data && !error && <LoadingState />}
 
         {data && activeNav === "home" && (
-          <HomeView data={data} onAddTransaction={showAddTransactionNotice} onSelectReports={() => selectNav("reports")} />
+          <HomeView data={data} onAddTransaction={openAddTransaction} onSelectReports={() => selectNav("reports")} />
         )}
 
         {data && activeNav === "reports" && (
@@ -322,9 +338,10 @@ export default function Home() {
         {!data && !loading && !error && <PlaceholderView title="Belum ada data" description="Belum ada ringkasan yang dapat ditampilkan untuk periode ini." actionLabel="Coba lagi" onAction={() => void loadReport(month, startDate, endDate)} />}
 
         {selectedTransaction && <TransactionDetail transaction={selectedTransaction} onClose={() => setSelectedTransaction(null)} />}
+        {addTransactionOpen && <AddTransactionForm initData={formInitData} onClose={() => setAddTransactionOpen(false)} onCreated={handleTransactionCreated} />}
       </div>
 
-      <BottomNavigation activeNav={activeNav} onSelect={selectNav} onAddTransaction={showAddTransactionNotice} />
+      <BottomNavigation activeNav={activeNav} onSelect={selectNav} onAddTransaction={openAddTransaction} />
     </main>
   );
 }
@@ -412,6 +429,79 @@ function HomeView({ data, onAddTransaction, onSelectReports }: { data: ReportRes
         )}
       </section>
     </>
+  );
+}
+
+function AddTransactionForm({ initData, onClose, onCreated }: { initData: string; onClose: () => void; onCreated: () => void }) {
+  const [transactionType, setTransactionType] = useState<TransactionFilter>("EXPENSE");
+  const [amountMinor, setAmountMinor] = useState("");
+  const [currency, setCurrency] = useState("IDR");
+  const [transactionDate, setTransactionDate] = useState("");
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      const response = await fetch("/api/mini-app/transaction", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ initData, transactionType, amountMinor, currency, transactionDate, description }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Transaksi tidak dapat dicatat.");
+      onCreated();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Transaksi tidak dapat dicatat.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-[rgba(19,35,27,0.46)] p-0 sm:items-center sm:p-4" role="presentation">
+      <section className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[28px] bg-[var(--surface)] p-5 shadow-2xl sm:rounded-[28px]" role="dialog" aria-modal="true" aria-labelledby="add-transaction-title">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">Input transaksi</p>
+            <h2 id="add-transaction-title" className="mt-1 text-2xl font-bold">Tambah transaksi</h2>
+            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Catat transaksi aktual keluarga. Kategori dan metode pembayaran belum tersedia pada schema saat ini.</p>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--surface-soft)] text-xl text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]" aria-label="Tutup form">×</button>
+        </div>
+
+        <form className="mt-5 space-y-4" onSubmit={submit}>
+          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-[var(--surface-soft)] p-1">
+            <button type="button" onClick={() => setTransactionType("EXPENSE")} className={`min-h-11 rounded-xl text-sm font-bold transition ${transactionType === "EXPENSE" ? "bg-[var(--brand-coral-500)] text-white shadow-sm" : "text-[var(--text-secondary)]"}`}>Pengeluaran</button>
+            <button type="button" onClick={() => setTransactionType("INCOME")} className={`min-h-11 rounded-xl text-sm font-bold transition ${transactionType === "INCOME" ? "bg-[var(--brand-green-600)] text-white shadow-sm" : "text-[var(--text-secondary)]"}`}>Pemasukan</button>
+          </div>
+
+          <label className="block text-sm font-semibold">Jumlah
+            <input required value={amountMinor} onChange={(event) => setAmountMinor(event.target.value)} inputMode="numeric" pattern="[0-9.,]+" placeholder="Contoh: 150000" className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-white px-4 text-lg font-semibold outline-none transition focus:border-[var(--brand-green-500)] focus:ring-2 focus:ring-[var(--brand-green-100)]" />
+            <span className="mt-1 block text-xs font-normal text-[var(--text-secondary)]">Masukkan angka bulat dalam unit terkecil currency.</span>
+          </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block text-sm font-semibold">Currency
+              <input required maxLength={3} value={currency} onChange={(event) => setCurrency(event.target.value.toUpperCase())} placeholder="IDR" className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-white px-4 font-semibold uppercase outline-none transition focus:border-[var(--brand-green-500)] focus:ring-2 focus:ring-[var(--brand-green-100)]" />
+            </label>
+            <label className="block text-sm font-semibold">Tanggal
+              <input required type="date" value={transactionDate} onChange={(event) => setTransactionDate(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-white px-3 font-semibold outline-none transition focus:border-[var(--brand-green-500)] focus:ring-2 focus:ring-[var(--brand-green-100)]" />
+            </label>
+          </div>
+
+          <label className="block text-sm font-semibold">Deskripsi
+            <textarea required maxLength={200} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Contoh: Belanja kebutuhan rumah" rows={3} className="mt-2 w-full resize-none rounded-xl border border-[var(--border)] bg-white px-4 py-3 outline-none transition focus:border-[var(--brand-green-500)] focus:ring-2 focus:ring-[var(--brand-green-100)]" />
+          </label>
+
+          {submitError && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{submitError}</p>}
+          <button type="submit" disabled={submitting} className="primary-action min-h-12 w-full rounded-xl px-4 text-sm font-bold text-white shadow-[0_6px_18px_rgba(38,122,90,0.18)] disabled:cursor-wait disabled:opacity-60">{submitting ? "Menyimpan..." : "Simpan transaksi"}</button>
+        </form>
+      </section>
+    </div>
   );
 }
 

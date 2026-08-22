@@ -133,6 +133,10 @@ Fase awal bersifat read-only: identitas/konteks viewer, nama keluarga, role, jum
 
 Kontrol invite, role, deactivation, archival, atau reactivation baru ditambahkan setelah endpoint dan interaction semantics-nya dipetakan ke service yang sudah ada.
 
+### Tambah Transaksi
+
+Slice 6 menyediakan form terotorisasi untuk transaksi aktual dengan `INCOME`/`EXPENSE`, amount minor integer, currency tiga huruf, tanggal, dan deskripsi. Client mengirim raw Telegram `initData` bersama field transaksi ke endpoint Mini App; client tidak mengirim `family_id`, `member_id`, atau `transaction_id`. Server memvalidasi `initData`, menyelesaikan membership dan keluarga melalui `FamilyService`, lalu melakukan persistence ke repository yang sama dengan alur Telegram. Kategori, metode pembayaran, receipt scan, recurring transaction, dan automatic retry belum termasuk dalam slice ini. Tombol submit dinonaktifkan selama request berlangsung untuk mengurangi duplicate submission, tetapi idempotency durable lintas instance tetap menjadi hardening lanjutan.
+
 ### Anggaran dan insight
 
 Screen Anggaran belum boleh menampilkan angka contoh sebagai data nyata. Budget memerlukan schema, periode, kategori, nominal limit, status, repository, service, dan perhitungan server-side. Insight juga harus berasal dari structured metrics; AI tidak boleh menghitung saldo atau menjadi sumber angka finansial.
