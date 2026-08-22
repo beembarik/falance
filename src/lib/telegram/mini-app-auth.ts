@@ -52,7 +52,7 @@ export function validateMiniAppInitData(
 
   const userJson = params.get("user");
   if (!userJson) throw new MiniAppAuthError("Mini App user data is missing.");
-  let user: { id?: unknown; first_name?: unknown; last_name?: unknown; username?: unknown };
+  let user: { id?: unknown; first_name?: unknown; last_name?: unknown; username?: unknown; photo_url?: unknown };
   try {
     user = JSON.parse(userJson) as typeof user;
   } catch {
@@ -66,15 +66,27 @@ export function validateMiniAppInitData(
   const lastName = typeof user.last_name === "string" ? user.last_name : "";
   const name = [firstName, lastName].filter(Boolean).join(" ").trim() || "Telegram user";
   const username = typeof user.username === "string" && user.username.trim() ? user.username : null;
+  const avatarUrl = normalizeTelegramAvatarUrl(user.photo_url);
   return {
     telegramUser: {
       telegramUserId: String(user.id),
       name,
       username,
+      avatarUrl,
     },
     authDate,
     queryId: params.get("query_id"),
   };
+}
+
+function normalizeTelegramAvatarUrl(value: unknown): string | null {
+  if (typeof value !== "string" || value.length === 0 || value.length > 2_048) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 function getMiniAppAuthMaxAgeSeconds(): number {

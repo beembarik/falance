@@ -129,7 +129,9 @@ Screen Laporan memakai report read model yang deterministic. Ringkasan pemasukan
 
 ### Akun & Keluarga
 
-Fase awal bersifat read-only: identitas/konteks viewer, nama keluarga, role, jumlah anggota, daftar anggota aktif, dan permission summary. Kontrol invite, role, deactivation, archival, atau reactivation baru ditambahkan setelah endpoint dan interaction semantics-nya dipetakan ke service yang sudah ada.
+Fase awal bersifat read-only: identitas/konteks viewer, nama keluarga, role, jumlah anggota, daftar anggota aktif, dan permission summary. Avatar viewer dapat menggunakan optional Telegram `photo_url` dari raw `initData` yang telah divalidasi server-side. URL avatar tidak disimpan ke Google Sheets dan tidak digunakan untuk authorization. Jika foto tidak tersedia, URL tidak valid, gambar gagal dimuat, atau Telegram tidak mengirimkannya, UI menggunakan inisial sebagai fallback. Avatar anggota keluarga lain tidak diambil pada slice ini.
+
+Kontrol invite, role, deactivation, archival, atau reactivation baru ditambahkan setelah endpoint dan interaction semantics-nya dipetakan ke service yang sudah ada.
 
 ### Anggaran dan insight
 
@@ -149,7 +151,7 @@ Authenticated Mini App API
 Domain-shaped UI state
 ```
 
-Komponen UI tidak boleh memanggil Google Sheets. Client tidak boleh mengirim `family_id`, spreadsheet ID, Telegram user ID, atau storage identifier sebagai authorization input. `family_id` selalu diperoleh server dari membership Telegram yang telah divalidasi.
+Komponen UI tidak boleh memanggil Google Sheets. Client tidak boleh mengirim `family_id`, spreadsheet ID, Telegram user ID, atau storage identifier sebagai authorization input. `family_id` selalu diperoleh server dari membership Telegram yang telah divalidasi. Avatar viewer juga harus berasal dari `photo_url` dalam `initData` yang sudah diverifikasi, bukan dari field URL terpisah yang dikirim browser.
 
 Untuk beberapa keluarga di masa depan, pemilihan konteks keluarga harus memiliki desain server-side yang eksplisit. Dropdown yang hanya mengirim ID keluarga ke endpoint bukan implementasi yang aman.
 

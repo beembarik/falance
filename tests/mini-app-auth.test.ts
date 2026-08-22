@@ -28,9 +28,26 @@ test("validates Mini App initData and returns the Telegram identity", () => {
     telegramUserId: "100",
     name: "Owner Test",
     username: "owner_test",
+    avatarUrl: null,
   });
   assert.equal(result.authDate, 1_700_000_000);
   assert.equal(result.queryId, "AAHdF6IQ");
+});
+
+test("normalizes a Telegram HTTPS photo URL into the validated user", () => {
+  const initData = makeInitData({
+    user: JSON.stringify({ id: 100, first_name: "Owner", last_name: "Test", photo_url: "https://t.me/i/userpic/320/avatar.jpg" }),
+  });
+  const result = validateMiniAppInitData(initData, botToken, 1_700_000_300, 600);
+  assert.equal(result.telegramUser.avatarUrl, "https://t.me/i/userpic/320/avatar.jpg");
+});
+
+test("ignores non-HTTPS Telegram photo URLs", () => {
+  const initData = makeInitData({
+    user: JSON.stringify({ id: 100, first_name: "Owner", last_name: "Test", photo_url: "http://example.com/avatar.jpg" }),
+  });
+  const result = validateMiniAppInitData(initData, botToken, 1_700_000_300, 600);
+  assert.equal(result.telegramUser.avatarUrl, null);
 });
 
 test("rejects a tampered Mini App initData signature", () => {

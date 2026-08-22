@@ -39,6 +39,7 @@ export async function POST(request: Request): Promise<Response> {
         name: membership.name,
         username: membership.username,
         role: membership.role,
+        avatarUrl: validated.telegramUser.avatarUrl ?? null,
       },
       family: {
         familyName: family.familyName,

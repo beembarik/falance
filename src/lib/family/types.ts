@@ -73,6 +73,7 @@ export interface TelegramUser {
   telegramUserId: string;
   name: string;
   username: string | null;
+  avatarUrl?: string | null;
 }
 
 export interface Family {

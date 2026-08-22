@@ -192,10 +192,10 @@ Every family selector or family context control must remain server-authorized. T
 | Slice | Scope | Boundary | Status |
 | --- | --- | --- | --- |
 | 1 | Read-only Dashboard summary using the authoritative report payload: family name, viewer role, selected period, transaction count, and per-currency balance cards | Existing report API; no client-selected family and no write path | Complete |
-| 2 | App shell, Falancé brand tokens, responsive layout, bottom navigation (`Beranda`, `Transaksi`, `+`, `Laporan`, `Akun`), and loading/empty/error states | UI and navigation only; no new persistence | Next |
-| 3 | Read-only Transaksi workspace with income/expense/all filters, period navigation, transaction list, and transaction detail | Existing family-scoped report/service reads; bounded initial list with a later pagination boundary | Planned |
-| 4 | Dedicated Laporan screen with summary, period comparison where data is available, and progressive disclosure for OWNER/ADMIN exports | Existing report and export authorization; MEMBER remains view-only | Planned |
-| 5 | Read-only Akun & Keluarga screen with profile context, family name, role, active members, and permission-aware presentation | Existing family service reads; administrative mutations remain server-side | Planned |
+| 2 | App shell, Falancé brand tokens, responsive layout, bottom navigation (`Beranda`, `Transaksi`, `+`, `Laporan`, `Akun`), and loading/empty/error states | UI and navigation only; no new persistence | Complete; production validated |
+| 3 | Read-only Transaksi workspace with income/expense/all filters, period navigation, transaction list, and transaction detail | Existing family-scoped report/service reads; bounded initial list with a later pagination boundary | Complete; production validated |
+| 4 | Dedicated Laporan screen with summary, period comparison where data is available, and progressive disclosure for OWNER/ADMIN exports | Existing report and export authorization; MEMBER remains view-only | Complete; production validated |
+| 5 | Read-only Akun & Keluarga screen with profile context, optional Telegram avatar viewer, family name, role, active members, and permission-aware presentation | Existing family service reads plus validated `photo_url` from viewer `initData`; administrative mutations remain server-side | Implemented; avatar validation pending |
 | 6 | Minimal Tambah Transaksi flow for `INCOME`/`EXPENSE`, amount, currency, date, and description | New Mini App write endpoints using validated `initData` and `FamilyService` | Planned |
 | 7 | Transaction detail/edit and soft-void interactions with explicit confirmation semantics | New authorized endpoints; no hard deletion and no client-controlled family ID | Planned |
 | 8 | Optional family administration actions such as invitation and lifecycle management | Existing service authorization, role checks, audit, Y/N confirmation, and last-OWNER invariant | Planned |
