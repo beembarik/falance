@@ -15,6 +15,9 @@ import { usesTelegramHtml } from "@/lib/telegram/html";
 import type { TelegramPhotoSize } from "@/lib/telegram/client";
 import { logDuration, measureDuration } from "@/lib/observability/timing";
 import { isTelegramUpdateId, verifyTelegramWebhookSecret } from "@/lib/telegram/webhook-security";
+import { readTextWithLimit, RequestBodyLimitError } from "@/lib/http/request-body";
+
+export const MAX_TELEGRAM_WEBHOOK_BODY_BYTES = 1_000_000;
 
 interface TelegramUpdate {
   update_id: number;
@@ -76,8 +79,15 @@ export async function POST(request: Request): Promise<Response> {
   let payload: unknown;
 
   try {
-    payload = await request.json();
-  } catch {
+    payload = JSON.parse(await readTextWithLimit(request, MAX_TELEGRAM_WEBHOOK_BODY_BYTES));
+  } catch (error) {
+    if (error instanceof RequestBodyLimitError) {
+      logDuration("telegram.webhook", measureDuration(requestStartedAt), {
+        outcome: "body_too_large",
+        status: 413,
+      });
+      return Response.json({ error: "Request too large." }, { status: 413 });
+    }
     logDuration("telegram.webhook", measureDuration(requestStartedAt), {
       outcome: "invalid_json",
       status: 400,

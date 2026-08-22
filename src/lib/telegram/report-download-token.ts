@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 export const REPORT_DOWNLOAD_TOKEN_TTL_SECONDS = 5 * 60;
+export const MAX_REPORT_DOWNLOAD_TOKEN_LENGTH = 4096;
 
 export type ReportDownloadFormat = "csv" | "pdf" | "print";
 
@@ -42,7 +43,7 @@ export function verifyReportDownloadToken(
   secret: string,
   nowSeconds = Math.floor(Date.now() / 1000),
 ): ReportDownloadTokenPayload | null {
-  if (!token) return null;
+  if (!token || token.length > MAX_REPORT_DOWNLOAD_TOKEN_LENGTH) return null;
   const parts = token.split(".");
   if (parts.length !== 4 || parts[0] !== "v1") return null;
   try {

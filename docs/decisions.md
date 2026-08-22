@@ -138,3 +138,12 @@ The preview uses Falancé green, lavender-purple, and coral as semantic accents 
 Laporan Mini App menggunakan semantic accents secara restrained untuk membantu scanning: warm green untuk pemasukan dan status positif, coral untuk pengeluaran atau perhatian, serta lavender-purple atau neutral untuk konteks currency, comparison, dan surplus/deficit. Warna hanya memperkuat hierarchy visual; label, tanda `+`/`−`, dan teks `Surplus` atau `Defisit` tetap menjadi penanda utama agar informasi dapat dipahami tanpa bergantung pada warna.
 
 Slice ini hanya mengubah presentation layer. Nominal, transaction count, category summaries, cash-flow points, period boundaries, multi-currency separation, family isolation, dan authorization tetap berasal dari kontrak server-side yang telah diterima. Tidak ada perubahan pada schema, persistence, export token, atau FamilyService boundary.
+
+
+## ADR-017: Security and operational hardening before public beta
+
+**Status:** Accepted; M10 Slice 18 implemented locally, production validation pending.
+
+Falancé menambahkan defense-in-depth pada perimeter aplikasi tanpa memindahkan authorization dari handler atau `FamilyService`: baseline security headers berlaku pada seluruh response, API diberi `no-store`, secret webhook dibandingkan secara timing-safe, body webhook dibatasi, dan signed report token memiliki batas panjang sebelum dekripsi. Hardening ini tidak menggantikan HMAC Telegram `initData`, webhook secret, encrypted short-lived export token, durable update claim, family resolution, atau service authorization.
+
+Resource and privacy safeguards must fail closed with generic responses and safe diagnostics. Payload limits, token limits, dan headers tidak boleh menampilkan credential, Telegram ID, family ID, spreadsheet ID, report content, atau password. Pre-public-beta validation tetap mencakup production header checks, invalid/duplicate webhook replay, registry integrity, controlled restoration exercise, dan cross-instance race testing; Google Sheets read-then-update limitations remain an explicit constraint until conditional-write storage is adopted.

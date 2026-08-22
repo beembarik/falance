@@ -207,7 +207,8 @@ Every family selector or family context control must remain server-authorized. T
 | 14 | Category filter and drill-down in Laporan | Allow read-only category filtering and navigation from category analytics to matching family transactions within the selected period and currency; preserve server-derived totals, family isolation, and multi-currency separation; no budget or AI insight semantics | Complete; production validated |
 | 15 | Branded report preview and export workspace | Consolidate Laporan export into one summary-card entry point, add branded print preview with server timestamp and screen-only toolbar for print/PDF/CSV, preserve OWNER/ADMIN export boundary and PDF password handling, and integrate transparent Falancé symbol favicon | Complete; production validated |
 | 16 | Semantic report card colors | Apply restrained semantic visual accents in Laporan: green for income, coral for expense/attention, and purple or neutral accents for surplus/deficit, currency context, comparison, and analytics; preserve text labels, signs, contrast, multi-currency separation, and server-derived calculations | Complete; production validated |
-| 17 | `/help` command catalog and discoverability | Add a grouped Indonesian command guide for all current bot commands, filtered by unregistered/active status and MEMBER/ADMIN/OWNER role; keep command authorization in handler/service boundaries and avoid exposing sensitive identifiers | Implemented locally; validation pending |
+| 17 | `/help` command catalog and discoverability | Add a grouped Indonesian command guide for all current bot commands, filtered by unregistered/active status and MEMBER/ADMIN/OWNER role; keep command authorization in handler/service boundaries and avoid exposing sensitive identifiers | Complete; production validated |
+| 18 | Security and operational hardening | Add baseline security headers, API no-store policy, timing-safe webhook secret comparison, bounded webhook request bodies, bounded signed export tokens, safe diagnostics, and documented pre-public-beta recovery checks; preserve existing authorization, idempotency, and central registry invariants | Implemented locally; validation pending |
 
 ### Explicitly deferred from the current Mini App scope
 
@@ -222,7 +223,7 @@ Every family selector or family context control must remain server-authorized. T
 
 ### Exit criteria
 
-Milestone 10 is complete only when the core Mini App screens have loading, empty, error, accessibility, responsive, session-expiry, authorization, and family-isolation coverage; all writes use the existing service boundary; multi-currency balances are never mixed; and production validation confirms the Mini App works in the intended Telegram contexts. Budget, AI insight, account/transfer/savings, and Mini App receipt scanning remain explicitly deferred; Slices 11–15 are read-only analytics and presentation/export refinements, not a budget or savings model.
+Milestone 10 is complete only when the core Mini App screens have loading, empty, error, accessibility, responsive, session-expiry, authorization, and family-isolation coverage; all writes use the existing service boundary; multi-currency balances are never mixed; and production validation confirms the Mini App works in the intended Telegram contexts. Budget, AI insight, account/transfer/savings, and Mini App receipt scanning remain explicitly deferred; Slices 11–18 are read-only analytics, presentation/export, discoverability, and hardening refinements, not a budget or savings model.
 
 ## Milestone 11 — AI Usage, Quota, and Provider Reliability
 

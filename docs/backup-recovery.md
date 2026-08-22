@@ -77,3 +77,12 @@ Untuk semua recovery, pertahankan `family_id` yang sudah tersimpan server-side. 
 Google Sheets tidak menyediakan compare-and-swap atau unique conditional write pada pola read-then-update adapter saat ini. Keyed locks mencegah race pada warm instance, sedangkan durable claim dan deterministic IDs memperbaiki retry recovery. Namun, jaminan absolut terhadap dua serverless instance yang membaca row kosong secara bersamaan masih memerlukan storage primitive dengan conditional write atau unique constraint. Item ini tetap terbuka dalam Milestone 8 dan menjadi salah satu alasan Supabase Migration dipertahankan dalam roadmap.
 
 Runbook ini juga bukan pengganti backup provider, version history, atau disaster-recovery policy organisasi. Sebelum public beta, lakukan latihan restoration terkontrol pada salinan registry dan verifikasi bahwa seluruh command tetap mempertahankan isolasi family.
+
+
+## Slice 18 security hardening dan pre-public-beta checks
+
+M10 Slice 18 menambahkan baseline security headers pada seluruh response Next.js, termasuk `Content-Security-Policy`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Permissions-Policy` tanpa camera/microphone/geolocation, dan HSTS untuk deployment HTTPS. Seluruh response API diberi `Cache-Control: no-store, max-age=0` agar raw `initData`, signed action URL, report content, dan error response tidak disimpan oleh cache.
+
+Webhook Telegram membandingkan secret menggunakan timing-safe comparison dan menolak body di atas 1 MB sebelum parsing update. Signed report token menolak token di atas 4096 karakter sebelum verifikasi AES-GCM. Batas ini adalah defense-in-depth; secret webhook, token encryption, update claim, dan service authorization tetap menjadi kontrol utama.
+
+Sebelum public beta, operator wajib memastikan production headers hadir melalui deployment check, menguji webhook tanpa secret dan dengan secret salah, menguji body webhook oversized, memverifikasi duplicate `update_id` tetap diabaikan, serta menguji expired/tampered/oversized report token. Jalankan `npm run check:registry` setelah maintenance atau restoration dan pastikan hasilnya `healthy: true` serta `issues: []`. Latihan restoration terkontrol dan validasi race lintas serverless instance tetap merupakan exit item terpisah sampai storage dengan conditional write atau unique constraint tersedia.

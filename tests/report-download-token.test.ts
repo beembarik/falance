@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  MAX_REPORT_DOWNLOAD_TOKEN_LENGTH,
   REPORT_DOWNLOAD_TOKEN_TTL_SECONDS,
   createReportDownloadToken,
   verifyReportDownloadToken,
@@ -25,6 +26,11 @@ test("creates and verifies a short-lived encrypted report token", () => {
   assert.equal(verified.password, "rahasia-pdf");
   assert.equal(verified.exp, 1_700_000_000 + REPORT_DOWNLOAD_TOKEN_TTL_SECONDS);
   assert.equal(typeof verified.nonce, "string");
+});
+
+test("rejects oversized report tokens before decryption", () => {
+  const oversized = "v1." + "a".repeat(MAX_REPORT_DOWNLOAD_TOKEN_LENGTH);
+  assert.equal(verifyReportDownloadToken(oversized, secret, 1_700_000_000), null);
 });
 
 test("rejects a tampered or expired report token", () => {

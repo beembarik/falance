@@ -1,6 +1,26 @@
 # Changelog
 All notable changes to Falancé are documented in this file.
 
+## [0.7.6] — 2026-08-23
+
+### Security and operational hardening
+
+- Added baseline security headers for the application, including CSP, no-referrer, MIME sniffing protection, frame protection, restricted browser capabilities, and HSTS on HTTPS deployments.
+- Added `no-store` cache policy for all API responses.
+- Added timing-safe webhook secret comparison and a 1 MB Telegram webhook request-body limit.
+- Added a 4096-character maximum for signed report download tokens before AES-GCM decoding.
+- Added safe diagnostics and runbook guidance for pre-public-beta security, replay, recovery, and registry-integrity checks.
+
+### Verification
+
+- Added regression coverage for security headers, API cache policy, request-body limits, webhook secret behavior, and oversized report tokens.
+- `npm run lint` passes.
+- `npm run build` passes.
+- `npm test` passes with 207 tests.
+- `git diff --check` passes.
+
+[0.7.6]: https://github.com/beembarik/falance/releases/tag/v0.7.6
+
 ## [0.7.5] — 2026-08-23
 
 ### Fixed
