@@ -105,6 +105,7 @@ export default function Home() {
   const [addTransactionOpen, setAddTransactionOpen] = useState(false);
   const [comparison, setComparison] = useState<ReportResponse | null>(null);
   const [comparisonLoading, setComparisonLoading] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<{ category: string; currency: string } | null>(null);
   const [error, setError] = useState("");
   const [exportError, setExportError] = useState("");
   const [printError, setPrintError] = useState("");
@@ -140,6 +141,7 @@ export default function Home() {
       const payload = await response.json() as ReportResponse & { error?: string };
       if (!response.ok) throw new Error(payload.error || "Laporan tidak dapat dimuat.");
       setData(payload);
+      setCategoryFilter(null);
       setComparison(null);
       const previousPeriod = getPreviousPeriodInput(payload.report.period);
       if (previousPeriod) {
@@ -443,14 +445,17 @@ export default function Home() {
               setMonth(value);
               setStartDate("");
               setEndDate("");
+              setCategoryFilter(null);
             }}
             onStartDateChange={(value) => {
               setStartDate(value);
               setMonth("");
+              setCategoryFilter(null);
             }}
             onEndDateChange={(value) => {
               setEndDate(value);
               setMonth("");
+              setCategoryFilter(null);
             }}
             onLoad={() => void loadReport(month, startDate, endDate)}
             exporting={exporting}
@@ -464,6 +469,8 @@ export default function Home() {
             onExportCsv={exportCsv}
             onPrint={printReport}
             onExportPdf={() => void exportPdf()}
+            categoryFilter={categoryFilter}
+            onCategoryFilterChange={setCategoryFilter}
           />
         )}
 
@@ -618,7 +625,7 @@ function CashFlowBar({ label, value, total, color, currency }: { label: string; 
   return <div><div className="flex items-center justify-between gap-3 text-xs"><span className="font-semibold text-[var(--text-secondary)]">{label}</span><span className="text-[var(--text-secondary)]">{formatAmount(value, currency)}</span></div><div className="mt-1 h-2 overflow-hidden rounded-full bg-[var(--surface)]" role="img" aria-label={`${label}: ${formatAmount(value, currency)}`}><div className={`h-full rounded-full ${color}`} style={{ width: `${width}%` }} /></div></div>;
 }
 
-function CategoryExpenseSection({ summaries }: { summaries: ReportResponse["report"]["categorySummaries"] }) {
+function CategoryExpenseSection({ summaries, selected, onSelect }: { summaries: ReportResponse["report"]["categorySummaries"]; selected: { category: string; currency: string } | null; onSelect: (value: { category: string; currency: string } | null) => void }) {
   const currencies = [...new Set(summaries.map((summary) => summary.currency))].sort();
   return <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]" aria-labelledby="category-expense-title">
     <div className="flex items-start justify-between gap-3">
@@ -631,15 +638,15 @@ function CategoryExpenseSection({ summaries }: { summaries: ReportResponse["repo
     {currencies.length === 0 ? (
       <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Belum ada pengeluaran berkategori pada periode ini.</p>
     ) : (
-      <div className="mt-4 space-y-5">{currencies.map((currency) => <CategoryExpenseChart key={currency} currency={currency} summaries={summaries.filter((summary) => summary.currency === currency)} />)}</div>
+      <div className="mt-4 space-y-5">{currencies.map((currency) => <CategoryExpenseChart key={currency} currency={currency} summaries={summaries.filter((summary) => summary.currency === currency)} selected={selected} onSelect={onSelect} />)}</div>
     )}
-    <p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Setiap mata uang ditampilkan terpisah. Grafik ini hanya menunjukkan distribusi pengeluaran aktif, bukan anggaran atau rekomendasi.</p>
+    <p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Ketuk kategori untuk melihat transaksi yang cocok pada periode dan currency tersebut. Setiap mata uang ditampilkan terpisah; grafik ini bukan anggaran atau rekomendasi.</p>
   </section>;
 }
 
-type CategoryExpenseRow = { label: string; expenseMinor: bigint; percentage: number; transactionCount: number };
+type CategoryExpenseRow = { label: string; category: string; expenseMinor: bigint; percentage: number; transactionCount: number };
 
-function CategoryExpenseChart({ currency, summaries }: { currency: string; summaries: ReportResponse["report"]["categorySummaries"] }) {
+function CategoryExpenseChart({ currency, summaries, selected, onSelect }: { currency: string; summaries: ReportResponse["report"]["categorySummaries"]; selected: { category: string; currency: string } | null; onSelect: (value: { category: string; currency: string } | null) => void }) {
   const expenseSummaries = summaries
     .filter((summary) => BigInt(summary.expenseMinor) > BigInt(0))
     .sort((left, right) => BigInt(right.expenseMinor) > BigInt(left.expenseMinor) ? 1 : -1);
@@ -650,14 +657,14 @@ function CategoryExpenseChart({ currency, summaries }: { currency: string; summa
   const remainder = expenseSummaries.slice(4);
   const rows: CategoryExpenseRow[] = topSummaries.map((summary) => {
     const expenseMinor = BigInt(summary.expenseMinor);
-    return { label: summary.label, expenseMinor, percentage: percentageOf(expenseMinor, totalExpense), transactionCount: summary.transactionCount };
+    return { label: summary.label, category: summary.category, expenseMinor, percentage: percentageOf(expenseMinor, totalExpense), transactionCount: summary.transactionCount };
   });
   const remainderMinor = remainder.reduce((total, summary) => total + BigInt(summary.expenseMinor), BigInt(0));
-  if (remainderMinor > BigInt(0)) rows.push({ label: "Lainnya", expenseMinor: remainderMinor, percentage: percentageOf(remainderMinor, totalExpense), transactionCount: remainder.reduce((total, summary) => total + summary.transactionCount, 0) });
+  if (remainderMinor > BigInt(0)) rows.push({ label: "Lainnya", category: "", expenseMinor: remainderMinor, percentage: percentageOf(remainderMinor, totalExpense), transactionCount: remainder.reduce((total, summary) => total + summary.transactionCount, 0) });
 
   return <div>
     <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-bold">{currency}</h3><span className="text-xs text-[var(--text-secondary)]">Total {formatAmount(totalExpense.toString(), currency)}</span></div>
-    <div className="mt-3 space-y-3">{rows.map((row) => <div key={row.label}><div className="flex items-center justify-between gap-3 text-sm"><span className="min-w-0 truncate font-semibold">{row.label}</span><span className="shrink-0 text-right text-xs text-[var(--text-secondary)]">{formatAmount(row.expenseMinor.toString(), currency)} · {formatPercentage(row.percentage)}</span></div><div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-[var(--surface-soft)]" role="img" aria-label={`${row.label}: ${formatAmount(row.expenseMinor.toString(), currency)}, ${formatPercentage(row.percentage)}`}><div className="h-full rounded-full bg-[var(--brand-green-500)] transition-[width] duration-200" style={{ width: `${Math.max(row.percentage, row.expenseMinor > BigInt(0) ? 1 : 0)}%` }} /></div></div>)}</div>
+    <div className="mt-3 space-y-3">{rows.map((row) => { const isSelected = selected?.category === row.category && selected?.currency === currency; const content = <><div className="flex items-center justify-between gap-3 text-sm"><span className="min-w-0 truncate font-semibold">{row.label}</span><span className="shrink-0 text-right text-xs text-[var(--text-secondary)]">{formatAmount(row.expenseMinor.toString(), currency)} · {formatPercentage(row.percentage)}</span></div><div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-[var(--surface-soft)]" role="img" aria-label={`${row.label}: ${formatAmount(row.expenseMinor.toString(), currency)}, ${formatPercentage(row.percentage)}`}><div className="h-full rounded-full bg-[var(--brand-green-500)] transition-[width] duration-200" style={{ width: `${Math.max(row.percentage, row.expenseMinor > BigInt(0) ? 1 : 0)}%` }} /></div></>; return row.category ? <button key={row.label} type="button" onClick={() => onSelect(isSelected ? null : { category: row.category, currency })} aria-pressed={isSelected} className={`block w-full rounded-xl p-2 text-left transition focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] ${isSelected ? "bg-[var(--brand-green-100)]" : "hover:bg-[var(--brand-green-50)]"}`}>{content}</button> : <div key={row.label} className="rounded-xl p-2">{content}</div>; })}</div>
   </div>;
 }
 
@@ -885,7 +892,7 @@ function ComparisonMetric({ label, current, previous, currency, positiveIsGood }
   return <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3"><p className="text-xs text-[var(--text-secondary)]">{label}</p><p className="mt-1 text-sm font-bold">{formatAmount(current, currency)}</p><p className={`mt-1 text-xs font-semibold ${tone}`}>{direction} {formatSignedAmount(delta, currency)} dari periode lalu</p></div>;
 }
 
-function ReportsView({ data, comparison, comparisonLoading, month, startDate, endDate, loading, onMonthChange, onStartDateChange, onEndDateChange, onLoad, exporting, printing, pdfExporting, pdfPassword, setPdfPassword, exportError, printError, pdfError, onExportCsv, onPrint, onExportPdf }: {
+function ReportsView({ data, comparison, comparisonLoading, month, startDate, endDate, loading, onMonthChange, onStartDateChange, onEndDateChange, onLoad, exporting, printing, pdfExporting, pdfPassword, setPdfPassword, exportError, printError, pdfError, onExportCsv, onPrint, onExportPdf, categoryFilter, onCategoryFilterChange }: {
   data: ReportResponse;
   comparison: ReportResponse | null;
   comparisonLoading: boolean;
@@ -908,7 +915,12 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
   onExportCsv: () => void;
   onPrint: () => void;
   onExportPdf: () => void;
+  categoryFilter: { category: string; currency: string } | null;
+  onCategoryFilterChange: (value: { category: string; currency: string } | null) => void;
 }) {
+  const filteredTransactions = categoryFilter
+    ? data.report.transactions.filter((transaction) => transaction.category === categoryFilter.category && transaction.currency === categoryFilter.currency)
+    : data.report.transactions;
   return (
     <>
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--card-shadow)]">
@@ -927,7 +939,7 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
 
       <CashFlowSection points={data.report.cashFlow} />
 
-      <CategoryExpenseSection summaries={data.report.categorySummaries} />
+      <CategoryExpenseSection summaries={data.report.categorySummaries} selected={categoryFilter} onSelect={onCategoryFilterChange} />
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
         <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Perbandingan</p><h2 className="mt-1 text-lg font-bold">Dibanding periode sebelumnya</h2></div><span className="rounded-full bg-[var(--brand-purple-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-purple-800)]">Insight dasar</span></div>
@@ -940,7 +952,7 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
         {(exportError || printError || pdfError) && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{exportError || printError || pdfError}</p>}
       </section>
 
-      {data.report.transactions.length > 0 && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Detail transaksi</h2><span className="text-xs text-[var(--text-secondary)]">Maksimal 50</span></div><div className="mt-3 divide-y divide-[var(--border)]">{data.report.transactions.map((transaction) => <TransactionRow key={transaction.transactionId} transaction={transaction} />)}</div></section>}
+      {(categoryFilter || filteredTransactions.length > 0) && <section id="category-drilldown" className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Detail transaksi</h2>{categoryFilter && <p className="mt-1 text-xs text-[var(--text-secondary)]">{getCategoryLabel(categoryFilter.category)} · {categoryFilter.currency}</p>}</div><div className="flex items-center gap-2"><span className="text-xs text-[var(--text-secondary)]">{filteredTransactions.length} dimuat</span>{categoryFilter && <button type="button" onClick={() => onCategoryFilterChange(null)} className="min-h-9 rounded-lg px-2 text-xs font-semibold text-[var(--brand-green-700)] hover:bg-[var(--brand-green-50)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">Hapus filter</button>}</div></div>{filteredTransactions.length > 0 ? <div className="mt-3 divide-y divide-[var(--border)]">{filteredTransactions.map((transaction) => <TransactionRow key={transaction.transactionId} transaction={transaction} />)}</div> : <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Belum ada transaksi yang cocok pada daftar report yang dimuat.</p>}{categoryFilter && data.report.transactions.length === 50 && <p className="mt-4 rounded-xl bg-[var(--brand-purple-100)] p-3 text-xs leading-5 text-[var(--brand-purple-800)]">Drill-down menampilkan transaksi yang tersedia pada daftar report (maksimal 50 transaksi terbaru).</p>}</section>}
     </>
   );
 }

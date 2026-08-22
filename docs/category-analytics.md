@@ -74,6 +74,12 @@ Slice 11 exposes category summaries through the authenticated Mini App report re
 
 Slice 13 adds a server-derived cash-flow view to Laporan, with Income, Expense, and Net Cash Flow points grouped by month and currency for the selected period. The complete family transaction set is used for aggregation while the transaction detail list remains bounded independently. Empty periods remain explicit. Cash-flow visuals are descriptive only and do not imply a budget, savings account, forecast, recommendation, or AI insight.
 
+## Slice 14 — Category filter and drill-down in Laporan
+
+Slice 14 adds a presentation-only category filter to Laporan. Selecting a category from the server-derived chart scopes the visible transaction detail to the same category and currency within the already selected report period. The client does not recalculate category totals, alter transaction state, or send a family selector. Because the report detail list is independently bounded to the latest 50 active transactions, the UI must state that a drill-down is limited to the loaded report details when that boundary applies; the server-derived summary remains the authoritative total.
+
+The `Lainnya` aggregate is not an authoritative persisted category and is not clickable as a single category. Any future complete category pagination or server-filtered detail endpoint requires a separate slice.
+
 ## Explicitly deferred
 
 Budgets, payment methods, recurring liabilities, AI financial insight, and Mini App receipt upload remain deferred. Any future drill-down, category filter, or insight UI must preserve the same family/date/currency-scoped contract and undergo separate regression and production validation.

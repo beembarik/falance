@@ -111,3 +111,11 @@ The slice may reduce duplicate primary CTAs on Beranda while preserving the pers
 Falancé will expose a read-only cash-flow view in Laporan using server-derived monthly points for the selected report period. Each point contains `INCOME`, `EXPENSE`, and `NET` values plus transaction count, grouped by normalized currency. The server resolves the active family from validated Telegram `initData`, filters only `ACTIVE` transactions within the inclusive period, and never combines amounts from different currencies.
 
 The Mini App may render income and expense bars and a surplus/deficit net label from this response. It must not calculate financial totals from raw transaction rows, treat net cash flow as an account balance, or infer savings. Empty periods must remain explicit. This slice does not introduce accounts, transfers, savings goals, budgets, forecasts, or AI insight.
+
+## ADR-014: Read-only category filter and bounded drill-down
+
+**Status:** Accepted; implemented locally as M10 Slice 14 and awaiting production validation.
+
+The Laporan category chart may act as a presentation control. Selecting a persisted category and currency filters the already loaded report transaction details for the selected period; the client does not recalculate category totals or mutate transactions. The filter uses the server-derived category code and the chart currency together, so the same category in two currencies can never be conflated.
+
+The report detail list remains independently bounded to the latest 50 active transactions. When that boundary applies, the UI must disclose that the drill-down covers the loaded detail rows while the server-derived category summary remains authoritative. The synthetic `Lainnya` bucket is not a persisted category and is not clickable. Complete server-filtered pagination is a future slice.

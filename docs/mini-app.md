@@ -154,6 +154,10 @@ Slice 12 tidak menambahkan account, transfer, savings transaction type, savings 
 
 Slice 13 menambahkan analitik arus kas read-only pada Laporan. Server menghitung agregasi `INCOME`, `EXPENSE`, dan `NET` dari seluruh transaksi aktif milik family yang sudah di-resolve, lalu mengelompokkannya berdasarkan periode dan currency. Beranda tidak menggunakan data ini untuk membuat chart tambahan. Income, expense, dan net cash flow tidak boleh digabung lintas currency dan tidak boleh disebut sebagai saldo rekening atau saving balance. Slice ini tidak menambahkan account, transfer, budget, saving, atau AI insight.
 
+### Filter dan drill-down kategori — M10 Slice 14
+
+Slice 14 memungkinkan pengguna mengetuk kategori utama pada chart Laporan untuk memfilter detail transaksi yang telah dimuat berdasarkan kategori dan currency. Filter ini hanya mengubah presentation state; tidak ada total yang dihitung ulang di browser, tidak ada perubahan transaksi, dan tidak ada `family_id` yang dikirim sebagai authorization input. Daftar detail tetap memiliki batas 50 transaksi terbaru, sehingga UI mengungkapkan batas tersebut ketika drill-down aktif. Bucket sintetis `Lainnya` tidak dapat dipilih sebagai kategori persisted.
+
 ### Anggaran dan insight
 
 Screen Anggaran belum boleh menampilkan angka contoh sebagai data nyata. Budget memerlukan schema, periode, kategori, nominal limit, status, repository, service, dan perhitungan server-side. Insight juga harus berasal dari structured metrics; AI tidak boleh menghitung saldo atau menjadi sumber angka finansial.
