@@ -26,6 +26,11 @@ test("builds a valid unprotected PDF report", async () => {
   assert.equal(pdf.subarray(0, 8).toString("ascii"), "%PDF-1.7");
   assert.equal(pdf.toString("ascii").endsWith("%%EOF\n"), true);
   assert.ok(pdf.length > 1_000);
+  const output = pdf.toString("latin1");
+  assert.match(output, /Falanc/);
+  assert.match(output, /Laporan keuangan keluarga/);
+  assert.match(output, /Dicetak pada/);
+  assert.match(output, /\/Subtype \/Image/);
 });
 
 test("builds an encrypted PDF without exposing the password in output bytes", async () => {

@@ -2,6 +2,27 @@
 
 All notable changes to Falancé are documented in this file.
 
+## [0.7.1] — 2026-08-23
+
+### Fixed
+
+- Replaced placeholder `F` marks in the Mini App header and empty states with the transparent Falancé symbol asset used by the favicon.
+- Updated print preview branding to load the same transparent symbol asset instead of a CSS-generated placeholder mark.
+- Embedded the same transparent symbol asset in server-generated PDF exports, including password-protected PDFs.
+
+### Security and integrity
+
+- Kept report export authorization, encrypted short-lived action tokens, server-side family resolution, and ephemeral PDF password handling unchanged.
+
+### Verification
+
+- `npm run lint` passes.
+- `npm run build` passes.
+- `npm test` passes with 196 tests.
+- `git diff --check` passes.
+
+[0.7.1]: https://github.com/beembarik/falance/releases/tag/v0.7.1
+
 ## [0.7.0] — 2026-08-23
 
 ### Added
