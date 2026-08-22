@@ -360,7 +360,7 @@ export default function Home() {
         {loading && !data && !error && <LoadingState />}
 
         {data && activeNav === "home" && (
-          <HomeView data={data} onAddTransaction={openAddTransaction} onSelectReports={() => selectNav("reports")} />
+          <HomeView data={data} onAddTransaction={openAddTransaction} onSelectReports={() => selectNav("reports")} onSelectTransactions={() => selectNav("transactions")} />
         )}
 
         {data && activeNav === "reports" && (
@@ -446,7 +446,7 @@ function AppHeader({ data, activeNav, onSelectNav }: { data: ReportResponse | nu
   );
 }
 
-function HomeView({ data, onAddTransaction, onSelectReports }: { data: ReportResponse; onAddTransaction: () => void; onSelectReports: () => void }) {
+function HomeView({ data, onAddTransaction, onSelectReports, onSelectTransactions }: { data: ReportResponse; onAddTransaction: () => void; onSelectReports: () => void; onSelectTransactions: () => void }) {
   return (
     <>
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--card-shadow)]">
@@ -490,7 +490,7 @@ function HomeView({ data, onAddTransaction, onSelectReports }: { data: ReportRes
 
       <section className="grid grid-cols-2 gap-3">
         <button type="button" onClick={onAddTransaction} className="primary-action flex min-h-14 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold text-white shadow-[0_6px_18px_rgba(38,122,90,0.18)] transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2"><span className="text-xl leading-none">+</span> Tambah transaksi</button>
-        <button type="button" onClick={onSelectReports} className="min-h-14 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-bold text-[var(--brand-green-700)] shadow-[var(--card-shadow)] transition hover:border-[var(--brand-green-500)] hover:bg-[var(--brand-green-50)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2">Buka laporan</button>
+        <button type="button" onClick={onSelectTransactions} className="min-h-14 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-bold text-[var(--brand-green-700)] shadow-[var(--card-shadow)] transition hover:border-[var(--brand-green-500)] hover:bg-[var(--brand-green-50)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2">Daftar transaksi</button>
       </section>
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
