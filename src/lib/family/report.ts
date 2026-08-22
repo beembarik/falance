@@ -1,5 +1,6 @@
 import type { Transaction } from "./types";
 import { getBusinessDate } from "../time/business-date";
+import { buildCategorySummaries, type CategorySummary } from "./category-analytics";
 
 const DEFAULT_TRANSACTION_LIMIT = 50;
 const MAX_TRANSACTION_LIMIT = 50;
@@ -34,6 +35,7 @@ export interface FinancialReport {
   period: FinancialReportPeriod;
   transactionCount: number;
   currencies: FinancialReportCurrencySummary[];
+  categorySummaries: CategorySummary[];
   transactions: FinancialReportTransaction[];
 }
 
@@ -86,6 +88,7 @@ export function buildFinancialReport(
   transactions: readonly Transaction[],
   period: FinancialReportPeriod,
   transactionLimit: number | null = DEFAULT_TRANSACTION_LIMIT,
+  familyId?: string,
 ): FinancialReport {
   const boundedLimit = transactionLimit === null
     ? null
@@ -134,6 +137,11 @@ export function buildFinancialReport(
     period,
     transactionCount: activeInPeriod.length,
     currencies,
+    categorySummaries: buildCategorySummaries(transactions, {
+      familyId: familyId ?? transactions[0]?.familyId ?? "",
+      startDate: period.startDate,
+      endDate: period.endDate,
+    }),
     transactions: reportTransactions,
   };
 }

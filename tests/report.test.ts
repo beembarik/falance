@@ -81,6 +81,27 @@ test("aggregates active transactions by currency and excludes VOID or out-of-per
   ]);
 });
 
+test("builds category summaries for the resolved family without mixing currencies", () => {
+  const report = buildFinancialReport([
+    transaction({ transactionId: "txn_food", category: "FOOD", amountMinor: 300000 }),
+    transaction({ transactionId: "txn_transport", category: "TRANSPORTATION", amountMinor: 100000 }),
+    transaction({ transactionId: "txn_usd", category: "FOOD", currency: "USD", amountMinor: 20 }),
+    transaction({ transactionId: "txn_void", category: "FOOD", amountMinor: 900000, status: "VOID" }),
+    transaction({ transactionId: "txn_other_family", category: "FOOD", familyId: "fam_2", amountMinor: 700000 }),
+  ], period, 50, "fam_1");
+
+  assert.deepEqual(report.categorySummaries.map((summary) => ({
+    category: summary.category,
+    currency: summary.currency,
+    expenseMinor: summary.expenseMinor,
+    transactionCount: summary.transactionCount,
+  })), [
+    { category: "FOOD", currency: "IDR", expenseMinor: 300000, transactionCount: 1 },
+    { category: "TRANSPORTATION", currency: "IDR", expenseMinor: 100000, transactionCount: 1 },
+    { category: "FOOD", currency: "USD", expenseMinor: 20, transactionCount: 1 },
+  ]);
+});
+
 test("limits report transaction details while preserving full aggregate counts", () => {
   const transactions = Array.from({ length: 55 }, (_, index) => transaction({
     transactionId: `txn_${index}`,

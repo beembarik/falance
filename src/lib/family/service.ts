@@ -668,6 +668,8 @@ export class FamilyService {
     return buildFinancialReport(
       await this.repository.findTransactionsByFamilyId(member.familyId),
       period,
+      undefined,
+      member.familyId,
     );
   }
 
@@ -687,6 +689,7 @@ export class FamilyService {
       await this.repository.findTransactionsByFamilyId(member.familyId),
       period,
       null,
+      member.familyId,
     );
     return { family, member, report };
   }

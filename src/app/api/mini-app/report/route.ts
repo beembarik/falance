@@ -91,6 +91,15 @@ export async function POST(request: Request): Promise<Response> {
           netMinor: summary.netMinor.toString(),
           transactionCount: summary.transactionCount,
         })),
+        categorySummaries: report.categorySummaries.map((summary) => ({
+          category: summary.category,
+          label: summary.label,
+          currency: summary.currency,
+          incomeMinor: String(summary.incomeMinor),
+          expenseMinor: String(summary.expenseMinor),
+          netMinor: String(summary.netMinor),
+          transactionCount: summary.transactionCount,
+        })),
         transactions: report.transactions.map((transaction) => ({
           transactionId: transaction.transactionId,
           transactionType: transaction.transactionType,

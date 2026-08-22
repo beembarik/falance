@@ -1,8 +1,8 @@
-# Category and Analytics Contract — Milestone 10 Slices 9–10
+# Category and Analytics Contract — Milestone 10 Slices 9–11
 
 ## Status
 
-**Slice 9 is production validated.** The deterministic category contract, legacy-safe migration, and persisted `Transactions.category` field were deployed and verified against the central registry with `healthy: true` and `issues: []`. Slice 10 separately exposes explicit category assignment in the authenticated Mini App create/edit transaction flow. Category summaries, budgets, and AI-driven automatic category persistence remain deferred.
+**Slices 9 and 10 are production validated.** The deterministic category contract, legacy-safe migration, persisted `Transactions.category` field, and explicit Mini App category assignment were deployed and validated. Slice 11 now exposes a read-only Dashboard visualization based on the server-derived category summary contract. Budgets and AI-driven automatic category persistence remain deferred.
 
 ## Goals
 
@@ -66,6 +66,10 @@ All active family members may view a future family-scoped category summary. Cate
 
 Slice 10 adds a category selector to Mini App transaction create/edit forms. The client sends only the selected stable code and the authenticated raw Telegram `initData`; the server resolves the family, validates the active member and transaction target, normalizes missing or blank values to `UNCATEGORIZED`, and persists through `FamilyService` and the central repository. Existing edits preserve the stored category when the category field is absent. Transaction list and detail views may display the persisted category label. AI `categorySuggestion` is not copied automatically into this field.
 
+## Slice 11 — Read-only category analytics Dashboard
+
+Slice 11 exposes category summaries through the authenticated Mini App report response and renders expense categories on the Dashboard. The server remains responsible for resolving the active family from validated Telegram `initData`, applying the selected report period, excluding `VOID`, and grouping by category and currency. The Dashboard must never add values across currencies. For each currency, the visual may show the largest expense categories and combine the remainder into `Lainnya`; the percentages are calculated from that currency’s server-derived expense total. The visual is descriptive only and does not imply a budget, forecast, recommendation, or AI insight.
+
 ## Explicitly deferred
 
-Category summaries are not exposed in the Dashboard, Report screen, Telegram response, or Mini App by this slice. Budgets, payment methods, recurring liabilities, AI financial insight, and Mini App receipt upload remain deferred. Any future summary UI must use the deterministic family/date/currency-scoped helper and must undergo a separate authorization and production-validation step.
+Budgets, payment methods, recurring liabilities, AI financial insight, and Mini App receipt upload remain deferred. Any future drill-down, category filter, or insight UI must preserve the same family/date/currency-scoped contract and undergo separate regression and production validation.

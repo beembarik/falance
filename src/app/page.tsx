@@ -23,6 +23,15 @@ type ReportResponse = {
       netMinor: string;
       transactionCount: number;
     }>;
+    categorySummaries: Array<{
+      category: string;
+      label: string;
+      currency: string;
+      incomeMinor: string;
+      expenseMinor: string;
+      netMinor: string;
+      transactionCount: number;
+    }>;
     transactions: Array<{
       transactionId: string;
       transactionType: "INCOME" | "EXPENSE";
@@ -536,6 +545,8 @@ function HomeView({ data, onAddTransaction, onSelectReports, onSelectTransaction
         )}
       </section>
 
+      <CategoryExpenseSection summaries={data.report.categorySummaries} />
+
       <section className="grid grid-cols-2 gap-3">
         <button type="button" onClick={onAddTransaction} className="primary-action flex min-h-14 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold text-white shadow-[0_6px_18px_rgba(38,122,90,0.18)] transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2"><span className="text-xl leading-none">+</span> Tambah transaksi</button>
         <button type="button" onClick={onSelectTransactions} className="min-h-14 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-bold text-[var(--brand-green-700)] shadow-[var(--card-shadow)] transition hover:border-[var(--brand-green-500)] hover:bg-[var(--brand-green-50)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2">Daftar transaksi</button>
@@ -559,6 +570,57 @@ function HomeView({ data, onAddTransaction, onSelectReports, onSelectTransaction
       </section>
     </>
   );
+}
+
+function CategoryExpenseSection({ summaries }: { summaries: ReportResponse["report"]["categorySummaries"] }) {
+  const currencies = [...new Set(summaries.map((summary) => summary.currency))].sort();
+  return <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]" aria-labelledby="category-expense-title">
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Distribusi</p>
+        <h2 id="category-expense-title" className="mt-1 text-lg font-bold">Pengeluaran per kategori</h2>
+      </div>
+      <span className="rounded-full bg-[var(--surface-soft)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">Per periode</span>
+    </div>
+    {currencies.length === 0 ? (
+      <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Belum ada pengeluaran berkategori pada periode ini.</p>
+    ) : (
+      <div className="mt-4 space-y-5">{currencies.map((currency) => <CategoryExpenseChart key={currency} currency={currency} summaries={summaries.filter((summary) => summary.currency === currency)} />)}</div>
+    )}
+    <p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Setiap mata uang ditampilkan terpisah. Grafik ini hanya menunjukkan distribusi pengeluaran aktif, bukan anggaran atau rekomendasi.</p>
+  </section>;
+}
+
+type CategoryExpenseRow = { label: string; expenseMinor: bigint; percentage: number; transactionCount: number };
+
+function CategoryExpenseChart({ currency, summaries }: { currency: string; summaries: ReportResponse["report"]["categorySummaries"] }) {
+  const expenseSummaries = summaries
+    .filter((summary) => BigInt(summary.expenseMinor) > BigInt(0))
+    .sort((left, right) => BigInt(right.expenseMinor) > BigInt(left.expenseMinor) ? 1 : -1);
+  const totalExpense = expenseSummaries.reduce((total, summary) => total + BigInt(summary.expenseMinor), BigInt(0));
+  if (totalExpense === BigInt(0)) return <div className="rounded-xl bg-[var(--surface-soft)] p-4"><p className="text-sm font-semibold">{currency}</p><p className="mt-1 text-sm text-[var(--text-secondary)]">Belum ada pengeluaran pada periode ini.</p></div>;
+
+  const topSummaries = expenseSummaries.slice(0, 4);
+  const remainder = expenseSummaries.slice(4);
+  const rows: CategoryExpenseRow[] = topSummaries.map((summary) => {
+    const expenseMinor = BigInt(summary.expenseMinor);
+    return { label: summary.label, expenseMinor, percentage: percentageOf(expenseMinor, totalExpense), transactionCount: summary.transactionCount };
+  });
+  const remainderMinor = remainder.reduce((total, summary) => total + BigInt(summary.expenseMinor), BigInt(0));
+  if (remainderMinor > BigInt(0)) rows.push({ label: "Lainnya", expenseMinor: remainderMinor, percentage: percentageOf(remainderMinor, totalExpense), transactionCount: remainder.reduce((total, summary) => total + summary.transactionCount, 0) });
+
+  return <div>
+    <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-bold">{currency}</h3><span className="text-xs text-[var(--text-secondary)]">Total {formatAmount(totalExpense.toString(), currency)}</span></div>
+    <div className="mt-3 space-y-3">{rows.map((row) => <div key={row.label}><div className="flex items-center justify-between gap-3 text-sm"><span className="min-w-0 truncate font-semibold">{row.label}</span><span className="shrink-0 text-right text-xs text-[var(--text-secondary)]">{formatAmount(row.expenseMinor.toString(), currency)} · {formatPercentage(row.percentage)}</span></div><div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-[var(--surface-soft)]" role="img" aria-label={`${row.label}: ${formatAmount(row.expenseMinor.toString(), currency)}, ${formatPercentage(row.percentage)}`}><div className="h-full rounded-full bg-[var(--brand-green-500)] transition-[width] duration-200" style={{ width: `${Math.max(row.percentage, row.expenseMinor > BigInt(0) ? 1 : 0)}%` }} /></div></div>)}</div>
+  </div>;
+}
+
+function percentageOf(value: bigint, total: bigint): number {
+  return total === BigInt(0) ? 0 : Number((value * BigInt(10000)) / total) / 100;
+}
+
+function formatPercentage(value: number): string {
+  return `${value.toLocaleString("id-ID", { minimumFractionDigits: value % 1 === 0 ? 0 : 1, maximumFractionDigits: 1 })}%`;
 }
 
 function AddTransactionForm({ initData, transaction, onClose, onSaved }: { initData: string; transaction?: ReportResponse["report"]["transactions"][number]; onClose: () => void; onSaved: () => void }) {
