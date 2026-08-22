@@ -64,6 +64,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!printToken) throw new Error("Print preview token could not be created.");
     const html = buildFinancialPrintHtml(exported.family.familyName, exported.report, {
       generatedAt: formatReportGeneratedAt(),
+      brandIconUrl: new URL("/icon.png", request.url).toString(),
       csvUrl: csvAction.url,
       pdfUrl: pdfAction.url,
       pdfPrepareUrl: new URL("/api/mini-app/report/pdf/prepare", request.url).toString(),

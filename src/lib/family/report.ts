@@ -53,6 +53,7 @@ export interface FinancialReport {
 
 export interface FinancialPrintPreviewOptions {
   generatedAt: string;
+  brandIconUrl: string;
   csvUrl: string;
   pdfUrl: string;
   pdfPrepareUrl: string;
@@ -273,7 +274,7 @@ export function buildFinancialPrintHtml(familyName: string, report: FinancialRep
     h2 { color: #6650a7; font-size: 16px; margin: 28px 0 10px; }
     .brand-header { border-bottom: 4px solid #267a5a; padding-bottom: 18px; }
     .brand-line { align-items: center; display: flex; gap: 12px; }
-    .brand-mark { align-items: center; background: linear-gradient(135deg, #b9a6d2, #61b89c 60%, #f28a7c); border-radius: 12px 18px 12px 18px; color: #fff; display: inline-flex; font-size: 20px; font-weight: 800; height: 42px; justify-content: center; width: 42px; }
+    .brand-icon { background: #fff; border-radius: 12px 18px 12px 18px; display: block; height: 42px; object-fit: contain; padding: 4px; width: 42px; }
     .brand-name { color: #185a42; font-size: 22px; font-weight: 800; letter-spacing: .02em; }
     .muted { color: #68756e; font-size: 13px; }
     .toolbar { align-items: center; background: #e3f3ed; border: 1px solid #b8dfd0; border-radius: 12px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin-bottom: 24px; padding: 12px; }
@@ -314,7 +315,7 @@ export function buildFinancialPrintHtml(familyName: string, report: FinancialRep
       <p class="notice" id="pdf-status" role="status" hidden></p>
     </div>
     <header class="brand-header">
-      <div class="brand-line"><span class="brand-mark" aria-hidden="true">F</span><span class="brand-name">Falancé</span></div>
+      <div class="brand-line"><img class="brand-icon" src="${escapeHtml(options.brandIconUrl)}" alt="" aria-hidden="true"><span class="brand-name">Falancé</span></div>
       <h1>Laporan Keuangan Keluarga</h1>
       <p class="muted">${escapeHtml(familyName)} · ${escapeHtml(report.period.label)} · ${escapeHtml(report.period.startDate)} s/d ${escapeHtml(report.period.endDate)}</p>
       <p class="muted">${report.transactionCount} transaksi aktif · Dicetak pada ${escapeHtml(options.generatedAt)}</p>

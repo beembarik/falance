@@ -167,6 +167,7 @@ test("renders print-friendly HTML with escaped family and transaction values", (
   ], period, null);
   const html = buildFinancialPrintHtml("Keluarga <Rahasia>", report, {
     generatedAt: "22 Agustus 2026 pukul 14.30",
+    brandIconUrl: "https://falance.example.com/icon.png",
     csvUrl: "https://falance.example.com/csv?token=csv-token",
     pdfUrl: "https://falance.example.com/pdf?token=pdf-token",
     pdfPrepareUrl: "https://falance.example.com/api/mini-app/report/pdf/prepare",
@@ -182,6 +183,8 @@ test("renders print-friendly HTML with escaped family and transaction values", (
   assert.match(html, /Unduh CSV/);
   assert.match(html, /22 Agustus 2026 pukul 14.30/);
   assert.match(html, /Falancé/);
+  assert.match(html, /src="https:\/\/falance\.example\.com\/icon\.png"/);
+  assert.doesNotMatch(html, /class="brand-mark"/);
   assert.match(html, /window\.print\(\)/);
   assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
 });

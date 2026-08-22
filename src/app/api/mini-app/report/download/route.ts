@@ -56,6 +56,7 @@ export async function GET(request: Request): Promise<Response> {
       });
       return new Response(buildFinancialPrintHtml(exported.family.familyName, exported.report, {
         generatedAt: formatReportGeneratedAt(),
+        brandIconUrl: new URL("/icon.png", request.url).toString(),
         csvUrl: csvAction.url,
         pdfUrl: pdfAction.url,
         pdfPrepareUrl: new URL("/api/mini-app/report/pdf/prepare", request.url).toString(),
