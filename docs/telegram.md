@@ -12,7 +12,7 @@ Telegram credentials remain server-only. The bot token must not be exposed to br
 | --- | --- |
 | `/start` | Returns the existing welcome response. |
 | `/createfamily` | Starts or replaces a 15-minute pending family creation request. A user with active membership is rejected. The next text message supplies the family name. Family and OWNER membership writes are retried idempotently, and pending state is completed only after both writes succeed. |
-| `/invite` | Requires an active `OWNER` or `ADMIN` membership. The generated code is bound to that member’s server-resolved `family_id` and displayed as inline code for easy copying. |
+| `/invite` | Requires an active `OWNER` or `ADMIN` membership. The generated code is bound to that member’s server-resolved `family_id`; the response includes a ready-to-share bot link, expiry, and `/join <code>` wrapped as inline code for easy copying. |
 | `/join <code>` | Resolves the invitation by code, validates status and expiry, rejects an already-active member, creates membership for the invitation’s family, and consumes the code. |
 
 ## Milestone 3 commands

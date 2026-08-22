@@ -32,6 +32,7 @@ import { formatFinancialReportMessage } from "./report-message";
 import { formatTransactionCreatedMessage, formatTransactionsMessage } from "./transaction-message";
 import { parseEditDraftCommand, parseEditTransactionCommand, parseManualTransactionCommand, TransactionCommandError } from "./transaction-command";
 import { telegramCode } from "./html";
+import { buildInvitationShareMessage } from "./invitation-share";
 import {
   formatDraftActionMarkup,
   formatDraftCancelledMessage,
@@ -126,7 +127,9 @@ export async function handleTelegramTextMessageResponse(
     }
     if (command === "/invite") {
       const invitation = await service.createInvitation(user);
-      return `✅ Invitation berhasil dibuat.\n\nKode: ${telegramCode(invitation.code)}\nBerlaku sampai: ${new Date(invitation.expiresAt).toLocaleString("id-ID")}`;
+      const shareMessage = buildInvitationShareMessage(invitation.code, process.env.FALANCE_TELEGRAM_BOT_USERNAME)
+        .replace(`/join ${invitation.code}`, telegramCode(`/join ${invitation.code}`));
+      return `✅ Invitation berhasil dibuat.\n\n${shareMessage}\n\nBerlaku sampai: ${new Date(invitation.expiresAt).toLocaleString("id-ID")}`;
     }
     if (command === "/members") {
       const family = await service.getActiveFamily(user.telegramUserId);

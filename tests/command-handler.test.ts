@@ -14,15 +14,24 @@ import type { TransactionTextParser } from "../src/lib/ai/transaction-text-parse
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
 
-test("formats an invitation code as inline code", async () => {
+test("formats an invitation as a ready-to-share message with copyable join command", async () => {
+  const originalBotUsername = process.env.FALANCE_TELEGRAM_BOT_USERNAME;
+  process.env.FALANCE_TELEGRAM_BOT_USERNAME = "Falance_bot";
   const service = fakeService({
     createInvitation: async () => ({ code: "FAL-ABC123", expiresAt: "2026-08-20T00:00:00.000Z" }),
   });
 
-  const response = await handleTelegramTextMessage(service, owner, "/invite");
-
-  assert.match(response, /Kode: <code>FAL-ABC123<\/code>/);
+  try {
+    const response = await handleTelegramTextMessage(service, owner, "/invite");
+    assert.match(response, /https:\/\/t\.me\/Falance_bot/);
+    assert.match(response, /<code>\/join FAL-ABC123<\/code>/);
+    assert.match(response, /Berlaku sampai:/);
+  } finally {
+    if (originalBotUsername === undefined) delete process.env.FALANCE_TELEGRAM_BOT_USERNAME;
+    else process.env.FALANCE_TELEGRAM_BOT_USERNAME = originalBotUsername;
+  }
 });
+
 
 test("previews a natural-language transaction draft without persisting it", async () => {
   let persisted = false;
