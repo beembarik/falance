@@ -103,8 +103,9 @@ test("Mini App report returns signed export actions for an authorized OWNER", as
       headers: { "content-type": "application/json" },
     }));
     assert.equal(response.status, 200);
-    const payload = await response.json() as { actions?: { csv?: { url: string }; pdf?: { url: string }; print?: { url: string } }; report?: { categorySummaries?: Array<{ category: string; currency: string; expenseMinor: string }>; transactions?: Array<{ transactionId: string; category: string; creatorName: string }> } };
+    const payload = await response.json() as { actions?: { csv?: { url: string }; pdf?: { url: string }; print?: { url: string } }; report?: { categorySummaries?: Array<{ category: string; currency: string; expenseMinor: string }>; cashFlow?: Array<{ period: string; currency: string; incomeMinor: string; expenseMinor: string; netMinor: string }>; transactions?: Array<{ transactionId: string; category: string; creatorName: string }> } };
     assert.deepEqual(payload.report?.categorySummaries, [{ category: "FOOD", label: "Makanan & Minuman", currency: "IDR", incomeMinor: "0", expenseMinor: "25000", netMinor: "-25000", transactionCount: 1 }]);
+    assert.deepEqual(payload.report?.cashFlow, [{ period: "2026-08", label: "Agu 2026", currency: "IDR", incomeMinor: "0", expenseMinor: "25000", netMinor: "-25000", transactionCount: 1 }]);
     assert.deepEqual(payload.report?.transactions, [{
       transactionId: "txn_category",
       transactionType: "EXPENSE",

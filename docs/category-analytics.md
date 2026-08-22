@@ -68,7 +68,11 @@ Slice 10 adds a category selector to Mini App transaction create/edit forms. The
 
 ## Slice 11 — Read-only category analytics Dashboard
 
-Slice 11 exposes category summaries through the authenticated Mini App report response and renders expense categories in the analytics presentation layer. Slice 12 moves the category visualization from Beranda to Laporan so the Dashboard can remain a family snapshot and activity surface. Slice 13 adds a server-derived cash-flow trend to Laporan, with Income, Expense, and Net Cash Flow grouped per currency and computed from the complete family transaction set for the selected period. The server remains responsible for resolving the active family from validated Telegram `initData`, applying the selected report period, excluding `VOID`, and grouping by category/currency or period/currency as appropriate. No surface may add values across currencies. Category and cash-flow visuals are descriptive only and do not imply a budget, saving account, forecast, recommendation, or AI insight.
+Slice 11 exposes category summaries through the authenticated Mini App report response and renders expense categories in the analytics presentation layer. Slice 12 moves the category visualization from Beranda to Laporan so the Dashboard can remain a family snapshot and activity surface. The server remains responsible for resolving the active family from validated Telegram `initData`, applying the selected report period, excluding `VOID`, and grouping by category and currency. No surface may add values across currencies. The category visual is descriptive only and does not imply a budget, saving account, forecast, recommendation, or AI insight.
+
+## Slice 13 — Cash-flow analytics in Laporan
+
+Slice 13 adds a server-derived cash-flow view to Laporan, with Income, Expense, and Net Cash Flow points grouped by month and currency for the selected period. The complete family transaction set is used for aggregation while the transaction detail list remains bounded independently. Empty periods remain explicit. Cash-flow visuals are descriptive only and do not imply a budget, savings account, forecast, recommendation, or AI insight.
 
 ## Explicitly deferred
 

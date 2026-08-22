@@ -103,3 +103,11 @@ Transaction provenance is a presentation concern backed by the existing `created
 The period value `income - expense` must be labeled as `Surplus periode`, `Defisit periode`, or `Arus bersih`, not as an account balance, until Falancé has an opening-balance and account model. This slice does not introduce saving transactions, accounts, transfers, savings rates, or savings goals. Any future savings feature must be built on an explicit account/money-bucket and transfer contract.
 
 The slice may reduce duplicate primary CTAs on Beranda while preserving the persistent bottom-navigation `+` action. All existing family isolation, multi-currency separation, and FamilyService/repository boundaries remain unchanged.
+
+## ADR-013: Server-derived cash-flow analytics per currency
+
+**Status:** Accepted; implemented locally as M10 Slice 13 and awaiting production validation.
+
+Falancé will expose a read-only cash-flow view in Laporan using server-derived monthly points for the selected report period. Each point contains `INCOME`, `EXPENSE`, and `NET` values plus transaction count, grouped by normalized currency. The server resolves the active family from validated Telegram `initData`, filters only `ACTIVE` transactions within the inclusive period, and never combines amounts from different currencies.
+
+The Mini App may render income and expense bars and a surplus/deficit net label from this response. It must not calculate financial totals from raw transaction rows, treat net cash flow as an account balance, or infer savings. Empty periods must remain explicit. This slice does not introduce accounts, transfers, savings goals, budgets, forecasts, or AI insight.

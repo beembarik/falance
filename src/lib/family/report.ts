@@ -21,6 +21,16 @@ export interface FinancialReportCurrencySummary {
   transactionCount: number;
 }
 
+export interface FinancialReportCashFlowPoint {
+  period: string;
+  label: string;
+  currency: string;
+  incomeMinor: bigint;
+  expenseMinor: bigint;
+  netMinor: bigint;
+  transactionCount: number;
+}
+
 export interface FinancialReportTransaction {
   transactionId: string;
   transactionType: Transaction["transactionType"];
@@ -37,6 +47,7 @@ export interface FinancialReport {
   transactionCount: number;
   currencies: FinancialReportCurrencySummary[];
   categorySummaries: CategorySummary[];
+  cashFlow: FinancialReportCashFlowPoint[];
   transactions: FinancialReportTransaction[];
 }
 
@@ -83,6 +94,45 @@ export function getFinancialReportPeriod(
     endDate: `${selectedMonth}-${String(lastDay).padStart(2, "0")}`,
     label,
   };
+}
+
+export function buildCashFlow(
+  transactions: readonly Transaction[],
+  period: FinancialReportPeriod,
+  familyId?: string,
+): FinancialReportCashFlowPoint[] {
+  const summaries = new Map<string, FinancialReportCashFlowPoint>();
+  for (const transaction of transactions) {
+    if (transaction.familyId !== (familyId ?? transactions[0]?.familyId ?? "")) continue;
+    if (transaction.status !== "ACTIVE") continue;
+    if (transaction.transactionDate < period.startDate || transaction.transactionDate > period.endDate) continue;
+    const key = `${transaction.transactionDate.slice(0, 7)}:${transaction.currency}`;
+    const current = summaries.get(key) ?? {
+      period: transaction.transactionDate.slice(0, 7),
+      label: formatCashFlowPeriodLabel(transaction.transactionDate),
+      currency: transaction.currency,
+      incomeMinor: BigInt(0),
+      expenseMinor: BigInt(0),
+      netMinor: BigInt(0),
+      transactionCount: 0,
+    };
+    const amount = BigInt(transaction.amountMinor);
+    if (transaction.transactionType === "INCOME") {
+      current.incomeMinor += amount;
+      current.netMinor += amount;
+    } else {
+      current.expenseMinor += amount;
+      current.netMinor -= amount;
+    }
+    current.transactionCount += 1;
+    summaries.set(key, current);
+  }
+  return [...summaries.values()].sort((left, right) => left.currency.localeCompare(right.currency) || left.period.localeCompare(right.period));
+}
+
+function formatCashFlowPeriodLabel(date: string): string {
+  const [year, month] = date.slice(0, 7).split("-").map(Number);
+  return new Intl.DateTimeFormat("id-ID", { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, 1)));
 }
 
 export function buildFinancialReport(
@@ -145,6 +195,7 @@ export function buildFinancialReport(
       startDate: period.startDate,
       endDate: period.endDate,
     }),
+    cashFlow: buildCashFlow(transactions, period, familyId),
     transactions: reportTransactions,
   };
 }

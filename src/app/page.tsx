@@ -32,6 +32,15 @@ type ReportResponse = {
       netMinor: string;
       transactionCount: number;
     }>;
+    cashFlow: Array<{
+      period: string;
+      label: string;
+      currency: string;
+      incomeMinor: string;
+      expenseMinor: string;
+      netMinor: string;
+      transactionCount: number;
+    }>;
     transactions: Array<{
       transactionId: string;
       transactionType: "INCOME" | "EXPENSE";
@@ -571,6 +580,44 @@ function HomeView({ data, onAddTransaction, onSelectReports, onSelectTransaction
   );
 }
 
+function CashFlowSection({ points }: { points: ReportResponse["report"]["cashFlow"] }) {
+  const currencies = [...new Set(points.map((point) => point.currency))].sort();
+  return <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]" aria-labelledby="cash-flow-title">
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Arus kas</p>
+        <h2 id="cash-flow-title" className="mt-1 text-lg font-bold">Pemasukan dan pengeluaran</h2>
+      </div>
+      <span className="rounded-full bg-[var(--surface-soft)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">Per currency</span>
+    </div>
+    {currencies.length === 0 ? (
+      <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Belum ada arus kas pada periode ini.</p>
+    ) : (
+      <div className="mt-4 space-y-6">{currencies.map((currency) => <CashFlowChart key={currency} currency={currency} points={points.filter((point) => point.currency === currency)} />)}</div>
+    )}
+    <p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Nilai dihitung dari transaksi aktif pada periode ini. Setiap mata uang ditampilkan terpisah dan arus bersih bukan saldo rekening.</p>
+  </section>;
+}
+
+function CashFlowChart({ currency, points }: { currency: string; points: ReportResponse["report"]["cashFlow"] }) {
+  const maxAmount = points.reduce((max, point) => {
+    const income = BigInt(point.incomeMinor);
+    const expense = BigInt(point.expenseMinor);
+    return income > max ? income : expense > max ? expense : max;
+  }, BigInt(0));
+  if (maxAmount === BigInt(0)) return <div className="rounded-xl bg-[var(--surface-soft)] p-4"><p className="text-sm font-semibold">{currency}</p><p className="mt-1 text-sm text-[var(--text-secondary)]">Belum ada pemasukan atau pengeluaran.</p></div>;
+  return <div>
+    <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-bold">{currency}</h3><span className="text-xs text-[var(--text-secondary)]">{points.length} periode</span></div>
+    <div className="mt-3 space-y-4">{points.map((point) => <div key={`${point.currency}:${point.period}`} className="rounded-xl bg-[var(--surface-soft)] p-3"><div className="flex items-center justify-between gap-3"><span className="text-sm font-semibold">{point.label}</span><span className={`text-xs font-bold ${BigInt(point.netMinor) >= BigInt(0) ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{BigInt(point.netMinor) >= BigInt(0) ? "Surplus" : "Defisit"} {formatSignedAmount(BigInt(point.netMinor), currency)}</span></div><div className="mt-3 space-y-2"><CashFlowBar label="Pemasukan" value={point.incomeMinor} total={maxAmount} color="bg-[var(--brand-green-500)]" currency={currency} /><CashFlowBar label="Pengeluaran" value={point.expenseMinor} total={maxAmount} color="bg-[var(--brand-coral-500)]" currency={currency} /></div></div>)}</div>
+  </div>;
+}
+
+function CashFlowBar({ label, value, total, color, currency }: { label: string; value: string; total: bigint; color: string; currency: string }) {
+  const amount = BigInt(value);
+  const width = total === BigInt(0) ? 0 : Math.max(amount > BigInt(0) ? 1 : 0, percentageOf(amount, total));
+  return <div><div className="flex items-center justify-between gap-3 text-xs"><span className="font-semibold text-[var(--text-secondary)]">{label}</span><span className="text-[var(--text-secondary)]">{formatAmount(value, currency)}</span></div><div className="mt-1 h-2 overflow-hidden rounded-full bg-[var(--surface)]" role="img" aria-label={`${label}: ${formatAmount(value, currency)}`}><div className={`h-full rounded-full ${color}`} style={{ width: `${width}%` }} /></div></div>;
+}
+
 function CategoryExpenseSection({ summaries }: { summaries: ReportResponse["report"]["categorySummaries"] }) {
   const currencies = [...new Set(summaries.map((summary) => summary.currency))].sort();
   return <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]" aria-labelledby="category-expense-title">
@@ -877,6 +924,8 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
         <div className="mt-4 grid gap-3 sm:grid-cols-3">{data.report.currencies.map((summary) => <MetricCard key={summary.currency} summary={summary} />)}</div>
         {data.report.currencies.length === 0 && <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm text-[var(--text-secondary)]">Belum ada transaksi aktif pada periode ini.</p>}
       </section>
+
+      <CashFlowSection points={data.report.cashFlow} />
 
       <CategoryExpenseSection summaries={data.report.categorySummaries} />
 

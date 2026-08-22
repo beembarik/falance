@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildFinancialCsv, buildFinancialPrintHtml, buildFinancialReport, getFinancialReportPeriod, ReportPeriodError } from "../src/lib/family/report";
+import { buildFinancialCsv, buildFinancialPrintHtml, buildCashFlow, buildFinancialReport, getFinancialReportPeriod, ReportPeriodError } from "../src/lib/family/report";
 import type { Transaction } from "../src/lib/family/types";
 
 const period = getFinancialReportPeriod("2026-08");
@@ -79,6 +79,23 @@ test("aggregates active transactions by currency and excludes VOID or out-of-per
   })), [
     { currency: "IDR", incomeMinor: BigInt(500000), expenseMinor: BigInt(125000), netMinor: BigInt(375000), transactionCount: 2 },
     { currency: "USD", incomeMinor: BigInt(0), expenseMinor: BigInt(10), netMinor: BigInt(-10), transactionCount: 1 },
+  ]);
+});
+
+test("builds cash-flow points per month and currency without mixing families", () => {
+  const points = buildCashFlow([
+    transaction({ transactionId: "txn_income_aug", transactionType: "INCOME", amountMinor: 500000, transactionDate: "2026-08-05" }),
+    transaction({ transactionId: "txn_expense_aug", amountMinor: 125000, transactionDate: "2026-08-19" }),
+    transaction({ transactionId: "txn_income_jul", transactionType: "INCOME", amountMinor: 250000, transactionDate: "2026-07-05" }),
+    transaction({ transactionId: "txn_usd_aug", currency: "USD", amountMinor: 10, transactionDate: "2026-08-20" }),
+    transaction({ transactionId: "txn_void", status: "VOID", amountMinor: 900000, transactionDate: "2026-08-10" }),
+    transaction({ transactionId: "txn_other_family", familyId: "fam_2", transactionType: "INCOME", amountMinor: 900000, transactionDate: "2026-08-10" }),
+  ], getFinancialReportPeriod(undefined, "2026-07-01", "2026-08-31"), "fam_1");
+
+  assert.deepEqual(points.map((point) => ({ period: point.period, currency: point.currency, incomeMinor: point.incomeMinor, expenseMinor: point.expenseMinor, netMinor: point.netMinor, transactionCount: point.transactionCount })), [
+    { period: "2026-07", currency: "IDR", incomeMinor: BigInt(250000), expenseMinor: BigInt(0), netMinor: BigInt(250000), transactionCount: 1 },
+    { period: "2026-08", currency: "IDR", incomeMinor: BigInt(500000), expenseMinor: BigInt(125000), netMinor: BigInt(375000), transactionCount: 2 },
+    { period: "2026-08", currency: "USD", incomeMinor: BigInt(0), expenseMinor: BigInt(10), netMinor: BigInt(-10), transactionCount: 1 },
   ]);
 });
 

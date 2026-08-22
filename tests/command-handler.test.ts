@@ -317,6 +317,7 @@ test("renders a family-scoped financial report for the requested month", async (
     transactionCount: 2,
     currencies: [{ currency: "IDR", incomeMinor: BigInt(500000), expenseMinor: BigInt(125000), netMinor: BigInt(375000), transactionCount: 2 }],
     categorySummaries: [],
+    cashFlow: [],
     transactions: [],
   };
   let receivedUserId: string | undefined;
