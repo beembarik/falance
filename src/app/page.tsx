@@ -31,6 +31,12 @@ type ReportResponse = {
   };
 };
 
+type AccountResponse = {
+  viewer: { name: string; username: string | null; role: string };
+  family: { familyName: string; status: string; plan: string; activeMemberCount: number };
+  members: Array<{ name: string; username: string | null; role: string; joinedAt: string }>;
+};
+
 type TelegramWebApp = {
   initData: string;
   ready: () => void;
@@ -62,6 +68,9 @@ export default function Home() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [data, setData] = useState<ReportResponse | null>(null);
+  const [accountData, setAccountData] = useState<AccountResponse | null>(null);
+  const [accountLoading, setAccountLoading] = useState(false);
+  const [accountError, setAccountError] = useState("");
   const [comparison, setComparison] = useState<ReportResponse | null>(null);
   const [comparisonLoading, setComparisonLoading] = useState(false);
   const [error, setError] = useState("");
@@ -123,13 +132,35 @@ export default function Home() {
     }
   }, []);
 
+  const loadAccount = useCallback(async () => {
+    if (!initDataRef.current) {
+      setAccountError("Buka halaman ini dari Telegram Mini App agar akun dapat diverifikasi.");
+      return;
+    }
+    setAccountLoading(true);
+    setAccountError("");
+    try {
+      const response = await fetch("/api/mini-app/account", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ initData: initDataRef.current }),
+      });
+      const payload = await response.json() as AccountResponse & { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Akun tidak dapat dimuat.");
+      setAccountData(payload);
+    } catch (accountLoadError) {
+      setAccountData(null);
+      setAccountError(accountLoadError instanceof Error ? accountLoadError.message : "Akun tidak dapat dimuat.");
+    } finally {
+      setAccountLoading(false);
+    }
+  }, []);
+
   const selectNav = useCallback((key: NavKey) => {
     setActiveNav(key);
     setNotice("");
-    if (key === "account") {
-      setNotice("Workspace Akun & Keluarga akan hadir pada slice berikutnya.");
-    }
-  }, []);
+    if (key === "account") void loadAccount();
+  }, [loadAccount]);
 
   const showAddTransactionNotice = useCallback(() => {
     setNotice("Tambah Transaksi akan dibuka setelah endpoint write Mini App selesai dan tervalidasi.");
@@ -224,7 +255,7 @@ export default function Home() {
           </section>
         )}
 
-        {error && (
+        {error && activeNav !== "account" && (
           <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
             {error}
           </section>
@@ -282,9 +313,11 @@ export default function Home() {
           />
         )}
 
-        {data && activeNav === "account" && (
-          <PlaceholderView title="Akun & Keluarga" description="Profil, keluarga aktif, anggota, dan permission-aware management akan tersedia pada slice berikutnya." actionLabel="Kembali ke Beranda" onAction={() => selectNav("home")} />
-        )}
+        {activeNav === "account" && accountLoading && !accountData && <LoadingState />}
+
+        {activeNav === "account" && accountError && <section role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">{accountError}</section>}
+
+        {accountData && activeNav === "account" && <AccountView data={accountData} onRetry={() => void loadAccount()} /> }
 
         {!data && !loading && !error && <PlaceholderView title="Belum ada data" description="Belum ada ringkasan yang dapat ditampilkan untuk periode ini." actionLabel="Coba lagi" onAction={() => void loadReport(month, startDate, endDate)} />}
 
@@ -380,6 +413,30 @@ function HomeView({ data, onAddTransaction, onSelectReports }: { data: ReportRes
       </section>
     </>
   );
+}
+
+function AccountView({ data, onRetry }: { data: AccountResponse; onRetry: () => void }) {
+  const roleLabel = data.viewer.role === "OWNER" ? "Owner keluarga" : data.viewer.role === "ADMIN" ? "Admin keluarga" : "Member keluarga";
+  const permissionText = data.viewer.role === "OWNER"
+    ? "Kamu dapat mengelola anggota, undangan, role, dan pengaturan keluarga melalui alur yang tervalidasi."
+    : data.viewer.role === "ADMIN"
+      ? "Kamu dapat membantu mengelola undangan dan melihat kondisi keluarga sesuai role yang diberikan."
+      : "Kamu dapat melihat data keluarga dan membuat transaksi melalui fitur yang tersedia.";
+
+  return <>
+    <section className="overflow-hidden rounded-2xl bg-[var(--brand-green-700)] text-white shadow-[0_8px_24px_rgba(38,122,90,0.16)]"><div className="p-5"><div className="flex items-center gap-4"><div className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-white/90 text-xl font-bold text-[var(--brand-green-700)]">{getInitials(data.viewer.name)}</div><div className="min-w-0"><p className="truncate text-xl font-bold">{data.viewer.name}</p><p className="mt-1 text-sm text-emerald-100">{roleLabel}{data.viewer.username ? ` · @${data.viewer.username}` : ""}</p></div></div></div><div className="border-t border-white/15 bg-white/10 px-5 py-4"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100">Konteks akses</p><p className="mt-1 text-sm leading-6 text-white/90">{permissionText}</p></div></section>
+
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Keluarga aktif</p><h2 className="mt-1 text-xl font-bold">{data.family.familyName}</h2></div><span className="rounded-full bg-[var(--brand-green-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-green-700)]">{data.family.status}</span></div><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-[var(--surface-soft)] p-3"><p className="text-xs text-[var(--text-secondary)]">Anggota aktif</p><p className="mt-1 text-2xl font-bold text-[var(--brand-green-700)]">{data.family.activeMemberCount}</p></div><div className="rounded-xl bg-[var(--surface-soft)] p-3"><p className="text-xs text-[var(--text-secondary)]">Plan</p><p className="mt-1 text-lg font-bold">{data.family.plan}</p></div></div></section>
+
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Family workspace</p><h2 className="mt-1 text-lg font-bold">Anggota keluarga</h2></div><span className="text-xs text-[var(--text-secondary)]">{data.members.length} aktif</span></div><div className="mt-4 divide-y divide-[var(--border)]">{data.members.map((member) => <div key={`${member.name}-${member.joinedAt}`} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"><div className="flex min-w-0 items-center gap-3"><div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--brand-purple-100)] text-xs font-bold text-[var(--brand-purple-800)]">{getInitials(member.name)}</div><div className="min-w-0"><p className="truncate text-sm font-semibold">{member.name}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{member.username ? `@${member.username}` : "Tanpa username"}</p></div></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${member.role === "OWNER" ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : member.role === "ADMIN" ? "bg-[var(--brand-purple-100)] text-[var(--brand-purple-800)]" : "bg-[var(--surface-soft)] text-[var(--text-secondary)]"}`}>{member.role}</span></div>)}</div></section>
+
+    <section className="rounded-2xl border border-dashed border-[var(--brand-green-500)] bg-[var(--brand-green-50)] p-4"><p className="text-sm font-semibold text-[var(--brand-green-700)]">Pengaturan keluarga</p><p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Undangan, perubahan role, dan lifecycle anggota akan ditambahkan melalui endpoint terotorisasi pada slice lanjutan.</p><button type="button" onClick={onRetry} className="mt-3 min-h-10 rounded-xl border border-[var(--brand-green-500)] bg-white px-3 text-xs font-semibold text-[var(--brand-green-700)] transition hover:bg-[var(--brand-green-100)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">Muat ulang data</button></section>
+  </>;
+}
+
+function getInitials(name: string): string {
+  const initials = name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  return initials || "F";
 }
 
 function TransactionsView({ data, filter, onFilterChange, onSelectTransaction }: { data: ReportResponse; filter: TransactionFilter; onFilterChange: (value: TransactionFilter) => void; onSelectTransaction: (transaction: ReportResponse["report"]["transactions"][number]) => void }) {
