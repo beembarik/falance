@@ -444,6 +444,8 @@ function UserAvatar({ name, avatarUrl, size = "small" }: { name: string; avatarU
   const sizeClass = size === "large" ? "h-14 w-14 text-xl" : "h-9 w-9 text-xs";
   const fallbackClass = size === "large" ? "bg-white/90 text-[var(--brand-green-700)]" : "bg-[var(--brand-purple-100)] text-[var(--brand-purple-800)]";
   if (avatarUrl && !imageFailed) {
+    // Telegram profile URLs are dynamic and may be direct CDN URLs or our signed proxy.
+    // eslint-disable-next-line @next/next/no-img-element
     return <img src={avatarUrl} alt={`Avatar ${name}`} referrerPolicy="no-referrer" onError={() => setImageFailed(true)} className={`${sizeClass} shrink-0 rounded-full object-cover`} />;
   }
   return <div aria-hidden="true" className={`grid ${sizeClass} shrink-0 place-items-center rounded-full font-bold ${fallbackClass}`}>{getInitials(name)}</div>;

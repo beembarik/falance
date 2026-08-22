@@ -79,7 +79,7 @@ test("Mini App account returns only the authorized family view", async () => {
   try {
     const params = new URLSearchParams({
       auth_date: String(Math.floor(Date.now() / 1000)),
-      user: JSON.stringify({ id: 100, first_name: "Owner Falancé", username: "owner", photo_url: "https://t.me/i/userpic/320/avatar.jpg" }),
+      user: JSON.stringify({ id: 100, first_name: "Owner Falancé", username: "owner" }),
     });
     const dataCheckString = [...params.entries()]
       .sort(([left], [right]) => left.localeCompare(right))
@@ -96,8 +96,9 @@ test("Mini App account returns only the authorized family view", async () => {
     }));
 
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), {
-      viewer: { name: "Owner Falancé", username: "owner", role: "OWNER", avatarUrl: "https://t.me/i/userpic/320/avatar.jpg" },
+    const accountPayload = await response.json() as { viewer: { avatarUrl: string }; family: unknown; members: unknown };
+    assert.match(accountPayload.viewer.avatarUrl, /^https:\/\/falance\.example\.com\/api\/mini-app\/avatar\?token=/);
+    assert.deepEqual({ family: accountPayload.family, members: accountPayload.members }, {
       family: {
         familyName: "Keluarga Aman",
         status: "ACTIVE",

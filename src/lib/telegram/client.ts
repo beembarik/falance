@@ -43,6 +43,35 @@ export class TelegramConfigurationError extends Error {}
 
 export class TelegramApiError extends Error {}
 
+export async function downloadTelegramProfilePhoto(telegramUserId: string): Promise<TelegramDownloadedImage | null> {
+  if (!/^\d+$/.test(telegramUserId)) throw new TelegramApiError("Telegram user ID is invalid.");
+  const token = requireTelegramToken();
+  let response: Response;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TELEGRAM_FILE_TIMEOUT_MS);
+  try {
+    response = await fetch(`${TELEGRAM_API_URL}/bot${token}/getUserProfilePhotos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: telegramUserId, offset: 0, limit: 1 }),
+      signal: controller.signal,
+    });
+  } catch {
+    throw new TelegramApiError("Telegram profile photo request failed.");
+  } finally {
+    clearTimeout(timeout);
+  }
+  if (!response.ok) throw new TelegramApiError("Telegram profile photo request returned an error response.");
+  const payload: unknown = await response.json().catch(() => null);
+  if (!isTelegramApiResponse(payload) || !payload.ok) {
+    throw new TelegramApiError("Telegram profile photo response is invalid.");
+  }
+  const profilePhotos = normalizeTelegramProfilePhotos(payload.result);
+  if (!profilePhotos) throw new TelegramApiError("Telegram profile photo response is invalid.");
+  const firstPhoto = profilePhotos.photos[0];
+  return firstPhoto ? downloadTelegramPhoto(firstPhoto) : null;
+}
+
 export async function downloadTelegramPhoto(photo: readonly TelegramPhotoSize[]): Promise<TelegramDownloadedImage> {
   const selected = selectLargestPhoto(photo);
   if (!selected) throw new TelegramApiError("Telegram photo is missing or invalid.");
@@ -213,6 +242,36 @@ function requireTelegramToken(): string {
 function readPositiveLimit(value: string | undefined, fallback: number): number {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function normalizeTelegramProfilePhotos(value: unknown): { photos: TelegramPhotoSize[][] } | null {
+  if (typeof value !== "object" || value === null || !("photos" in value) || !Array.isArray(value.photos)) return null;
+  const photos: TelegramPhotoSize[][] = [];
+  for (const photo of value.photos) {
+    if (!Array.isArray(photo)) return null;
+    const normalizedPhoto: TelegramPhotoSize[] = [];
+    for (const candidate of photo) {
+      const normalized = normalizeTelegramPhotoSize(candidate);
+      if (!normalized) return null;
+      normalizedPhoto.push(normalized);
+    }
+    photos.push(normalizedPhoto);
+  }
+  return { photos };
+}
+
+function normalizeTelegramPhotoSize(value: unknown): TelegramPhotoSize | null {
+  if (typeof value !== "object" || value === null || !("file_id" in value) || typeof value.file_id !== "string") return null;
+  if (!("width" in value) || !("height" in value)) return null;
+  const width = typeof value.width === "number" ? value.width : null;
+  const height = typeof value.height === "number" ? value.height : null;
+  if (width === null || height === null || !Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) return null;
+  return {
+    fileId: value.file_id,
+    width,
+    height,
+    ...( "file_size" in value && typeof value.file_size === "number" ? { fileSize: value.file_size } : {}),
+  };
 }
 
 function isTelegramFileResult(value: unknown): value is TelegramFileResult {

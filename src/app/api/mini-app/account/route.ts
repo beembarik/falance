@@ -1,6 +1,7 @@
 import { FamilyService, FamilyServiceError } from "../../../../lib/family/service";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../lib/telegram/mini-app-auth";
 import { GoogleSheetsFamilyRepository } from "../../../../lib/family/google-sheets-repository";
+import { buildMiniAppAvatarUrl } from "../../../../lib/telegram/mini-app-avatar-token";
 
 export const runtime = "nodejs";
 
@@ -39,7 +40,7 @@ export async function POST(request: Request): Promise<Response> {
         name: membership.name,
         username: membership.username,
         role: membership.role,
-        avatarUrl: validated.telegramUser.avatarUrl ?? null,
+        avatarUrl: validated.telegramUser.avatarUrl ?? buildMiniAppAvatarUrl(request, validated.telegramUser.telegramUserId),
       },
       family: {
         familyName: family.familyName,
