@@ -34,6 +34,7 @@ const transaction: Transaction = {
   currency: "IDR",
   transactionDate: "2026-08-22",
   description: "Belanja lama",
+  category: "FOOD",
   createdByMemberId: owner.memberId,
   createdAt: "2026-08-22T00:00:00.000Z",
   status: "ACTIVE",
@@ -82,7 +83,10 @@ test("Mini App PATCH updates only an active transaction in the server-resolved f
     assert.equal(updated.transactionType, "INCOME");
     assert.equal(updated.amountMinor, 200000);
     assert.equal(updated.description, "Gaji diperbarui");
-    assert.equal(JSON.stringify(await response.json()).includes("fam_foreign_client_value"), false);
+    assert.equal(updated.category, "FOOD");
+    const payload = await response.json() as { transaction: Transaction };
+    assert.equal(payload.transaction.category, "FOOD");
+    assert.equal(JSON.stringify(payload).includes("fam_foreign_client_value"), false);
   } finally {
     repository.findActiveMemberByTelegramUserId = originalFindMember;
     repository.findFamilyById = originalFindFamily;
@@ -91,6 +95,26 @@ test("Mini App PATCH updates only an active transaction in the server-resolved f
     repository.createAuditLog = originalAudit;
     restoreEnv("TELEGRAM_BOT_TOKEN", originalToken);
   }
+});
+
+test("Mini App transaction mutation rejects an unsupported category code", async () => {
+  const response = await PATCH(new Request("https://falance.example.com/api/mini-app/transaction", {
+    method: "PATCH",
+    body: JSON.stringify({
+      initData: signedInitData("100"),
+      transactionId: transaction.transactionId,
+      transactionType: "EXPENSE",
+      amountMinor: "125000",
+      currency: "IDR",
+      transactionDate: "2026-08-22",
+      description: "Kategori typo",
+      category: "groceries",
+    }),
+    headers: { "content-type": "application/json" },
+  }));
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "Kategori transaksi tidak didukung." });
 });
 
 test("Mini App transaction mutation rejects an unsupported currency code", async () => {

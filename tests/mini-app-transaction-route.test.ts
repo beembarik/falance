@@ -82,6 +82,7 @@ test("Mini App transaction resolves family server-side and ignores a foreign fam
         currency: "idr",
         transactionDate: "2026-08-22",
         description: "Belanja kebutuhan",
+        category: "food",
       }),
       headers: { "content-type": "application/json" },
     }));
@@ -89,15 +90,33 @@ test("Mini App transaction resolves family server-side and ignores a foreign fam
     const payload = await response.json() as { transaction: Omit<Transaction, "familyId" | "createdByMemberId" | "createdAt"> };
     assert.equal(payload.transaction.transactionType, "EXPENSE");
     assert.equal(payload.transaction.amountMinor, 150000);
+    assert.equal(payload.transaction.category, "FOOD");
     assert.ok(created);
     assert.equal(created.familyId, family.familyId);
     assert.equal(created.createdByMemberId, owner.memberId);
+    assert.equal(created.category, "FOOD");
     assert.equal(JSON.stringify(payload).includes("fam_foreign_client_value"), false);
   } finally {
     repository.findActiveMemberByTelegramUserId = originalFindMember;
     repository.findFamilyById = originalFindFamily;
     repository.createTransaction = originalCreateTransaction;
     repository.createAuditLog = originalCreateAuditLog;
+    restoreEnv("TELEGRAM_BOT_TOKEN", originalToken);
+  }
+});
+
+test("Mini App transaction rejects an unsupported category code", async () => {
+  const originalToken = process.env.TELEGRAM_BOT_TOKEN;
+  process.env.TELEGRAM_BOT_TOKEN = botToken;
+  try {
+    const response = await POST(new Request("https://falance.example.com/api/mini-app/transaction", {
+      method: "POST",
+      body: JSON.stringify({ initData: signedInitData("100"), transactionType: "EXPENSE", amountMinor: "1000", transactionDate: "2026-08-22", description: "Kategori invalid", category: "groceries" }),
+      headers: { "content-type": "application/json" },
+    }));
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: "Kategori transaksi tidak didukung." });
+  } finally {
     restoreEnv("TELEGRAM_BOT_TOKEN", originalToken);
   }
 });

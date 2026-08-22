@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CATEGORY_CODES, CATEGORY_LABELS } from "../lib/family/category-analytics";
 
 type ReportAction = { url: string; fileName: string };
 type NavKey = "home" | "transactions" | "reports" | "account";
@@ -29,6 +30,7 @@ type ReportResponse = {
       currency: string;
       transactionDate: string;
       description: string;
+      category: string;
     }>;
   };
 };
@@ -566,6 +568,7 @@ function AddTransactionForm({ initData, transaction, onClose, onSaved }: { initD
   const [currency, setCurrency] = useState(transaction?.currency ?? "IDR");
   const [transactionDate, setTransactionDate] = useState(transaction?.transactionDate ?? "");
   const [description, setDescription] = useState(transaction?.description ?? "");
+  const [category, setCategory] = useState(transaction?.category ?? "UNCATEGORIZED");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
@@ -577,7 +580,7 @@ function AddTransactionForm({ initData, transaction, onClose, onSaved }: { initD
       const response = await fetch("/api/mini-app/transaction", {
         method: isEditing ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ initData, ...(transaction ? { transactionId: transaction.transactionId } : {}), transactionType, amountMinor, currency, transactionDate, description }),
+        body: JSON.stringify({ initData, ...(transaction ? { transactionId: transaction.transactionId } : {}), transactionType, amountMinor, currency, transactionDate, description, category }),
       });
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error || (isEditing ? "Transaksi tidak dapat diperbarui." : "Transaksi tidak dapat dicatat."));
@@ -596,7 +599,7 @@ function AddTransactionForm({ initData, transaction, onClose, onSaved }: { initD
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">{isEditing ? "Edit transaksi" : "Input transaksi"}</p>
             <h2 id="add-transaction-title" className="mt-1 text-2xl font-bold">{isEditing ? "Perbarui transaksi" : "Tambah transaksi"}</h2>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Catat transaksi aktual keluarga. Kategori dan metode pembayaran belum tersedia pada schema saat ini.</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Catat transaksi aktual keluarga dan pilih kategori untuk membantu pengelompokan laporan.</p>
           </div>
           <button type="button" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--surface-soft)] text-xl text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]" aria-label="Tutup form">×</button>
         </div>
@@ -620,6 +623,13 @@ function AddTransactionForm({ initData, transaction, onClose, onSaved }: { initD
               <input required type="date" value={transactionDate} onChange={(event) => setTransactionDate(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-white px-3 font-semibold outline-none transition focus:border-[var(--brand-green-500)] focus:ring-2 focus:ring-[var(--brand-green-100)]" />
             </label>
           </div>
+
+          <label className="block text-sm font-semibold">Kategori
+            <select required value={category} onChange={(event) => setCategory(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-white px-4 font-semibold outline-none transition focus:border-[var(--brand-green-500)] focus:ring-2 focus:ring-[var(--brand-green-100)]">
+              {CATEGORY_CODES.map((code) => <option key={code} value={code}>{CATEGORY_LABELS[code]}</option>)}
+            </select>
+            <span className="mt-1 block text-xs font-normal text-[var(--text-secondary)]">Kategori dipilih secara manual; saran AI tidak menjadi pilihan otomatis.</span>
+          </label>
 
           <label className="block text-sm font-semibold">Deskripsi
             <textarea required maxLength={200} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Contoh: Belanja kebutuhan rumah" rows={3} className="mt-2 w-full resize-none rounded-xl border border-[var(--border)] bg-white px-4 py-3 outline-none transition focus:border-[var(--brand-green-500)] focus:ring-2 focus:ring-[var(--brand-green-100)]" />
@@ -748,7 +758,7 @@ function TransactionDetail({ transaction, onClose, onEdit, onRequestVoid, voidCo
 }) {
   const confirmingThisTransaction = voidConfirmation?.transactionId === transaction.transactionId;
   const actionInProgress = transactionAction !== null;
-  return <div className="fixed inset-0 z-30 flex items-end justify-center bg-[rgba(34,48,41,0.38)] p-0 sm:items-center sm:p-4" role="presentation" onClick={onClose}><section role="dialog" aria-modal="true" aria-labelledby="transaction-detail-title" className="max-h-[92vh] w-full max-w-[480px] overflow-y-auto rounded-t-3xl bg-[var(--surface)] p-5 shadow-[0_12px_40px_rgba(20,40,25,0.18)] sm:rounded-3xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Detail transaksi</p><h2 id="transaction-detail-title" className="mt-1 text-xl font-bold">{transaction.description}</h2></div><button type="button" onClick={onClose} aria-label="Tutup detail transaksi" className="grid h-11 w-11 place-items-center rounded-full bg-[var(--surface-soft)] text-xl text-[var(--text-secondary)] transition hover:bg-[var(--brand-green-100)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">×</button></div><div className="mt-5 rounded-2xl bg-[var(--surface-soft)] p-4"><p className={`text-2xl font-bold ${transaction.transactionType === "INCOME" ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{transaction.transactionType === "INCOME" ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Jenis</dt><dd className="font-semibold">{transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran"}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Tanggal</dt><dd className="font-semibold">{formatLongDate(transaction.transactionDate)}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Transaction ID</dt><dd className="max-w-[55%] break-all text-right font-mono text-xs font-semibold">{transaction.transactionId}</dd></div></dl></div><p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Edit memperbarui transaksi aktif. Void mengubah status menjadi VOID dan memerlukan konfirmasi eksplisit yang tersimpan di server.</p>{transactionActionError && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{transactionActionError}</p>}{confirmingThisTransaction ? <div className="mt-4 rounded-2xl border border-[var(--brand-coral-500)] bg-[var(--brand-coral-100)] p-4"><p className="text-sm font-bold text-[#9F3D34]">Void transaksi ini?</p><p className="mt-1 text-xs leading-5 text-[#9F3D34]">Status transaksi akan berubah menjadi VOID dan tidak lagi dihitung dalam saldo. Konfirmasi berlaku selama 5 menit.</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={onCancelVoid} disabled={actionInProgress} className="min-h-11 rounded-xl border border-[#C85A4D] bg-white px-3 text-sm font-semibold text-[#9F3D34] disabled:opacity-60">Batal</button><button type="button" onClick={onConfirmVoid} disabled={actionInProgress} className="min-h-11 rounded-xl bg-[#B94B40] px-3 text-sm font-bold text-white shadow-sm disabled:cursor-wait disabled:opacity-60">{transactionAction === "confirm-void" ? "Memproses..." : "Ya, void"}</button></div></div> : <div className="mt-5 grid grid-cols-2 gap-2"><button type="button" onClick={onEdit} className="min-h-11 rounded-xl border border-[var(--brand-green-700)] bg-[var(--brand-green-100)] px-3 text-sm font-bold text-[var(--brand-green-700)] transition hover:bg-[var(--brand-green-500)]/30 focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">Edit transaksi</button><button type="button" onClick={onRequestVoid} disabled={actionInProgress} className="min-h-11 rounded-xl border border-[#B94B40] bg-[var(--brand-coral-100)] px-3 text-sm font-bold text-[#9F3D34] transition hover:bg-[#F9D6D1] focus:outline-none focus:ring-2 focus:ring-[var(--brand-coral-500)] disabled:cursor-wait disabled:opacity-60">{transactionAction === "request-void" ? "Menyiapkan..." : "Void transaksi"}</button></div>}<button type="button" onClick={onClose} className="mt-3 min-h-11 w-full rounded-xl bg-[var(--brand-green-700)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-800)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2">Tutup</button></section></div>;
+  return <div className="fixed inset-0 z-30 flex items-end justify-center bg-[rgba(34,48,41,0.38)] p-0 sm:items-center sm:p-4" role="presentation" onClick={onClose}><section role="dialog" aria-modal="true" aria-labelledby="transaction-detail-title" className="max-h-[92vh] w-full max-w-[480px] overflow-y-auto rounded-t-3xl bg-[var(--surface)] p-5 shadow-[0_12px_40px_rgba(20,40,25,0.18)] sm:rounded-3xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Detail transaksi</p><h2 id="transaction-detail-title" className="mt-1 text-xl font-bold">{transaction.description}</h2></div><button type="button" onClick={onClose} aria-label="Tutup detail transaksi" className="grid h-11 w-11 place-items-center rounded-full bg-[var(--surface-soft)] text-xl text-[var(--text-secondary)] transition hover:bg-[var(--brand-green-100)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">×</button></div><div className="mt-5 rounded-2xl bg-[var(--surface-soft)] p-4"><p className={`text-2xl font-bold ${transaction.transactionType === "INCOME" ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{transaction.transactionType === "INCOME" ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Jenis</dt><dd className="font-semibold">{transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran"}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Tanggal</dt><dd className="font-semibold">{formatLongDate(transaction.transactionDate)}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Kategori</dt><dd className="font-semibold">{getCategoryLabel(transaction.category)}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Transaction ID</dt><dd className="max-w-[55%] break-all text-right font-mono text-xs font-semibold">{transaction.transactionId}</dd></div></dl></div><p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Edit memperbarui transaksi aktif. Void mengubah status menjadi VOID dan memerlukan konfirmasi eksplisit yang tersimpan di server.</p>{transactionActionError && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{transactionActionError}</p>}{confirmingThisTransaction ? <div className="mt-4 rounded-2xl border border-[var(--brand-coral-500)] bg-[var(--brand-coral-100)] p-4"><p className="text-sm font-bold text-[#9F3D34]">Void transaksi ini?</p><p className="mt-1 text-xs leading-5 text-[#9F3D34]">Status transaksi akan berubah menjadi VOID dan tidak lagi dihitung dalam saldo. Konfirmasi berlaku selama 5 menit.</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={onCancelVoid} disabled={actionInProgress} className="min-h-11 rounded-xl border border-[#C85A4D] bg-white px-3 text-sm font-semibold text-[#9F3D34] disabled:opacity-60">Batal</button><button type="button" onClick={onConfirmVoid} disabled={actionInProgress} className="min-h-11 rounded-xl bg-[#B94B40] px-3 text-sm font-bold text-white shadow-sm disabled:cursor-wait disabled:opacity-60">{transactionAction === "confirm-void" ? "Memproses..." : "Ya, void"}</button></div></div> : <div className="mt-5 grid grid-cols-2 gap-2"><button type="button" onClick={onEdit} className="min-h-11 rounded-xl border border-[var(--brand-green-700)] bg-[var(--brand-green-100)] px-3 text-sm font-bold text-[var(--brand-green-700)] transition hover:bg-[var(--brand-green-500)]/30 focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">Edit transaksi</button><button type="button" onClick={onRequestVoid} disabled={actionInProgress} className="min-h-11 rounded-xl border border-[#B94B40] bg-[var(--brand-coral-100)] px-3 text-sm font-bold text-[#9F3D34] transition hover:bg-[#F9D6D1] focus:outline-none focus:ring-2 focus:ring-[var(--brand-coral-500)] disabled:cursor-wait disabled:opacity-60">{transactionAction === "request-void" ? "Menyiapkan..." : "Void transaksi"}</button></div>}<button type="button" onClick={onClose} className="mt-3 min-h-11 w-full rounded-xl bg-[var(--brand-green-700)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-800)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2">Tutup</button></section></div>;
 }
 
 function ComparisonSummary({ current, previous }: { current: ReportResponse; previous: ReportResponse }) {
@@ -829,7 +839,8 @@ function MetricCard({ summary }: { summary: ReportResponse["report"]["currencies
 
 function TransactionRow({ transaction }: { transaction: ReportResponse["report"]["transactions"][number] }) {
   const isIncome = transaction.transactionType === "INCOME";
-  return <article className="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"><div className="flex min-w-0 items-start gap-3"><span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-bold ${isIncome ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : "bg-[var(--brand-coral-100)] text-[#C85A4D]"}`} aria-hidden="true">{isIncome ? "↑" : "↓"}</span><div className="min-w-0"><p className="truncate text-sm font-semibold">{transaction.description}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{formatDisplayDate(transaction.transactionDate)} · {transaction.currency}</p></div></div><p className={`shrink-0 text-sm font-bold ${isIncome ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{isIncome ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p></article>;
+  return <article className="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"><div className="flex min-w-0 items-start gap-3"><span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-bold ${isIncome ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : "bg-[var(--brand-coral-100)] text-[#C85A4D]"}`} aria-hidden="true">{isIncome ? "↑" : "↓"}</span><div className="min-w-0"><p className="truncate text-sm font-semibold">{transaction.description}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{formatDisplayDate(transaction.transactionDate)} · {transaction.currency} · {getCategoryLabel(transaction.category)}</p>
+</div></div><p className={`shrink-0 text-sm font-bold ${isIncome ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{isIncome ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p></article>;
 }
 
 function PlaceholderView({ title, description, actionLabel, onAction }: { title: string; description: string; actionLabel: string; onAction: () => void }) {
@@ -846,6 +857,12 @@ function BottomNavigation({ activeNav, onSelect, onAddTransaction }: { activeNav
 
 function NavButton({ item, active, onClick }: { item: { key: NavKey; label: string; icon: string }; active: boolean; onClick: () => void }) {
   return <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl px-2 text-[11px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] ${active ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]"}`}><span className="text-xl leading-5" aria-hidden="true">{item.icon}</span><span>{item.label}</span></button>;
+}
+
+function getCategoryLabel(category: string): string {
+  return Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, category)
+    ? CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS]
+    : CATEGORY_LABELS.UNCATEGORIZED;
 }
 
 function formatAmount(value: string, currency: string): string {

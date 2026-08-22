@@ -27,6 +27,7 @@ export interface FinancialReportTransaction {
   currency: string;
   transactionDate: string;
   description: string;
+  category: string;
 }
 
 export interface FinancialReport {
@@ -126,6 +127,7 @@ export function buildFinancialReport(
       currency: transaction.currency,
       transactionDate: transaction.transactionDate,
       description: transaction.description,
+      category: transaction.category ?? "UNCATEGORIZED",
     }));
 
   return {

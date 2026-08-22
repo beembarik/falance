@@ -78,16 +78,16 @@ The authenticated viewer’s Telegram `photo_url` may be used as an optional ava
 
 The Dashboard, Transaksi, Laporan, and Akun/Keluarga surfaces may be expanded using the existing family-scoped report and service boundaries. A Mini App write path is a separate security-sensitive slice: raw Telegram `initData` is validated server-side, membership and `family_id` are resolved server-side, role rules are enforced in `FamilyService`, and the client never writes directly to Google Sheets or supplies a family identifier as authorization. Multi-currency balances must remain separated and must never be added together as if they shared one currency.
 
-Persisted transaction categories, payment methods, budgets, category summaries, AI financial insight, and Mini App receipt scanning are not implied by this UI decision. They require their own schema, service, authorization, analytics, and operational decisions before being shown as authoritative product data.
+Persisted transaction categories, payment methods, budgets, category summaries, AI financial insight, and Mini App receipt scanning are not implied by this UI decision. Persisted categories now have a separately accepted and production-validated contract in ADR-011; category summaries, budgets, and receipt scanning still require their own user-facing authorization and operational decisions before being shown as authoritative product data.
 
 ## ADR-011: Category and analytics contract before persistence
 
-**Status:** Accepted for Milestone 10 Slice 9; local implementation complete, production validation pending.
+**Status:** Accepted for Milestone 10 Slice 9; production registry validation complete. Explicit Mini App assignment is implemented as Milestone 10 Slice 10 and awaits production validation.
 
 Falancé will use stable uppercase category codes with separate display labels rather than persisting translated labels. The proposed initial code set and deterministic summary shape are defined in [`docs/category-analytics.md`](category-analytics.md). Existing AI `categorySuggestion` values remain draft-only candidates and cannot be persisted or used as the source of financial totals without explicit user approval and service validation.
 
 Category analytics must be grouped by both category and normalized ISO currency. It must include only active transactions in the server-resolved family and selected inclusive date range, exclude `VOID` rows, and calculate income, expense, net, and transaction count using integer minor units. Amounts in different currencies must never be combined.
 
-The implementation appends `category` as the final column of the existing central `Transactions` worksheet, migrates legacy rows by writing `UNCATEGORIZED`, reads absent values with the same fallback, and writes only validated stable codes through the repository. A future Supabase mapping must preserve the same codes and legacy semantics. Before production activation, the operator must take a complete registry backup and run a dry-run integrity check; no per-family spreadsheet or Drive API is introduced.
+The implementation appends `category` as the final column of the existing central `Transactions` worksheet, migrates legacy rows by writing `UNCATEGORIZED`, reads absent values with the same fallback, and writes only validated stable codes through the repository. The operator completed the central registry backup and production integrity check with `healthy: true` and `issues: []`. M10 Slice 10 exposes explicit category selection in authenticated Mini App create/edit flows; a future Supabase mapping must preserve the same codes and legacy semantics. No per-family spreadsheet or Drive API is introduced.
 
 This ADR does not authorize category UI, category summaries, budgets, payment methods, recurring liabilities, AI financial insight, or Mini App receipt scanning. Those remain separate decisions and implementation slices.

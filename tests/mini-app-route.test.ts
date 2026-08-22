@@ -63,7 +63,19 @@ test("Mini App report returns signed export actions for an authorized OWNER", as
     createdBy: "100",
     plan: "MVP",
   });
-  repository.findTransactionsByFamilyId = async () => [];
+  repository.findTransactionsByFamilyId = async () => [{
+    transactionId: "txn_category",
+    familyId: "fam_1",
+    transactionType: "EXPENSE",
+    amountMinor: 25000,
+    currency: "IDR",
+    transactionDate: "2026-08-20",
+    description: "Belanja",
+    category: "FOOD",
+    createdByMemberId: "mem_100",
+    createdAt: "2026-08-20T00:00:00.000Z",
+    status: "ACTIVE",
+  }];
   try {
     const params = new URLSearchParams({
       auth_date: String(Math.floor(Date.now() / 1000)),
@@ -79,7 +91,16 @@ test("Mini App report returns signed export actions for an authorized OWNER", as
       headers: { "content-type": "application/json" },
     }));
     assert.equal(response.status, 200);
-    const payload = await response.json() as { actions?: { csv?: { url: string }; pdf?: { url: string }; print?: { url: string } } };
+    const payload = await response.json() as { actions?: { csv?: { url: string }; pdf?: { url: string }; print?: { url: string } }; report?: { transactions?: Array<{ transactionId: string; category: string }> } };
+    assert.deepEqual(payload.report?.transactions, [{
+      transactionId: "txn_category",
+      transactionType: "EXPENSE",
+      amountMinor: "25000",
+      currency: "IDR",
+      transactionDate: "2026-08-20",
+      description: "Belanja",
+      category: "FOOD",
+    }]);
     assert.match(payload.actions?.csv?.url ?? "", /^https:\/\/falance\.example\.com\/api\/mini-app\/report\/download\?token=/);
     assert.match(payload.actions?.pdf?.url ?? "", /^https:\/\/falance\.example\.com\/api\/mini-app\/report\/download\?token=/);
     assert.match(payload.actions?.print?.url ?? "", /^https:\/\/falance\.example\.com\/api\/mini-app\/report\/download\?token=/);

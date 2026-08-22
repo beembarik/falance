@@ -1,5 +1,6 @@
 import type { CreateTransactionInput } from "../family/service";
 import { isSupportedCurrencyCode } from "../family/currency";
+import { isTransactionCategory } from "../family/category-analytics";
 import type { TransactionType } from "../family/types";
 import { parseAmountMinor, TransactionCommandError } from "./transaction-command";
 
@@ -45,12 +46,19 @@ export function parseMiniAppTransactionInput(payload: MiniAppTransactionPayload)
     return new TransactionCommandError("Currency harus berupa kode ISO 4217 yang didukung, misalnya IDR.");
   }
 
+  const hasCategoryField = Object.prototype.hasOwnProperty.call(payload, "category");
+  const categoryValue = stringValue(payload.category);
+  if (categoryValue && !isTransactionCategory(categoryValue.toUpperCase())) {
+    return new TransactionCommandError("Kategori transaksi tidak didukung.");
+  }
+
   return {
     transactionType: transactionType as TransactionType,
     amountMinor,
     currency: currencyValue?.toUpperCase(),
     transactionDate,
     description,
+    ...(hasCategoryField ? { category: categoryValue?.toUpperCase() ?? "UNCATEGORIZED" } : {}),
   };
 }
 

@@ -1,16 +1,16 @@
-# Category and Analytics Contract — Milestone 10 Slice 9
+# Category and Analytics Contract — Milestone 10 Slices 9–10
 
 ## Status
 
-**Accepted for implementation in Milestone 10 Slice 9; production validation pending.** This slice adds deterministic domain semantics, a legacy-safe migration path, and service-level category assignment. It does not expose category UI, budgets, or category summaries in production reports yet.
+**Slice 9 is production validated.** The deterministic category contract, legacy-safe migration, and persisted `Transactions.category` field were deployed and verified against the central registry with `healthy: true` and `issues: []`. Slice 10 separately exposes explicit category assignment in the authenticated Mini App create/edit transaction flow. Category summaries, budgets, and AI-driven automatic category persistence remain deferred.
 
 ## Goals
 
 The contract must allow Falancé to classify actual transactions and summarize them without changing tenant isolation, mixing currencies, treating AI output as fact, or breaking existing rows. Category summaries must remain derived from server-resolved family transactions and must exclude `VOID` rows.
 
-## Proposed persisted field
+## Persisted field
 
-The proposed field is `category`, stored as a stable uppercase code rather than a translated display label. The initial code set is:
+The persisted field is `category`, stored as a stable uppercase code rather than a translated display label. The initial code set is:
 
 | Code | Display label |
 | --- | --- |
@@ -26,11 +26,11 @@ The proposed field is `category`, stored as a stable uppercase code rather than 
 | `INCOME` | Gaji & Pendapatan |
 | `OTHER` | Lainnya |
 
-Display labels are presentation data and may be localized later. Persisted values must remain stable across language changes. The schema version is currently proposed as `1`.
+Display labels are presentation data and may be localized later. Persisted values must remain stable across language changes. The schema version is `1`.
 
 ## Assignment semantics
 
-`categorySuggestion` from the AI text or receipt parser remains a draft-only candidate. It is never written to `Transactions` automatically and never determines a financial total. A future approval flow may let the user accept or edit a suggestion, after which a deterministic service validates the selected code before persistence.
+`categorySuggestion` from the AI text or receipt parser remains a draft-only candidate. It is never written to `Transactions` automatically and never determines a financial total. Slice 10 lets the user select or edit an explicit category in the Mini App; the deterministic service validates the selected code before persistence. A future approval flow may also let the user accept or edit a suggestion, but AI suggestions remain non-authoritative.
 
 Manual category assignment must use the same service and repository boundary as transaction creation and editing. The browser or Telegram client must not supply `family_id` as a tenant selector. The service must resolve the family from the authenticated member and validate that the target transaction belongs to that family.
 
@@ -62,6 +62,10 @@ The migration must include a dry-run integrity report, a backup of the complete 
 
 All active family members may view a future family-scoped category summary. Category mutations should follow the existing transaction mutation boundary and may be restricted by the final product decision; no role expansion is implied by this proposal. Existing export authorization remains unchanged: only `OWNER` and `ADMIN` may export report artifacts.
 
-## Explicitly out of scope
+## Slice 10 — Explicit category assignment
 
-This slice does not add category selectors to create/edit forms, category summaries to the Dashboard or Report screens, budgets, payment methods, recurring liabilities, AI financial insight, or Mini App receipt upload. Category UI and summaries still require their own authorization review and production validation.
+Slice 10 adds a category selector to Mini App transaction create/edit forms. The client sends only the selected stable code and the authenticated raw Telegram `initData`; the server resolves the family, validates the active member and transaction target, normalizes missing or blank values to `UNCATEGORIZED`, and persists through `FamilyService` and the central repository. Existing edits preserve the stored category when the category field is absent. Transaction list and detail views may display the persisted category label. AI `categorySuggestion` is not copied automatically into this field.
+
+## Explicitly deferred
+
+Category summaries are not exposed in the Dashboard, Report screen, Telegram response, or Mini App by this slice. Budgets, payment methods, recurring liabilities, AI financial insight, and Mini App receipt upload remain deferred. Any future summary UI must use the deterministic family/date/currency-scoped helper and must undergo a separate authorization and production-validation step.

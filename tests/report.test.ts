@@ -51,7 +51,7 @@ test("builds a bounded date-range period", () => {
 
 test("aggregates active transactions by currency and excludes VOID or out-of-period rows", () => {
   const report = buildFinancialReport([
-    transaction({ transactionId: "txn_income", transactionType: "INCOME", amountMinor: 500000 }),
+    transaction({ transactionId: "txn_income", transactionType: "INCOME", amountMinor: 500000, category: "INCOME" }),
     transaction({ transactionId: "txn_expense", amountMinor: 125000 }),
     transaction({ transactionId: "txn_usd", amountMinor: 10, currency: "USD" }),
     transaction({ transactionId: "txn_void", amountMinor: 900000, status: "VOID" }),
@@ -67,6 +67,7 @@ test("aggregates active transactions by currency and excludes VOID or out-of-per
     currency: "IDR",
     transactionDate: "2026-08-19",
     description: "Test",
+    category: "INCOME",
   });
   assert.deepEqual(report.currencies.map((summary) => ({
     currency: summary.currency,

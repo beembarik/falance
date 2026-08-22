@@ -476,6 +476,7 @@ test("creates normalized income and expense transactions with server-owned famil
     currency: "idr",
     transactionDate: "2026-08-19",
     description: "  Gaji   bulanan  ",
+    category: "income",
   });
   const expense = await service.createTransaction(owner, {
     transactionType: "EXPENSE",
@@ -488,7 +489,9 @@ test("creates normalized income and expense transactions with server-owned famil
   assert.equal(income.createdByMemberId, "mem_100");
   assert.equal(income.currency, "IDR");
   assert.equal(income.description, "Gaji bulanan");
+  assert.equal(income.category, "INCOME");
   assert.equal(expense.transactionType, "EXPENSE");
+  assert.equal(expense.category, "UNCATEGORIZED");
   assert.deepEqual(repository.transactions.map((value) => value.transactionId), [income.transactionId, expense.transactionId]);
   assert.equal(repository.auditLogs.at(-1)?.action, "CREATE_TRANSACTION");
   assert.equal(repository.auditLogs.at(-1)?.targetType, "TRANSACTION");
@@ -575,6 +578,7 @@ test("updates an active transaction in its server-resolved family and records an
     amountMinor: 1000,
     transactionDate: "2026-08-19",
     description: "Lama",
+    category: "FOOD",
   });
 
   const updated = await service.updateTransaction(owner, created.transactionId, {
@@ -591,6 +595,7 @@ test("updates an active transaction in its server-resolved family and records an
   assert.equal(updated.amountMinor, 2500);
   assert.equal(updated.currency, "IDR");
   assert.equal(updated.description, "Baru dinormalisasi");
+  assert.equal(updated.category, "FOOD");
   assert.equal(repository.transactions.length, 1);
   assert.equal(repository.auditLogs.at(-1)?.action, "UPDATE_TRANSACTION");
   await assert.rejects(service.updateTransaction(owner, created.transactionId, {

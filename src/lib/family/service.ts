@@ -38,6 +38,7 @@ export interface CreateTransactionInput {
   currency?: string;
   transactionDate: string;
   description: string;
+  category?: string | null;
 }
 
 export class FamilyServiceError extends Error {}
@@ -511,6 +512,7 @@ export class FamilyService {
       currency: normalizeCurrency(input.currency),
       transactionDate: input.transactionDate,
       description: normalizeTransactionDescription(input.description),
+      category: normalizeTransactionCategoryInput(input.category),
       createdByMemberId: member.memberId,
       createdAt: new Date().toISOString(),
       status: "ACTIVE",
@@ -709,6 +711,7 @@ export class FamilyService {
       currency: normalizeCurrency(input.currency),
       transactionDate: input.transactionDate,
       description: normalizeTransactionDescription(input.description),
+      category: normalizeTransactionCategoryInput(input.category ?? target.category),
     };
     await this.repository.updateTransaction(transactionId, updated);
     await this.recordAudit(member, "UPDATE_TRANSACTION", "TRANSACTION", transactionId, "ACTIVE", "ACTIVE");
@@ -986,8 +989,8 @@ function normalizeCurrency(currency: string | undefined): string {
   return normalized;
 }
 
-function normalizeTransactionCategoryInput(value: string): string {
-  const normalized = value.trim().toUpperCase();
+function normalizeTransactionCategoryInput(value: string | null | undefined): string {
+  const normalized = value?.trim().toUpperCase() || "UNCATEGORIZED";
   if (!isTransactionCategory(normalized)) throw new TransactionError("Category is not supported.");
   return normalized;
 }
