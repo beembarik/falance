@@ -1,8 +1,8 @@
-# Category and Analytics Contract — Milestone 10 Slices 9–13
+# Category and Analytics Contract — Milestone 10 Slices 9–14
 
 ## Status
 
-**Slices 9–12 are production validated.** The deterministic category contract, legacy-safe migration, persisted `Transactions.category` field, explicit Mini App category assignment, read-only category visualization, Dashboard refinement, and transaction provenance were deployed and validated. Slice 13 extends Laporan with server-derived cash-flow analytics while preserving the same family and currency boundaries. Budgets and AI-driven automatic category persistence remain deferred.
+**Slices 9–14 are production validated.** The deterministic category contract, legacy-safe migration, persisted `Transactions.category` field, explicit Mini App category assignment, read-only category visualization, Dashboard refinement, and transaction provenance were deployed and validated. Slice 13 extends Laporan with server-derived cash-flow analytics while preserving the same family and currency boundaries. Slice 14 adds read-only category filtering and bounded drill-down from the chart to loaded transaction details. Budgets and AI-driven automatic category persistence remain deferred.
 
 ## Goals
 

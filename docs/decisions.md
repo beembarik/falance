@@ -82,7 +82,7 @@ Persisted transaction categories, payment methods, budgets, category summaries, 
 
 ## ADR-011: Category and analytics contract before persistence
 
-**Status:** Accepted; M10 Slices 9–13 production validated. M10 Slice 14 adds read-only category filter and drill-down in Laporan and awaits production validation.
+**Status:** Accepted; M10 Slices 9–14 production validated.
 
 Falancé will use stable uppercase category codes with separate display labels rather than persisting translated labels. The proposed initial code set and deterministic summary shape are defined in [`docs/category-analytics.md`](category-analytics.md). Existing AI `categorySuggestion` values remain draft-only candidates and cannot be persisted or used as the source of financial totals without explicit user approval and service validation.
 
@@ -94,7 +94,7 @@ This ADR authorizes the read-only category summary and per-currency expense visu
 
 ## ADR-012: Dashboard snapshot, report analytics, and transaction provenance
 
-**Status:** Accepted; M10 Slices 12–13 production validated. M10 Slice 14 is the next implementation slice.
+**Status:** Accepted; M10 Slices 12–14 production validated.
 
 Falancé will keep Beranda focused on a family financial snapshot and recent family activity. Category analytics belong to Laporan, where users explicitly seek analysis and export. Moving the presentation of the category chart does not remove or weaken the server-side category summary contract introduced by ADR-011.
 
@@ -106,7 +106,7 @@ The slice may reduce duplicate primary CTAs on Beranda while preserving the pers
 
 ## ADR-013: Server-derived cash-flow analytics per currency
 
-**Status:** Accepted; M10 Slice 13 production validated. M10 Slice 14 is the next implementation slice.
+**Status:** Accepted; M10 Slices 13–14 production validated.
 
 Falancé will expose a read-only cash-flow view in Laporan using server-derived monthly points for the selected report period. Each point contains `INCOME`, `EXPENSE`, and `NET` values plus transaction count, grouped by normalized currency. The server resolves the active family from validated Telegram `initData`, filters only `ACTIVE` transactions within the inclusive period, and never combines amounts from different currencies.
 
@@ -114,7 +114,7 @@ The Mini App may render income and expense bars and a surplus/deficit net label 
 
 ## ADR-014: Read-only category filter and bounded drill-down
 
-**Status:** Accepted; implemented locally as M10 Slice 14 and awaiting production validation.
+**Status:** Accepted; M10 Slice 14 production validated.
 
 The Laporan category chart may act as a presentation control. Selecting a persisted category and currency filters the already loaded report transaction details for the selected period; the client does not recalculate category totals or mutate transactions. The filter uses the server-derived category code and the chart currency together, so the same category in two currencies can never be conflated.
 

@@ -179,7 +179,7 @@ When password protection is selected, the backend must encrypt the PDF before de
 
 ## Milestone 10 — Telegram Mini App Expansion
 
-Status: IN PROGRESS — SLICES 1–14 IMPLEMENTED LOCALLY; SLICES 9–13 PRODUCTION VALIDATED
+Status: IN PROGRESS — SLICES 1–14 IMPLEMENTED LOCALLY; SLICES 9–14 PRODUCTION VALIDATED
 
 This milestone expands the first authorized report view into a family-finance workspace while preserving the existing server-side authorization boundary. The Mini App is mobile-first but not mobile-only: the same component and domain-data system should adapt to Telegram phone, tablet, desktop, and ordinary browser fallback contexts.
 
@@ -204,11 +204,11 @@ Every family selector or family context control must remain server-authorized. T
 | 11 | Read-only category analytics on the Mini App Dashboard | Server-derived category summaries filtered by active family and selected period, grouped by currency; horizontal expense chart with top categories and multi-currency separation; no budgets, AI insight, or client-side financial calculation | Complete; production validated |
 | 12 | Dashboard refinement and transaction provenance | Simplify Beranda into family financial snapshot plus recent activity, move category chart presentation to Laporan, display server-resolved creator name on transaction list/detail, clarify surplus/deficit terminology, and reduce duplicate primary actions; no account/transfer/savings model | Complete; production validated |
 | 13 | Cash-flow analytics in Laporan | Add server-derived Income versus Expense trend for the selected period, grouped by currency and based on complete family transaction data; present net cash flow without introducing savings, account, budget, or AI insight semantics | Complete; production validated |
-| 14 | Category filter and drill-down in Laporan | Allow read-only category filtering and navigation from category analytics to matching family transactions within the selected period and currency; preserve server-derived totals, family isolation, and multi-currency separation; no budget or AI insight semantics | Implemented locally; production validation pending |
+| 14 | Category filter and drill-down in Laporan | Allow read-only category filtering and navigation from category analytics to matching family transactions within the selected period and currency; preserve server-derived totals, family isolation, and multi-currency separation; no budget or AI insight semantics | Complete; production validated |
 
 ### Explicitly deferred from the current Mini App scope
 
-- Category summaries were introduced and production validated in M10 Slice 11. Slice 12 refines their presentation by treating Laporan as the analytics surface while keeping summaries server-derived, ACTIVE-only, family-scoped, period-scoped, and separated by currency; Slice 13 extends Laporan with server-derived cash-flow trend data under the same boundary; Slice 14 adds read-only category filtering and drill-down. The accepted contract is in [`docs/category-analytics.md`](category-analytics.md). Slices 9–13 are production validated.
+- Category summaries were introduced and production validated in M10 Slice 11. Slice 12 refines their presentation by treating Laporan as the analytics surface while keeping summaries server-derived, ACTIVE-only, family-scoped, period-scoped, and separated by currency; Slice 13 extends Laporan with server-derived cash-flow trend data under the same boundary; Slice 14 adds read-only category filtering and drill-down. The accepted contract is in [`docs/category-analytics.md`](category-analytics.md). Slices 9–14 are production validated.
 - `payment_method` remains deferred because it is not part of the current transaction model or worksheet.
 - Budget totals, per-category budget progress, and the `/budget` surface remain deferred until category and budget schemas exist.
 - AI financial insight remains a later layer over server-derived structured metrics; AI must never be the source of financial totals.

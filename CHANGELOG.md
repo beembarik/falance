@@ -2,6 +2,34 @@
 
 All notable changes to Falancé are documented in this file.
 
+## [0.6.0] — 2026-08-22
+
+### Added
+
+- Added read-only category filtering in the authenticated Mini App Laporan.
+- Added category drill-down from the expense chart to matching loaded transaction details, scoped by category, currency, and selected report period.
+
+### Changed
+
+- Added an explicit filter reset control and empty state for category drill-down.
+- Kept the synthetic `Lainnya` aggregation non-clickable because it is not a persisted category.
+- Preserved the report detail boundary of 50 latest transactions and disclosed that boundary when drill-down is active.
+
+### Security and integrity
+
+- Category filtering remains presentation-only: it does not mutate transactions, recalculate authoritative totals in the browser, or accept a client-controlled family selector.
+- Preserved server-side family resolution, active-transaction and period boundaries, multi-currency separation, central single-spreadsheet storage, FamilyService/repository boundaries, and role-safe export behavior.
+
+### Verification
+
+- M10 Slice 14 was validated in the production Mini App.
+- `npm run lint` passes.
+- `npm run build` passes.
+- `npm test` passes with 193 tests.
+- `git diff --check` passes.
+
+[0.6.0]: https://github.com/beembarik/falance/releases/tag/v0.6.0
+
 ## [0.5.0] — 2026-08-22
 
 ### Added
