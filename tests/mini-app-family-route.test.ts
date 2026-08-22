@@ -38,7 +38,9 @@ const member: FamilyMember = {
 
 test("Mini App family action resolves the family from verified membership", async () => {
   const originalToken = process.env.TELEGRAM_BOT_TOKEN;
+  const originalBotUsername = process.env.FALANCE_TELEGRAM_BOT_USERNAME;
   process.env.TELEGRAM_BOT_TOKEN = botToken;
+  process.env.FALANCE_TELEGRAM_BOT_USERNAME = "Falance_bot";
   const repository = GoogleSheetsFamilyRepository.prototype as GoogleSheetsFamilyRepository & {
     findActiveMemberByTelegramUserId: GoogleSheetsFamilyRepository["findActiveMemberByTelegramUserId"];
     findFamilyById: GoogleSheetsFamilyRepository["findFamilyById"];
@@ -63,13 +65,17 @@ test("Mini App family action resolves the family from verified membership", asyn
     }));
     assert.equal(response.status, 201);
     assert.equal(createdFamilyId, family.familyId);
-    assert.equal(JSON.stringify(await response.json()).includes("fam_foreign_client_value"), false);
+    const payload = await response.json() as { invitation: { shareMessage: string } };
+    assert.equal(payload.invitation.shareMessage.includes("https://t.me/Falance_bot"), true);
+    assert.equal(payload.invitation.shareMessage.includes("/join FAL-"), true);
+    assert.equal(JSON.stringify(payload).includes("fam_foreign_client_value"), false);
   } finally {
     repository.findActiveMemberByTelegramUserId = originalFindMember;
     repository.findFamilyById = originalFindFamily;
     repository.createInvitation = originalCreateInvitation;
     repository.createAuditLog = originalAudit;
     restoreEnv("TELEGRAM_BOT_TOKEN", originalToken);
+    restoreEnv("FALANCE_TELEGRAM_BOT_USERNAME", originalBotUsername);
   }
 });
 

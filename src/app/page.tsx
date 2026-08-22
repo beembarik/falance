@@ -72,7 +72,7 @@ export default function Home() {
   const [transactionActionError, setTransactionActionError] = useState("");
   const [familyAction, setFamilyAction] = useState<FamilyAction | null>(null);
   const [familyActionError, setFamilyActionError] = useState("");
-  const [invitation, setInvitation] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [invitation, setInvitation] = useState<{ code: string; expiresAt: string; shareMessage: string } | null>(null);
   const [deactivateConfirmation, setDeactivateConfirmation] = useState<{ memberId: string; expiresAt: string } | null>(null);
   const [month, setMonth] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -188,7 +188,7 @@ export default function Home() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ initData: currentInitData, action, ...fields }),
       });
-      const payload = await response.json() as { error?: string; invitation?: { code: string; expiresAt: string }; confirmation?: { expiresAt: string } };
+      const payload = await response.json() as { error?: string; invitation?: { code: string; expiresAt: string; shareMessage: string }; confirmation?: { expiresAt: string } };
       if (!response.ok) throw new Error(payload.error || "Aksi keluarga tidak dapat diproses.");
       if (action === "CREATE_INVITATION" && payload.invitation) {
         setInvitation(payload.invitation);
@@ -633,7 +633,15 @@ function AddTransactionForm({ initData, transaction, onClose, onSaved }: { initD
   );
 }
 
-function AccountView({ data, onRetry, onFamilyAction, familyAction, familyActionError, invitation, deactivateConfirmation }: { data: AccountResponse; onRetry: () => void; onFamilyAction: (action: FamilyAction, fields?: FamilyActionFields) => void; familyAction: FamilyAction | null; familyActionError: string; invitation: { code: string; expiresAt: string } | null; deactivateConfirmation: { memberId: string; expiresAt: string } | null }) {
+function AccountView({ data, onRetry, onFamilyAction, familyAction, familyActionError, invitation, deactivateConfirmation }: {
+  data: AccountResponse;
+  onRetry: () => void;
+  onFamilyAction: (action: FamilyAction, fields?: FamilyActionFields) => void;
+  familyAction: FamilyAction | null;
+  familyActionError: string;
+  invitation: { code: string; expiresAt: string; shareMessage: string } | null;
+  deactivateConfirmation: { memberId: string; expiresAt: string } | null;
+}) {
   const roleLabel = data.viewer.role === "OWNER" ? "Owner keluarga" : data.viewer.role === "ADMIN" ? "Admin keluarga" : "Member keluarga";
   const permissionText = data.viewer.role === "OWNER"
     ? "Kamu dapat mengelola anggota, undangan, role, dan pengaturan keluarga melalui alur yang tervalidasi."
@@ -641,7 +649,18 @@ function AccountView({ data, onRetry, onFamilyAction, familyAction, familyAction
       ? "Kamu dapat membantu mengelola undangan dan melihat kondisi keluarga sesuai role yang diberikan."
       : "Kamu dapat melihat data keluarga dan membuat transaksi melalui fitur yang tersedia.";
   const [familyName, setFamilyName] = useState(data.family.familyName);
+  const [invitationCopied, setInvitationCopied] = useState(false);
   const isBusy = familyAction !== null;
+  const copyInvitation = async () => {
+    if (!invitation) return;
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard API unavailable");
+      await navigator.clipboard.writeText(invitation.shareMessage);
+      setInvitationCopied(true);
+    } catch {
+      setInvitationCopied(false);
+    }
+  };
 
   return <>
     <section className="overflow-hidden rounded-2xl bg-[var(--brand-green-700)] text-white shadow-[0_8px_24px_rgba(38,122,90,0.16)]"><div className="p-5"><div className="flex items-center gap-4"><UserAvatar key={`${data.viewer.avatarUrl ?? ""}:${data.viewer.avatarFallbackUrl ?? ""}`} name={data.viewer.name} avatarUrl={data.viewer.avatarUrl} avatarFallbackUrl={data.viewer.avatarFallbackUrl} size="large" /><div className="min-w-0"><p className="truncate text-xl font-bold">{data.viewer.name}</p><p className="mt-1 text-sm text-emerald-100">{roleLabel}{data.viewer.username ? ` · @${data.viewer.username}` : ""}</p></div></div></div><div className="border-t border-white/15 bg-white/10 px-5 py-4"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100">Konteks akses</p><p className="mt-1 text-sm leading-6 text-white/90">{permissionText}</p></div></section>
@@ -650,7 +669,7 @@ function AccountView({ data, onRetry, onFamilyAction, familyAction, familyAction
 
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Family workspace</p><h2 className="mt-1 text-lg font-bold">Anggota keluarga</h2></div><span className="text-xs text-[var(--text-secondary)]">{data.members.length} aktif</span></div><div className="mt-4 divide-y divide-[var(--border)]">{data.members.map((member) => { const confirming = deactivateConfirmation?.memberId === member.memberId; const nextRole = member.role === "ADMIN" ? "MEMBER" : "ADMIN"; return <div key={member.memberId} className="py-3 first:pt-0 last:pb-0"><div className="flex items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><UserAvatar name={member.name} size="small" /><div className="min-w-0"><p className="truncate text-sm font-semibold">{member.name}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{member.username ? `@${member.username}` : "Tanpa username"}</p><code className="mt-1 block truncate text-[10px] text-[var(--text-secondary)]">{member.memberId}</code></div></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${member.role === "OWNER" ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : member.role === "ADMIN" ? "bg-[var(--brand-purple-100)] text-[var(--brand-purple-800)]" : "bg-[var(--surface-soft)] text-[var(--text-secondary)]"}`}>{member.role}</span></div>{data.viewer.role === "OWNER" && member.role !== "OWNER" && <>{confirming ? <div className="mt-3 rounded-xl border border-[var(--brand-coral-500)] bg-[var(--brand-coral-100)] p-3"><p className="text-xs font-semibold text-[#9F3D34]">Nonaktifkan {member.name}? Konfirmasi berlaku selama 5 menit.</p><div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={() => onFamilyAction("CANCEL_DEACTIVATE_MEMBER")} disabled={isBusy} className="min-h-10 rounded-lg border border-[#C85A4D] bg-white px-2 text-xs font-semibold text-[#9F3D34] disabled:opacity-60">Batal</button><button type="button" onClick={() => onFamilyAction("CONFIRM_DEACTIVATE_MEMBER")} disabled={isBusy} className="min-h-10 rounded-lg bg-[#B94B40] px-2 text-xs font-bold text-white disabled:opacity-60">{familyAction === "CONFIRM_DEACTIVATE_MEMBER" ? "Memproses..." : "Ya, nonaktifkan"}</button></div></div> : <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => onFamilyAction("CHANGE_MEMBER_ROLE", { memberId: member.memberId, role: nextRole })} disabled={isBusy} className="min-h-9 rounded-lg border border-[var(--brand-purple-600)] bg-[var(--brand-purple-100)] px-2.5 text-xs font-semibold text-[var(--brand-purple-800)] disabled:opacity-60">Jadikan {nextRole === "ADMIN" ? "admin" : "member"}</button><button type="button" onClick={() => onFamilyAction("REQUEST_DEACTIVATE_MEMBER", { memberId: member.memberId })} disabled={isBusy} className="min-h-9 rounded-lg border border-[#C85A4D] bg-[var(--brand-coral-100)] px-2.5 text-xs font-semibold text-[#9F3D34] disabled:opacity-60">Nonaktifkan</button></div>}</>}</div>; })}</div></section>
 
-    {(data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">Administrasi</p><h2 className="mt-1 text-lg font-bold">Undangan keluarga</h2><p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Buat kode satu kali untuk dibagikan kepada calon anggota melalui Telegram.</p></div><button type="button" onClick={() => onFamilyAction("CREATE_INVITATION")} disabled={isBusy} className="min-h-10 shrink-0 rounded-xl bg-[var(--brand-green-700)] px-3 text-xs font-bold text-white disabled:cursor-wait disabled:opacity-60">{familyAction === "CREATE_INVITATION" ? "Membuat..." : "Buat kode"}</button></div>{invitation && <div className="mt-4 rounded-xl bg-[var(--brand-green-100)] p-4"><p className="text-xs text-[var(--brand-green-700)]">Kode undangan</p><code className="mt-1 block text-xl font-bold tracking-[0.12em] text-[var(--brand-green-700)]">{invitation.code}</code><p className="mt-1 text-xs text-[var(--text-secondary)]">Berlaku sampai {new Date(invitation.expiresAt).toLocaleString("id-ID")}</p></div>}</section>}
+    {(data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">Administrasi</p><h2 className="mt-1 text-lg font-bold">Undangan keluarga</h2><p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Buat kode satu kali untuk dibagikan kepada calon anggota melalui Telegram.</p></div><button type="button" onClick={() => onFamilyAction("CREATE_INVITATION")} disabled={isBusy} className="min-h-10 shrink-0 rounded-xl bg-[var(--brand-green-700)] px-3 text-xs font-bold text-white disabled:cursor-wait disabled:opacity-60">{familyAction === "CREATE_INVITATION" ? "Membuat..." : "Buat kode"}</button></div>{invitation && <div className="mt-4 rounded-xl bg-[var(--brand-green-100)] p-4"><p className="text-xs text-[var(--brand-green-700)]">Kode undangan</p><code className="mt-1 block text-xl font-bold tracking-[0.12em] text-[var(--brand-green-700)]">{invitation.code}</code><p className="mt-1 text-xs text-[var(--text-secondary)]">Berlaku sampai {new Date(invitation.expiresAt).toLocaleString("id-ID")}</p><label className="mt-4 block text-xs font-semibold text-[var(--brand-green-700)]">Pesan siap dibagikan<textarea readOnly rows={8} value={invitation.shareMessage} onFocus={(event) => event.currentTarget.select()} className="mt-2 w-full resize-none rounded-xl border border-[var(--brand-green-500)] bg-white px-3 py-3 text-sm font-normal leading-6 text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]" /></label><div className="mt-2 flex items-center justify-between gap-3"><p className="text-xs text-[var(--text-secondary)]">Salin pesan ini lalu kirim kepada calon member.</p><button type="button" onClick={() => void copyInvitation()} className="min-h-10 shrink-0 rounded-xl border border-[var(--brand-green-700)] bg-white px-3 text-xs font-bold text-[var(--brand-green-700)]">{invitationCopied ? "Tersalin" : "Salin pesan"}</button></div></div>}</section>}
 
     {data.viewer.role === "OWNER" && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Pengaturan keluarga</p><h2 className="mt-1 text-lg font-bold">Nama keluarga</h2><form className="mt-3 flex gap-2" onSubmit={(event) => { event.preventDefault(); onFamilyAction("RENAME_FAMILY", { familyName }); }}><input required maxLength={80} value={familyName} onChange={(event) => setFamilyName(event.target.value)} className="min-h-11 min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-3 text-sm font-semibold outline-none focus:border-[var(--brand-green-500)] focus:ring-2 focus:ring-[var(--brand-green-100)]" /><button type="submit" disabled={isBusy} className="min-h-11 rounded-xl border border-[var(--brand-green-700)] bg-[var(--brand-green-100)] px-3 text-xs font-bold text-[var(--brand-green-700)] disabled:opacity-60">{familyAction === "RENAME_FAMILY" ? "Menyimpan..." : "Simpan"}</button></form></section>}
 

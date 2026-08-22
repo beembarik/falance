@@ -9,6 +9,7 @@ import {
 } from "../../../../lib/family/service";
 import { GoogleSheetsFamilyRepository } from "../../../../lib/family/google-sheets-repository";
 import type { MemberRole } from "../../../../lib/family/types";
+import { buildInvitationShareMessage } from "../../../../lib/telegram/invitation-share";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../lib/telegram/mini-app-auth";
 
 export const runtime = "nodejs";
@@ -59,7 +60,11 @@ export async function POST(request: Request): Promise<Response> {
       const invitation = await service.createInvitation(actor);
       return Response.json({
         message: "Undangan berhasil dibuat.",
-        invitation: { code: invitation.code, expiresAt: invitation.expiresAt },
+        invitation: {
+          code: invitation.code,
+          expiresAt: invitation.expiresAt,
+          shareMessage: buildInvitationShareMessage(invitation.code, process.env.FALANCE_TELEGRAM_BOT_USERNAME),
+        },
       }, { status: 201 });
     }
 
