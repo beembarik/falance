@@ -147,9 +147,9 @@ Slice webhook authentication dan update_id idempotency sudah divalidasi end-to-e
 
 ## Milestone 9 — Reports, Multi-Channel Access, and Export
 
-Status: IN PROGRESS — SLICE 5: server-side PDF export; Milestone 8 operationally ready dengan validasi pra-public-beta yang ditunda
+Status: COMPLETE — operationally validated; category summaries deferred
 
-Reports must never expose the central Google Spreadsheet directly. Every report request resolves the user’s active membership and `family_id` server-side, then returns only data belonging to that family. Slice 1 menyediakan `/report` untuk bulan berjalan atau periode `YYYY-MM`, dengan agregasi multi-currency, income, expense, saldo, transaction count, dan exclusion untuk `VOID` atau transaksi di luar periode. Slice 2 menambahkan Mini App terautentikasi dengan filter bulan atau rentang tanggal maksimal 366 hari dan detail transaksi maksimal 50 row. Slice 3 menambahkan CSV export family-scoped yang tidak dibatasi 50 row dan hanya dapat diminta oleh `OWNER` atau `ADMIN`. Slice 4 menambahkan print-friendly HTML report dengan authorization yang sama. Slice 5 menambahkan server-side PDF export berbasis PDFKit, optional password protection dengan PDF version 1.7ext3, password ephemeral, dan direct streaming tanpa persistent artifact. Setelah production WebView testing, delivery CSV/print/PDF menggunakan native form `POST` navigation agar tidak bergantung pada Blob URL atau `document.write()` behavior yang berbeda di Telegram WebView.
+Reports must never expose the central Google Spreadsheet directly. Every report request resolves the user’s active membership and `family_id` server-side, then returns only data belonging to that family. Slice 1 menyediakan `/report` untuk bulan berjalan atau periode `YYYY-MM`, dengan agregasi multi-currency, income, expense, saldo, transaction count, dan exclusion untuk `VOID` atau transaksi di luar periode. Slice 2 menambahkan Mini App terautentikasi dengan filter bulan atau rentang tanggal maksimal 366 hari dan detail transaksi maksimal 50 row. Slice 3 menambahkan CSV export family-scoped yang tidak dibatasi 50 row dan hanya dapat diminta oleh `OWNER` atau `ADMIN`. Slice 4 menambahkan print-friendly HTML report dengan authorization yang sama. Slice 5 menambahkan server-side PDF export berbasis PDFKit, optional password protection dengan PDF version 1.7ext3, password ephemeral, dan direct streaming tanpa persistent artifact. Setelah production WebView testing, delivery CSV/PDF menggunakan encrypted short-lived HTTPS action URL melalui `Telegram.WebApp.downloadFile()` dan print menggunakan `Telegram.WebApp.openLink()`, dengan authorization ulang pada GET download route.
 
 Report access follows this role boundary: all active roles may view reports through Telegram and the authenticated Mini App, while only `OWNER` and `ADMIN` may request or receive CSV, print, or PDF export artifacts.
 
@@ -162,15 +162,16 @@ Report access follows this role boundary: all active roles may view reports thro
 - [x] Role-safe CSV export untuk `OWNER` dan `ADMIN`, dengan unbounded transaction detail list dan server-side CSV safeguards
 - [x] Print-friendly report view untuk `OWNER` dan `ADMIN`, dengan HTML escaping dan browser print stylesheet
 - [x] PDF export generated server-side per authorized request, dengan optional server-side PDF password
-- [x] Regression tests untuk report family isolation, role permission, date filters, CSV serialization, print HTML escaping, PDF encryption, JSON route authorization, dan direct form POST delivery
+- [x] Regression tests untuk report family isolation, role permission, date filters, CSV serialization, print HTML escaping, PDF encryption, signed action URL, GET download authorization, dan WebView delivery
 - [x] First authorized report views in the Telegram Mini App
 - [x] CSV export for authorized family data
 - [x] PDF export generated per authorized request
 - [x] Optional password protection selected before PDF export
-- [x] Password supplied through a secure request body or form, never a URL or log
-- [x] Password held ephemerally and never persisted in Sheets, logs, analytics, or download URLs
+- [x] Password supplied over HTTPS to a prepare endpoint; plaintext tidak dimasukkan ke URL atau log
+- [x] Password held ephemerally dan encrypted di dalam short-lived token; tidak dipersist pada Sheets, logs, atau analytics
 - [x] Encrypted PDF validation; download expiry dan artifact cleanup belum relevan karena PDF tidak dipersist sebagai artifact
 - [x] Tests proving Telegram and Mini App views are available to authorized members, exports are restricted to OWNER and ADMIN, dan no output can cross family boundaries
+- [x] Production operational validation oleh OWNER untuk CSV, print, PDF tanpa password, dan PDF dengan password
 
 Planned transactions and recurring liabilities remain a separate forecast boundary. They must not affect actual balances before occurrence. AI insights are optional after the deterministic report core and are not a completion blocker for the first usable report release.
 
@@ -178,10 +179,12 @@ When password protection is selected, the backend must encrypt the PDF before de
 
 ## Milestone 10 — Telegram Mini App Expansion
 
-Status: PLANNED — PRIORITAS P1 setelah report surface Milestone 9 stabil
+Status: IN PROGRESS — SLICE 1: Dashboard read-only
 
-This milestone expands the first authorized report views into a broader application experience.
+This milestone expands the first authorized report views into a broader application experience. Slice 1 reuses the authoritative Milestone 9 report payload, so it adds no client-controlled family selection and no new write path.
 
+- [x] Read-only Dashboard summary with family name, viewer role, selected period, transaction count, and per-currency balance cards
+- [x] Dashboard loading, empty, and error states using the existing report boundary
 - [ ] Telegram authentication hardening beyond the initial report surface
 - [ ] Authorized mobile-first transaction workspace
 - [ ] Transactions, reports, and PWA support beyond the Milestone 9 report surface

@@ -38,7 +38,7 @@ A `/createfamily` request is retained for 15 minutes. A new request replaces the
 
 **Status:** Planned.
 
-Supabase is the planned future storage implementation. Milestone 2 deliberately did not introduce Supabase or transaction commands. The Milestone 4 transaction foundation now provides central transaction persistence and service authorization; financial parsing, AI, dashboards, payment, and subscription systems remain future work. The Milestone 9 report surface now includes authenticated Mini App views and role-safe CSV export.
+Supabase is the planned future storage implementation. Milestone 2 deliberately did not introduce Supabase or transaction commands. The Milestone 4 transaction foundation now provides central transaction persistence and service authorization; financial parsing, AI, payment, and subscription systems remain future work. Milestone 9 now provides authenticated Telegram/Mini App reports and role-safe CSV, print, and server-side PDF export. Milestone 10 begins with a read-only Dashboard surface derived from the same authoritative report payload; persisted category summaries remain deferred until a transaction category schema is defined.
 
 ## ADR-007: Quota-aware registry initialization and safe diagnostics
 
@@ -64,4 +64,4 @@ The central Google Spreadsheet remains a private backend and is never shared dir
 
 The export role check occurs before report generation and artifact creation. A MEMBER request must be rejected even if it bypasses the normal interface and calls an export endpoint directly.
 
-PDF password protection is optional and selected before export. When selected, the server encrypts the generated PDF using the request-body password, uses it only for that export operation, and never stores or logs it. The PDF is generated in memory and streamed directly; no artifact cleanup lifecycle is needed unless future storage is introduced. Download responses are `no-store` and contain no family identifiers, spreadsheet identifiers, report content, or password.
+PDF password protection is optional and selected before export. When selected, the server prepares an encrypted short-lived action token from the HTTPS request, uses the password only during in-memory PDF generation, and never stores or logs the plaintext password. The PDF is generated in memory and streamed directly; no artifact cleanup lifecycle is needed unless future storage is introduced. Download responses are `no-store` and contain no family identifiers, spreadsheet identifiers, report content, or plaintext password. Milestone 10 Dashboard work reuses the same report authorization and does not introduce a client-controlled family selector or write path.

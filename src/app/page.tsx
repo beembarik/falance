@@ -173,8 +173,8 @@ export default function Home() {
     <main className="min-h-screen bg-[#f4fbfa] px-4 pb-8 pt-5 text-slate-900">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-5">
         <header className="rounded-3xl bg-[#0f766e] p-5 text-white shadow-lg shadow-teal-900/10">
-          <p className="text-sm font-medium text-teal-100">Falancé Mini App</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">Laporan keuangan</h1>
+          <p className="text-sm font-medium text-teal-100">Falancé · Dashboard Mini App</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight">Dashboard keluarga</h1>
           <p className="mt-2 text-sm leading-6 text-teal-50">Ringkasan keluarga yang sedang aktif pada akun Telegram kamu.</p>
         </header>
 
@@ -245,13 +245,28 @@ export default function Home() {
 
         {data && (
           <>
+            <section aria-labelledby="dashboard-overview-title" className="rounded-2xl bg-slate-900 p-5 text-white shadow-lg shadow-slate-900/10">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-300">Dashboard overview</p>
+                  <h2 id="dashboard-overview-title" className="mt-1 text-xl font-bold">{data.familyName}</h2>
+                  <p className="mt-1 text-sm text-slate-300">{data.report.period.label}</p>
+                </div>
+                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-teal-200">{data.viewer.role}</span>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <DashboardStat label="Transaksi aktif" value={String(data.report.transactionCount)} />
+                <DashboardStat label="Mata uang" value={String(data.report.currencies.length)} />
+              </div>
+            </section>
+
             <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">Keluarga</p>
-                  <h2 className="mt-1 text-xl font-bold text-slate-900">{data.familyName}</h2>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">Laporan detail</p>
+                  <h2 className="mt-1 text-xl font-bold text-slate-900">Periode terpilih</h2>
                 </div>
-                <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">{data.viewer.role}</span>
+                <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">Read-only</span>
               </div>
               <div className="mt-4 border-t border-slate-100 pt-4">
                 <p className="text-sm font-semibold text-slate-700">{data.report.period.label}</p>
@@ -366,6 +381,15 @@ export default function Home() {
         )}
       </div>
     </main>
+  );
+}
+
+function DashboardStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-white/10 p-3">
+      <p className="text-xs text-slate-300">{label}</p>
+      <p className="mt-1 text-2xl font-bold tracking-tight text-white">{value}</p>
+    </div>
   );
 }
 

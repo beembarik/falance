@@ -109,4 +109,4 @@ If a user requests a password-protected PDF, the password is collected through t
 
 ## Out of scope
 
-AI categorization and category summaries, budgets, dashboards, server-side PDF report artifacts, payments, subscriptions, and Supabase remain outside the implemented surface. Receipt processing is available from Milestone 7, Telegram reports, authenticated Mini App reports, and role-safe CSV export are available from Milestone 9, while broader Mini App expansion, AI operations, Supabase migration, and monetization remain planned.
+AI categorization and category summaries, budgets, transaction write operations inside the Mini App, payments, subscriptions, and Supabase remain outside the implemented surface. Receipt processing is available from Milestone 7, Telegram reports and authenticated Mini App reports are available from Milestone 9, role-safe CSV/print/PDF exports are available to OWNER/ADMIN, and the first read-only Dashboard surface is now available from Milestone 10. Broader Mini App transaction/family workspaces, AI operations, Supabase migration, and monetization remain planned.
