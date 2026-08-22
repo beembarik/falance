@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type ReportAction = { url: string; fileName: string };
 type NavKey = "home" | "transactions" | "reports" | "account";
+type TransactionFilter = "ALL" | "INCOME" | "EXPENSE";
 
 type ReportResponse = {
   familyName: string;
@@ -55,6 +56,8 @@ const navItems: Array<{ key: NavKey; label: string; icon: string }> = [
 
 export default function Home() {
   const [activeNav, setActiveNav] = useState<NavKey>("home");
+  const [transactionFilter, setTransactionFilter] = useState<TransactionFilter>("ALL");
+  const [selectedTransaction, setSelectedTransaction] = useState<ReportResponse["report"]["transactions"][number] | null>(null);
   const [month, setMonth] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -104,9 +107,7 @@ export default function Home() {
   const selectNav = useCallback((key: NavKey) => {
     setActiveNav(key);
     setNotice("");
-    if (key === "transactions") {
-      setNotice("Workspace Transaksi read-only akan hadir pada slice berikutnya.");
-    } else if (key === "account") {
+    if (key === "account") {
       setNotice("Workspace Akun & Keluarga akan hadir pada slice berikutnya.");
     }
   }, []);
@@ -252,7 +253,12 @@ export default function Home() {
         )}
 
         {data && activeNav === "transactions" && (
-          <PlaceholderView title="Transaksi" description="Daftar transaksi, filter pemasukan/pengeluaran, dan detail transaksi sedang disiapkan." actionLabel="Kembali ke Beranda" onAction={() => selectNav("home")} />
+          <TransactionsView
+            data={data}
+            filter={transactionFilter}
+            onFilterChange={setTransactionFilter}
+            onSelectTransaction={setSelectedTransaction}
+          />
         )}
 
         {data && activeNav === "account" && (
@@ -260,6 +266,8 @@ export default function Home() {
         )}
 
         {!data && !loading && !error && <PlaceholderView title="Belum ada data" description="Belum ada ringkasan yang dapat ditampilkan untuk periode ini." actionLabel="Coba lagi" onAction={() => void loadReport(month, startDate, endDate)} />}
+
+        {selectedTransaction && <TransactionDetail transaction={selectedTransaction} onClose={() => setSelectedTransaction(null)} />}
       </div>
 
       <BottomNavigation activeNav={activeNav} onSelect={selectNav} onAddTransaction={showAddTransactionNotice} />
@@ -353,6 +361,41 @@ function HomeView({ data, onAddTransaction, onSelectReports }: { data: ReportRes
   );
 }
 
+function TransactionsView({ data, filter, onFilterChange, onSelectTransaction }: { data: ReportResponse; filter: TransactionFilter; onFilterChange: (value: TransactionFilter) => void; onSelectTransaction: (transaction: ReportResponse["report"]["transactions"][number]) => void }) {
+  const transactions = filter === "ALL" ? data.report.transactions : data.report.transactions.filter((transaction) => transaction.transactionType === filter);
+  const grouped = transactions.reduce<Record<string, ReportResponse["report"]["transactions"]>>((groups, transaction) => {
+    groups[transaction.transactionDate] ??= [];
+    groups[transaction.transactionDate].push(transaction);
+    return groups;
+  }, {});
+
+  return (
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
+      <div className="flex items-start justify-between gap-3">
+        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Workspace</p><h2 className="mt-1 text-xl font-bold">Transaksi</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">{data.report.period.label}</p></div>
+        <span className="rounded-full bg-[var(--brand-green-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-green-700)]">Read-only</span>
+      </div>
+      <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-[var(--surface-soft)] p-1" role="group" aria-label="Filter tipe transaksi">
+        {(["ALL", "INCOME", "EXPENSE"] as const).map((value) => {
+          const label = value === "ALL" ? "Semua" : value === "INCOME" ? "Pemasukan" : "Pengeluaran";
+          return <button key={value} type="button" onClick={() => onFilterChange(value)} aria-pressed={filter === value} className={`min-h-10 rounded-lg px-2 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] ${filter === value ? "bg-[var(--brand-green-700)] text-white shadow-sm" : "text-[var(--text-secondary)] hover:bg-[var(--surface)]"}`}>{label}</button>;
+        })}
+      </div>
+      <p className="mt-3 text-xs text-[var(--text-secondary)]">Menampilkan maksimal 50 transaksi aktif dari periode yang dipilih.</p>
+      {transactions.length === 0 ? (
+        <div className="mt-5 rounded-xl bg-[var(--surface-soft)] p-5 text-center"><div className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-[var(--brand-purple-100)] font-bold text-[var(--brand-purple-600)]">F</div><p className="mt-3 text-sm font-semibold">Belum ada transaksi</p><p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Tidak ada transaksi yang cocok dengan filter ini.</p></div>
+      ) : (
+        <div className="mt-5 space-y-5">{Object.entries(grouped).map(([date, dateTransactions]) => <div key={date}><h3 className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{formatLongDate(date)}</h3><div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] px-3">{dateTransactions.map((transaction) => <button key={transaction.transactionId} type="button" onClick={() => onSelectTransaction(transaction)} className="flex w-full items-start justify-between gap-3 py-3 text-left transition first:pt-3 last:pb-3 hover:bg-[var(--brand-green-50)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--brand-green-500)]"><div className="flex min-w-0 items-start gap-3"><span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-bold ${transaction.transactionType === "INCOME" ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : "bg-[var(--brand-coral-100)] text-[#C85A4D]"}`} aria-hidden="true">{transaction.transactionType === "INCOME" ? "↑" : "↓"}</span><div className="min-w-0"><p className="truncate text-sm font-semibold">{transaction.description}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran"} · {transaction.currency}</p></div></div><p className={`shrink-0 text-sm font-bold ${transaction.transactionType === "INCOME" ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{transaction.transactionType === "INCOME" ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p></button>)}</div></div>)}</div>
+      )}
+      {data.report.transactions.length === 50 && <p className="mt-4 rounded-xl bg-[var(--brand-purple-100)] p-3 text-xs leading-5 text-[var(--brand-purple-800)]">Daftar ini dibatasi 50 transaksi. Pagination untuk histori yang lebih besar akan ditambahkan pada slice lanjutan.</p>}
+    </section>
+  );
+}
+
+function TransactionDetail({ transaction, onClose }: { transaction: ReportResponse["report"]["transactions"][number]; onClose: () => void }) {
+  return <div className="fixed inset-0 z-30 flex items-end justify-center bg-[rgba(34,48,41,0.38)] p-0 sm:items-center sm:p-4" role="presentation" onClick={onClose}><section role="dialog" aria-modal="true" aria-labelledby="transaction-detail-title" className="w-full max-w-[480px] rounded-t-3xl bg-[var(--surface)] p-5 shadow-[0_12px_40px_rgba(20,40,25,0.18)] sm:rounded-3xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Detail transaksi</p><h2 id="transaction-detail-title" className="mt-1 text-xl font-bold">{transaction.description}</h2></div><button type="button" onClick={onClose} aria-label="Tutup detail transaksi" className="grid h-11 w-11 place-items-center rounded-full bg-[var(--surface-soft)] text-xl text-[var(--text-secondary)] transition hover:bg-[var(--brand-green-100)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">×</button></div><div className="mt-5 rounded-2xl bg-[var(--surface-soft)] p-4"><p className={`text-2xl font-bold ${transaction.transactionType === "INCOME" ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{transaction.transactionType === "INCOME" ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Jenis</dt><dd className="font-semibold">{transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran"}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Tanggal</dt><dd className="font-semibold">{formatLongDate(transaction.transactionDate)}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Transaction ID</dt><dd className="max-w-[55%] break-all text-right font-mono text-xs font-semibold">{transaction.transactionId}</dd></div></dl></div><p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Detail ini bersifat read-only. Edit dan void transaksi akan tersedia setelah write path Mini App dirancang dan divalidasi.</p><button type="button" onClick={onClose} className="mt-5 min-h-11 w-full rounded-xl bg-[var(--brand-green-700)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-600)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2">Tutup</button></section></div>;
+}
+
 function ReportsView({ data, month, startDate, endDate, loading, onMonthChange, onStartDateChange, onEndDateChange, onLoad, exporting, printing, pdfExporting, pdfPassword, setPdfPassword, exportError, printError, pdfError, onExportCsv, onPrint, onExportPdf }: {
   data: ReportResponse;
   month: string;
@@ -434,6 +477,11 @@ function formatAmount(value: string, currency: string): string {
 function formatDisplayDate(value: string): string {
   const [year, month, day] = value.split("-");
   return `${day}/${month}/${year}`;
+}
+
+function formatLongDate(value: string): string {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 function requestTelegramDownload(action: ReportAction, onResult: (message?: string) => void): void {
