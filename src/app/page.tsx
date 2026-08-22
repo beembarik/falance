@@ -64,6 +64,10 @@ export default function Home() {
   const [activeNav, setActiveNav] = useState<NavKey>("home");
   const [transactionFilter, setTransactionFilter] = useState<TransactionFilter>("ALL");
   const [selectedTransaction, setSelectedTransaction] = useState<ReportResponse["report"]["transactions"][number] | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<ReportResponse["report"]["transactions"][number] | null>(null);
+  const [voidConfirmation, setVoidConfirmation] = useState<{ transactionId: string; expiresAt: string } | null>(null);
+  const [transactionAction, setTransactionAction] = useState<"request-void" | "confirm-void" | "cancel-void" | null>(null);
+  const [transactionActionError, setTransactionActionError] = useState("");
   const [month, setMonth] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -175,12 +179,82 @@ export default function Home() {
     setAddTransactionOpen(true);
   }, []);
 
-  const handleTransactionCreated = useCallback(() => {
+  const handleTransactionSaved = useCallback((message: string) => {
     setAddTransactionOpen(false);
+    setEditingTransaction(null);
+    setSelectedTransaction(null);
     setActiveNav("transactions");
-    setNotice("Transaksi berhasil dicatat dan daftar transaksi sedang diperbarui.");
+    setNotice(message);
     void loadReport(month, startDate, endDate);
   }, [endDate, loadReport, month, startDate]);
+
+  const openEditTransaction = useCallback((transaction: ReportResponse["report"]["transactions"][number]) => {
+    setSelectedTransaction(null);
+    setTransactionActionError("");
+    setEditingTransaction(transaction);
+  }, []);
+
+  const requestTransactionVoid = useCallback(async (transactionId: string) => {
+    setTransactionAction("request-void");
+    setTransactionActionError("");
+    try {
+      const response = await fetch("/api/mini-app/transaction/void", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ initData: initDataRef.current, action: "REQUEST", transactionId }),
+      });
+      const payload = await response.json() as { error?: string; confirmation?: { expiresAt?: string } };
+      if (!response.ok) throw new Error(payload.error || "Konfirmasi void tidak dapat dibuat.");
+      setVoidConfirmation({ transactionId, expiresAt: payload.confirmation?.expiresAt ?? "" });
+    } catch (error) {
+      setTransactionActionError(error instanceof Error ? error.message : "Konfirmasi void tidak dapat dibuat.");
+    } finally {
+      setTransactionAction(null);
+    }
+  }, []);
+
+  const confirmTransactionVoid = useCallback(async () => {
+    if (!voidConfirmation) return;
+    setTransactionAction("confirm-void");
+    setTransactionActionError("");
+    try {
+      const response = await fetch("/api/mini-app/transaction/void", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ initData: initDataRef.current, action: "CONFIRM" }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Transaksi tidak dapat di-void.");
+      setVoidConfirmation(null);
+      setSelectedTransaction(null);
+      setNotice("Transaksi berhasil di-void dan daftar transaksi sedang diperbarui.");
+      void loadReport(month, startDate, endDate);
+    } catch (error) {
+      setTransactionActionError(error instanceof Error ? error.message : "Transaksi tidak dapat di-void.");
+    } finally {
+      setTransactionAction(null);
+    }
+  }, [endDate, loadReport, month, startDate, voidConfirmation]);
+
+  const cancelTransactionVoid = useCallback(async () => {
+    if (!voidConfirmation) return;
+    setTransactionAction("cancel-void");
+    setTransactionActionError("");
+    try {
+      const response = await fetch("/api/mini-app/transaction/void", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ initData: initDataRef.current, action: "CANCEL" }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Konfirmasi void tidak dapat dibatalkan.");
+      setVoidConfirmation(null);
+    } catch (error) {
+      setTransactionActionError(error instanceof Error ? error.message : "Konfirmasi void tidak dapat dibatalkan.");
+    } finally {
+      setTransactionAction(null);
+    }
+  }, [voidConfirmation]);
 
   const exportCsv = useCallback(() => {
     const action = data?.actions?.csv;
@@ -337,8 +411,9 @@ export default function Home() {
 
         {!data && !loading && !error && <PlaceholderView title="Belum ada data" description="Belum ada ringkasan yang dapat ditampilkan untuk periode ini." actionLabel="Coba lagi" onAction={() => void loadReport(month, startDate, endDate)} />}
 
-        {selectedTransaction && <TransactionDetail transaction={selectedTransaction} onClose={() => setSelectedTransaction(null)} />}
-        {addTransactionOpen && <AddTransactionForm initData={formInitData} onClose={() => setAddTransactionOpen(false)} onCreated={handleTransactionCreated} />}
+        {selectedTransaction && <TransactionDetail transaction={selectedTransaction} onClose={() => setSelectedTransaction(null)} onEdit={() => openEditTransaction(selectedTransaction)} onRequestVoid={() => void requestTransactionVoid(selectedTransaction.transactionId)} voidConfirmation={voidConfirmation} transactionAction={transactionAction} transactionActionError={transactionActionError} onConfirmVoid={() => void confirmTransactionVoid()} onCancelVoid={() => void cancelTransactionVoid()} />}
+        {addTransactionOpen && <AddTransactionForm initData={formInitData} onClose={() => setAddTransactionOpen(false)} onSaved={() => handleTransactionSaved("Transaksi berhasil dicatat dan daftar transaksi sedang diperbarui.")} />}
+        {editingTransaction && <AddTransactionForm key={editingTransaction.transactionId} initData={formInitData} transaction={editingTransaction} onClose={() => setEditingTransaction(null)} onSaved={() => handleTransactionSaved("Transaksi berhasil diperbarui dan daftar transaksi sedang diperbarui.")} />}
       </div>
 
       <BottomNavigation activeNav={activeNav} onSelect={selectNav} onAddTransaction={openAddTransaction} />
@@ -432,12 +507,13 @@ function HomeView({ data, onAddTransaction, onSelectReports }: { data: ReportRes
   );
 }
 
-function AddTransactionForm({ initData, onClose, onCreated }: { initData: string; onClose: () => void; onCreated: () => void }) {
-  const [transactionType, setTransactionType] = useState<TransactionFilter>("EXPENSE");
-  const [amountMinor, setAmountMinor] = useState("");
-  const [currency, setCurrency] = useState("IDR");
-  const [transactionDate, setTransactionDate] = useState("");
-  const [description, setDescription] = useState("");
+function AddTransactionForm({ initData, transaction, onClose, onSaved }: { initData: string; transaction?: ReportResponse["report"]["transactions"][number]; onClose: () => void; onSaved: () => void }) {
+  const isEditing = Boolean(transaction);
+  const [transactionType, setTransactionType] = useState<TransactionFilter>(transaction?.transactionType ?? "EXPENSE");
+  const [amountMinor, setAmountMinor] = useState(transaction?.amountMinor ?? "");
+  const [currency, setCurrency] = useState(transaction?.currency ?? "IDR");
+  const [transactionDate, setTransactionDate] = useState(transaction?.transactionDate ?? "");
+  const [description, setDescription] = useState(transaction?.description ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
@@ -447,13 +523,13 @@ function AddTransactionForm({ initData, onClose, onCreated }: { initData: string
     setSubmitError("");
     try {
       const response = await fetch("/api/mini-app/transaction", {
-        method: "POST",
+        method: isEditing ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ initData, transactionType, amountMinor, currency, transactionDate, description }),
+        body: JSON.stringify({ initData, ...(transaction ? { transactionId: transaction.transactionId } : {}), transactionType, amountMinor, currency, transactionDate, description }),
       });
       const payload = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(payload.error || "Transaksi tidak dapat dicatat.");
-      onCreated();
+      if (!response.ok) throw new Error(payload.error || (isEditing ? "Transaksi tidak dapat diperbarui." : "Transaksi tidak dapat dicatat."));
+      onSaved();
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Transaksi tidak dapat dicatat.");
     } finally {
@@ -466,8 +542,8 @@ function AddTransactionForm({ initData, onClose, onCreated }: { initData: string
       <section className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[28px] bg-[var(--surface)] p-5 shadow-2xl sm:rounded-[28px]" role="dialog" aria-modal="true" aria-labelledby="add-transaction-title">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">Input transaksi</p>
-            <h2 id="add-transaction-title" className="mt-1 text-2xl font-bold">Tambah transaksi</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">{isEditing ? "Edit transaksi" : "Input transaksi"}</p>
+            <h2 id="add-transaction-title" className="mt-1 text-2xl font-bold">{isEditing ? "Perbarui transaksi" : "Tambah transaksi"}</h2>
             <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Catat transaksi aktual keluarga. Kategori dan metode pembayaran belum tersedia pada schema saat ini.</p>
           </div>
           <button type="button" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--surface-soft)] text-xl text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]" aria-label="Tutup form">×</button>
@@ -498,7 +574,7 @@ function AddTransactionForm({ initData, onClose, onCreated }: { initData: string
           </label>
 
           {submitError && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{submitError}</p>}
-          <button type="submit" disabled={submitting} className="primary-action min-h-12 w-full rounded-xl border-2 border-[var(--brand-green-700)] bg-[var(--brand-green-700)] px-4 text-sm font-bold text-white shadow-[0_8px_20px_rgba(38,122,90,0.28)] transition hover:bg-[var(--brand-green-800)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2 disabled:cursor-wait disabled:opacity-60">{submitting ? "Menyimpan..." : "Simpan transaksi"}</button>
+            <button type="submit" disabled={submitting} className="primary-action min-h-12 w-full rounded-xl border-2 border-[var(--brand-green-700)] bg-[var(--brand-green-700)] px-4 text-sm font-bold text-white shadow-[0_8px_20px_rgba(38,122,90,0.28)] transition hover:bg-[var(--brand-green-800)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2 disabled:cursor-wait disabled:opacity-60">{submitting ? "Menyimpan..." : isEditing ? "Simpan perubahan" : "Simpan transaksi"}</button>
         </form>
       </section>
     </div>
@@ -577,8 +653,20 @@ function TransactionsView({ data, filter, onFilterChange, onSelectTransaction }:
   );
 }
 
-function TransactionDetail({ transaction, onClose }: { transaction: ReportResponse["report"]["transactions"][number]; onClose: () => void }) {
-  return <div className="fixed inset-0 z-30 flex items-end justify-center bg-[rgba(34,48,41,0.38)] p-0 sm:items-center sm:p-4" role="presentation" onClick={onClose}><section role="dialog" aria-modal="true" aria-labelledby="transaction-detail-title" className="w-full max-w-[480px] rounded-t-3xl bg-[var(--surface)] p-5 shadow-[0_12px_40px_rgba(20,40,25,0.18)] sm:rounded-3xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Detail transaksi</p><h2 id="transaction-detail-title" className="mt-1 text-xl font-bold">{transaction.description}</h2></div><button type="button" onClick={onClose} aria-label="Tutup detail transaksi" className="grid h-11 w-11 place-items-center rounded-full bg-[var(--surface-soft)] text-xl text-[var(--text-secondary)] transition hover:bg-[var(--brand-green-100)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">×</button></div><div className="mt-5 rounded-2xl bg-[var(--surface-soft)] p-4"><p className={`text-2xl font-bold ${transaction.transactionType === "INCOME" ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{transaction.transactionType === "INCOME" ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Jenis</dt><dd className="font-semibold">{transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran"}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Tanggal</dt><dd className="font-semibold">{formatLongDate(transaction.transactionDate)}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Transaction ID</dt><dd className="max-w-[55%] break-all text-right font-mono text-xs font-semibold">{transaction.transactionId}</dd></div></dl></div><p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Detail ini bersifat read-only. Edit dan void transaksi akan tersedia setelah write path Mini App dirancang dan divalidasi.</p><button type="button" onClick={onClose} className="mt-5 min-h-11 w-full rounded-xl bg-[var(--brand-green-700)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-600)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2">Tutup</button></section></div>;
+function TransactionDetail({ transaction, onClose, onEdit, onRequestVoid, voidConfirmation, transactionAction, transactionActionError, onConfirmVoid, onCancelVoid }: {
+  transaction: ReportResponse["report"]["transactions"][number];
+  onClose: () => void;
+  onEdit: () => void;
+  onRequestVoid: () => void;
+  voidConfirmation: { transactionId: string; expiresAt: string } | null;
+  transactionAction: "request-void" | "confirm-void" | "cancel-void" | null;
+  transactionActionError: string;
+  onConfirmVoid: () => void;
+  onCancelVoid: () => void;
+}) {
+  const confirmingThisTransaction = voidConfirmation?.transactionId === transaction.transactionId;
+  const actionInProgress = transactionAction !== null;
+  return <div className="fixed inset-0 z-30 flex items-end justify-center bg-[rgba(34,48,41,0.38)] p-0 sm:items-center sm:p-4" role="presentation" onClick={onClose}><section role="dialog" aria-modal="true" aria-labelledby="transaction-detail-title" className="max-h-[92vh] w-full max-w-[480px] overflow-y-auto rounded-t-3xl bg-[var(--surface)] p-5 shadow-[0_12px_40px_rgba(20,40,25,0.18)] sm:rounded-3xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Detail transaksi</p><h2 id="transaction-detail-title" className="mt-1 text-xl font-bold">{transaction.description}</h2></div><button type="button" onClick={onClose} aria-label="Tutup detail transaksi" className="grid h-11 w-11 place-items-center rounded-full bg-[var(--surface-soft)] text-xl text-[var(--text-secondary)] transition hover:bg-[var(--brand-green-100)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">×</button></div><div className="mt-5 rounded-2xl bg-[var(--surface-soft)] p-4"><p className={`text-2xl font-bold ${transaction.transactionType === "INCOME" ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{transaction.transactionType === "INCOME" ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Jenis</dt><dd className="font-semibold">{transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran"}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Tanggal</dt><dd className="font-semibold">{formatLongDate(transaction.transactionDate)}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Transaction ID</dt><dd className="max-w-[55%] break-all text-right font-mono text-xs font-semibold">{transaction.transactionId}</dd></div></dl></div><p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Edit memperbarui transaksi aktif. Void mengubah status menjadi VOID dan memerlukan konfirmasi eksplisit yang tersimpan di server.</p>{transactionActionError && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{transactionActionError}</p>}{confirmingThisTransaction ? <div className="mt-4 rounded-2xl border border-[var(--brand-coral-500)] bg-[var(--brand-coral-100)] p-4"><p className="text-sm font-bold text-[#9F3D34]">Void transaksi ini?</p><p className="mt-1 text-xs leading-5 text-[#9F3D34]">Status transaksi akan berubah menjadi VOID dan tidak lagi dihitung dalam saldo. Konfirmasi berlaku selama 5 menit.</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={onCancelVoid} disabled={actionInProgress} className="min-h-11 rounded-xl border border-[#C85A4D] bg-white px-3 text-sm font-semibold text-[#9F3D34] disabled:opacity-60">Batal</button><button type="button" onClick={onConfirmVoid} disabled={actionInProgress} className="min-h-11 rounded-xl bg-[#B94B40] px-3 text-sm font-bold text-white shadow-sm disabled:cursor-wait disabled:opacity-60">{transactionAction === "confirm-void" ? "Memproses..." : "Ya, void"}</button></div></div> : <div className="mt-5 grid grid-cols-2 gap-2"><button type="button" onClick={onEdit} className="min-h-11 rounded-xl border border-[var(--brand-green-700)] bg-[var(--brand-green-100)] px-3 text-sm font-bold text-[var(--brand-green-700)] transition hover:bg-[var(--brand-green-500)]/30 focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">Edit transaksi</button><button type="button" onClick={onRequestVoid} disabled={actionInProgress} className="min-h-11 rounded-xl border border-[#B94B40] bg-[var(--brand-coral-100)] px-3 text-sm font-bold text-[#9F3D34] transition hover:bg-[#F9D6D1] focus:outline-none focus:ring-2 focus:ring-[var(--brand-coral-500)] disabled:cursor-wait disabled:opacity-60">{transactionAction === "request-void" ? "Menyiapkan..." : "Void transaksi"}</button></div>}<button type="button" onClick={onClose} className="mt-3 min-h-11 w-full rounded-xl bg-[var(--brand-green-700)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-800)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2">Tutup</button></section></div>;
 }
 
 function ComparisonSummary({ current, previous }: { current: ReportResponse; previous: ReportResponse }) {

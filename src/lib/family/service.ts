@@ -286,18 +286,18 @@ export class FamilyService {
     return Boolean(pending && new Date(pending.expiresAt) > new Date());
   }
 
-  async cancelPendingConfirmation(user: TelegramUser): Promise<void> {
+  async cancelPendingConfirmation(user: TelegramUser, expectedAction?: ConfirmationAction): Promise<void> {
     return withKeyLocks([`telegram:${user.telegramUserId}`], async () => {
       const pending = await this.repository.findPendingConfirmation(user.telegramUserId);
-      if (!pending) throw new ConfirmationError("No pending confirmation exists.");
+      if (!pending || (expectedAction && pending.action !== expectedAction)) throw new ConfirmationError("No matching pending confirmation exists.");
       await this.repository.updatePendingConfirmationStatus(pending.confirmationId, "CANCELLED");
     });
   }
 
-  async confirmPendingAction(user: TelegramUser): Promise<ConfirmationResult> {
+  async confirmPendingAction(user: TelegramUser, expectedAction?: ConfirmationAction): Promise<ConfirmationResult> {
     return withKeyLocks([`telegram:${user.telegramUserId}`], async () => {
       const pending = await this.repository.findPendingConfirmation(user.telegramUserId);
-      if (!pending) throw new ConfirmationError("No pending confirmation exists.");
+      if (!pending || (expectedAction && pending.action !== expectedAction)) throw new ConfirmationError("No matching pending confirmation exists.");
       if (new Date(pending.expiresAt) <= new Date()) {
         await this.repository.updatePendingConfirmationStatus(pending.confirmationId, "EXPIRED");
         throw new ConfirmationError("The pending confirmation has expired.");
