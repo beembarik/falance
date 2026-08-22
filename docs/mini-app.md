@@ -150,6 +150,10 @@ Transaction list dan detail dapat menampilkan provenance dalam bentuk display na
 
 Slice 12 tidak menambahkan account, transfer, savings transaction type, savings rate, atau savings goal. Saving baru dapat dimodelkan setelah konsep account/money bucket dan transfer tersedia.
 
+### Cash-flow analytics — M10 Slice 13
+
+Slice 13 menambahkan analitik arus kas read-only pada Laporan. Server menghitung agregasi `INCOME`, `EXPENSE`, dan `NET` dari seluruh transaksi aktif milik family yang sudah di-resolve, lalu mengelompokkannya berdasarkan periode dan currency. Beranda tidak menggunakan data ini untuk membuat chart tambahan. Income, expense, dan net cash flow tidak boleh digabung lintas currency dan tidak boleh disebut sebagai saldo rekening atau saving balance. Slice ini tidak menambahkan account, transfer, budget, saving, atau AI insight.
+
 ### Anggaran dan insight
 
 Screen Anggaran belum boleh menampilkan angka contoh sebagai data nyata. Budget memerlukan schema, periode, kategori, nominal limit, status, repository, service, dan perhitungan server-side. Insight juga harus berasal dari structured metrics; AI tidak boleh menghitung saldo atau menjadi sumber angka finansial.

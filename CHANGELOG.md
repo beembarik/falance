@@ -2,6 +2,37 @@
 
 All notable changes to Falancé are documented in this file.
 
+## [0.4.0] — 2026-08-22
+
+### Added
+
+- Added server-resolved transaction provenance in authenticated Mini App report data, exposing a safe creator display name without sending Telegram IDs or raw member identifiers to the browser.
+- Added the M10 Slice 12 Dashboard refinement: Beranda now focuses on the family financial snapshot and recent activity, while category analytics is presented in Laporan.
+
+### Changed
+
+- Moved the read-only expense-by-category visualization from Beranda to Laporan to keep the first screen focused and fast to understand.
+- Added `dicatat oleh <nama>` to transaction list and detail views, with a generic `Member` fallback when a display name cannot be resolved.
+- Renamed period net values from `Saldo` to `Surplus` or `Defisit` to avoid implying an account balance before an opening-balance and account model exists.
+- Reduced competing Dashboard actions by keeping `Tambah transaksi` as the primary Beranda action and making the transaction-list action secondary.
+- Kept CSV, print, and PDF export behavior unchanged while preserving their existing OWNER/ADMIN authorization boundary.
+
+### Security and integrity
+
+- Preserved server-side Telegram `initData` validation, family resolution, family isolation, central single-spreadsheet storage, FamilyService/repository write boundaries, audit behavior, soft-void semantics, and the no-client-controlled-family-ID invariant.
+- Preserved per-currency aggregation without combining IDR, USD, or other currencies into a single financial total.
+- Explicitly kept account/transfer/savings, budget, payment method, receipt upload, and AI insight features out of this release.
+
+### Verification
+
+- Slice 12 was validated in the production Mini App: category chart placement and transaction provenance behavior were confirmed.
+- `npm run lint` passes.
+- `npm run build` passes.
+- `npm test` passes with 192 tests.
+- `git diff --check` passes.
+
+[0.4.0]: https://github.com/beembarik/falance/releases/tag/v0.4.0
+
 ## [0.3.0] — 2026-08-22
 
 ### Added

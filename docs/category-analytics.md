@@ -1,8 +1,8 @@
-# Category and Analytics Contract — Milestone 10 Slices 9–11
+# Category and Analytics Contract — Milestone 10 Slices 9–13
 
 ## Status
 
-**Slices 9–11 are production validated.** The deterministic category contract, legacy-safe migration, persisted `Transactions.category` field, explicit Mini App category assignment, and read-only category visualization were deployed and validated. Slice 12 refines presentation by treating Laporan as the analytics surface while preserving the same server-derived category summary contract. Budgets and AI-driven automatic category persistence remain deferred.
+**Slices 9–12 are production validated.** The deterministic category contract, legacy-safe migration, persisted `Transactions.category` field, explicit Mini App category assignment, read-only category visualization, Dashboard refinement, and transaction provenance were deployed and validated. Slice 13 extends Laporan with server-derived cash-flow analytics while preserving the same family and currency boundaries. Budgets and AI-driven automatic category persistence remain deferred.
 
 ## Goals
 
@@ -68,7 +68,7 @@ Slice 10 adds a category selector to Mini App transaction create/edit forms. The
 
 ## Slice 11 — Read-only category analytics Dashboard
 
-Slice 11 exposes category summaries through the authenticated Mini App report response and renders expense categories in the analytics presentation layer. Slice 12 moves the category visualization from Beranda to Laporan so the Dashboard can remain a family snapshot and activity surface. The server remains responsible for resolving the active family from validated Telegram `initData`, applying the selected report period, excluding `VOID`, and grouping by category and currency. No surface may add values across currencies. For each currency, the visual may show the largest expense categories and combine the remainder into `Lainnya`; the percentages are calculated from that currency’s server-derived expense total. The visual is descriptive only and does not imply a budget, forecast, recommendation, or AI insight.
+Slice 11 exposes category summaries through the authenticated Mini App report response and renders expense categories in the analytics presentation layer. Slice 12 moves the category visualization from Beranda to Laporan so the Dashboard can remain a family snapshot and activity surface. Slice 13 adds a server-derived cash-flow trend to Laporan, with Income, Expense, and Net Cash Flow grouped per currency and computed from the complete family transaction set for the selected period. The server remains responsible for resolving the active family from validated Telegram `initData`, applying the selected report period, excluding `VOID`, and grouping by category/currency or period/currency as appropriate. No surface may add values across currencies. Category and cash-flow visuals are descriptive only and do not imply a budget, saving account, forecast, recommendation, or AI insight.
 
 ## Explicitly deferred
 
