@@ -34,13 +34,15 @@ export async function POST(request: Request): Promise<Response> {
     if (!membership) return Response.json({ error: "Mini App access denied." }, { status: 403 });
     const family = await service.getActiveFamily(validated.telegramUser.telegramUserId);
     const members = await service.listFamilyMembers(validated.telegramUser.telegramUserId);
+    const avatarFallbackUrl = buildMiniAppAvatarUrl(request, validated.telegramUser.telegramUserId);
 
     return Response.json({
       viewer: {
         name: membership.name,
         username: membership.username,
         role: membership.role,
-        avatarUrl: validated.telegramUser.avatarUrl ?? buildMiniAppAvatarUrl(request, validated.telegramUser.telegramUserId),
+        avatarUrl: validated.telegramUser.avatarUrl,
+        avatarFallbackUrl,
       },
       family: {
         familyName: family.familyName,

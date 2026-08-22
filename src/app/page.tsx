@@ -32,7 +32,7 @@ type ReportResponse = {
 };
 
 type AccountResponse = {
-  viewer: { name: string; username: string | null; role: string; avatarUrl: string | null };
+  viewer: { name: string; username: string | null; role: string; avatarUrl: string | null; avatarFallbackUrl: string | null };
   family: { familyName: string; status: string; plan: string; activeMemberCount: number };
   members: Array<{ name: string; username: string | null; role: string; joinedAt: string }>;
 };
@@ -424,7 +424,7 @@ function AccountView({ data, onRetry }: { data: AccountResponse; onRetry: () => 
       : "Kamu dapat melihat data keluarga dan membuat transaksi melalui fitur yang tersedia.";
 
   return <>
-    <section className="overflow-hidden rounded-2xl bg-[var(--brand-green-700)] text-white shadow-[0_8px_24px_rgba(38,122,90,0.16)]"><div className="p-5"><div className="flex items-center gap-4"><UserAvatar name={data.viewer.name} avatarUrl={data.viewer.avatarUrl} size="large" /><div className="min-w-0"><p className="truncate text-xl font-bold">{data.viewer.name}</p><p className="mt-1 text-sm text-emerald-100">{roleLabel}{data.viewer.username ? ` · @${data.viewer.username}` : ""}</p></div></div></div><div className="border-t border-white/15 bg-white/10 px-5 py-4"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100">Konteks akses</p><p className="mt-1 text-sm leading-6 text-white/90">{permissionText}</p></div></section>
+    <section className="overflow-hidden rounded-2xl bg-[var(--brand-green-700)] text-white shadow-[0_8px_24px_rgba(38,122,90,0.16)]"><div className="p-5"><div className="flex items-center gap-4"><UserAvatar key={`${data.viewer.avatarUrl ?? ""}:${data.viewer.avatarFallbackUrl ?? ""}`} name={data.viewer.name} avatarUrl={data.viewer.avatarUrl} avatarFallbackUrl={data.viewer.avatarFallbackUrl} size="large" /><div className="min-w-0"><p className="truncate text-xl font-bold">{data.viewer.name}</p><p className="mt-1 text-sm text-emerald-100">{roleLabel}{data.viewer.username ? ` · @${data.viewer.username}` : ""}</p></div></div></div><div className="border-t border-white/15 bg-white/10 px-5 py-4"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100">Konteks akses</p><p className="mt-1 text-sm leading-6 text-white/90">{permissionText}</p></div></section>
 
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Keluarga aktif</p><h2 className="mt-1 text-xl font-bold">{data.family.familyName}</h2></div><span className="rounded-full bg-[var(--brand-green-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-green-700)]">{data.family.status}</span></div><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-[var(--surface-soft)] p-3"><p className="text-xs text-[var(--text-secondary)]">Anggota aktif</p><p className="mt-1 text-2xl font-bold text-[var(--brand-green-700)]">{data.family.activeMemberCount}</p></div><div className="rounded-xl bg-[var(--surface-soft)] p-3"><p className="text-xs text-[var(--text-secondary)]">Plan</p><p className="mt-1 text-lg font-bold">{data.family.plan}</p></div></div></section>
 
@@ -439,14 +439,19 @@ function getInitials(name: string): string {
   return initials || "F";
 }
 
-function UserAvatar({ name, avatarUrl, size = "small" }: { name: string; avatarUrl?: string | null; size?: "small" | "large" }) {
-  const [imageFailed, setImageFailed] = useState(false);
+function UserAvatar({ name, avatarUrl, avatarFallbackUrl, size = "small" }: { name: string; avatarUrl?: string | null; avatarFallbackUrl?: string | null; size?: "small" | "large" }) {
+  const [primaryFailed, setPrimaryFailed] = useState(false);
+  const [fallbackFailed, setFallbackFailed] = useState(false);
   const sizeClass = size === "large" ? "h-14 w-14 text-xl" : "h-9 w-9 text-xs";
   const fallbackClass = size === "large" ? "bg-white/90 text-[var(--brand-green-700)]" : "bg-[var(--brand-purple-100)] text-[var(--brand-purple-800)]";
-  if (avatarUrl && !imageFailed) {
+  const imageSource = avatarUrl && !primaryFailed ? avatarUrl : avatarFallbackUrl && !fallbackFailed ? avatarFallbackUrl : null;
+  if (imageSource) {
     // Telegram profile URLs are dynamic and may be direct CDN URLs or our signed proxy.
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={avatarUrl} alt={`Avatar ${name}`} referrerPolicy="no-referrer" onError={() => setImageFailed(true)} className={`${sizeClass} shrink-0 rounded-full object-cover`} />;
+    return <img src={imageSource} alt={`Avatar ${name}`} referrerPolicy="no-referrer" onError={() => {
+      if (imageSource === avatarUrl) setPrimaryFailed(true);
+      else setFallbackFailed(true);
+    }} className={`${sizeClass} shrink-0 rounded-full object-cover`} />;
   }
   return <div aria-hidden="true" className={`grid ${sizeClass} shrink-0 place-items-center rounded-full font-bold ${fallbackClass}`}>{getInitials(name)}</div>;
 }

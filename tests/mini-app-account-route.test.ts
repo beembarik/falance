@@ -96,8 +96,9 @@ test("Mini App account returns only the authorized family view", async () => {
     }));
 
     assert.equal(response.status, 200);
-    const accountPayload = await response.json() as { viewer: { avatarUrl: string }; family: unknown; members: unknown };
-    assert.match(accountPayload.viewer.avatarUrl, /^https:\/\/falance\.example\.com\/api\/mini-app\/avatar\?token=/);
+    const accountPayload = await response.json() as { viewer: { avatarUrl: string | null; avatarFallbackUrl: string }; family: unknown; members: unknown };
+    assert.equal(accountPayload.viewer.avatarUrl, null);
+    assert.match(accountPayload.viewer.avatarFallbackUrl, /^https:\/\/falance\.example\.com\/api\/mini-app\/avatar\?token=/);
     assert.deepEqual({ family: accountPayload.family, members: accountPayload.members }, {
       family: {
         familyName: "Keluarga Aman",
