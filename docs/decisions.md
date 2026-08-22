@@ -129,3 +129,12 @@ Laporan Mini App will expose one export entry point from the active period summa
 The print preview is a presentation layer only. Every export action remains OWNER/ADMIN-only and must be backed by signed short-lived report tokens with repeated server-side authorization. The preview must not accept client-controlled family IDs, spreadsheet IDs, Telegram IDs, or storage identifiers. The server supplies the generation timestamp using `FALANCE_TIME_ZONE`; the browser clock is not authoritative for report metadata.
 
 The preview uses Falancé green, lavender-purple, and coral as semantic accents with grayscale-readable text and a toolbar hidden from printed output. The symbol-only Falancé mark is used as a transparent favicon and must not include the source image's black background.
+
+
+## ADR-016: Semantic report card colors
+
+**Status:** Accepted; M10 Slice 16 implemented locally, production validation pending.
+
+Laporan Mini App menggunakan semantic accents secara restrained untuk membantu scanning: warm green untuk pemasukan dan status positif, coral untuk pengeluaran atau perhatian, serta lavender-purple atau neutral untuk konteks currency, comparison, dan surplus/deficit. Warna hanya memperkuat hierarchy visual; label, tanda `+`/`−`, dan teks `Surplus` atau `Defisit` tetap menjadi penanda utama agar informasi dapat dipahami tanpa bergantung pada warna.
+
+Slice ini hanya mengubah presentation layer. Nominal, transaction count, category summaries, cash-flow points, period boundaries, multi-currency separation, family isolation, dan authorization tetap berasal dari kontrak server-side yang telah diterima. Tidak ada perubahan pada schema, persistence, export token, atau FamilyService boundary.

@@ -1,6 +1,28 @@
 # Changelog
-
 All notable changes to Falancé are documented in this file.
+
+## [0.7.2] — 2026-08-23
+
+### Added
+
+- Added restrained semantic accents to Mini App Laporan cards: green for income and positive states, coral for expense and attention, and lavender-purple or neutral accents for currency context, comparison, and surplus/deficit.
+- Added semantic coral progress bars for expense-by-category analytics and clearer period badges for comparison cards.
+
+### Security and integrity
+
+- Kept labels, `+`/`−` signs, and `Surplus`/`Defisit` text as explicit non-color indicators so color is not the sole source of meaning.
+- Kept server-derived calculations, family isolation, multi-currency separation, report authorization, schema, and persistence unchanged.
+
+### Verification
+
+- M10 Slice 16 was validated in the production Mini App.
+- `npm run lint` passes.
+- `npm run build` passes.
+- `npm test` passes with 196 tests.
+- `git diff --check` passes.
+
+[0.7.2]: https://github.com/beembarik/falance/releases/tag/v0.7.2
+
 
 ## [0.7.1] — 2026-08-23
 

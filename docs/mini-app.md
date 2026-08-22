@@ -164,6 +164,10 @@ Laporan menggunakan satu tombol export pada card ringkasan periode aktif untuk m
 
 CSV/PDF/print tetap OWNER/ADMIN-only, memakai signed short-lived report actions, dan mempertahankan optional PDF password yang ephemeral. Favicon menggunakan symbol Falancé transparan tanpa background hitam pekat. Slice ini hanya mengubah presentation/export layer dan tidak mengubah authorization atau schema transaksi.
 
+### M10 Slice 16 — semantic report card colors
+
+Laporan menggunakan aksen warna semantic secara terbatas: hijau untuk pemasukan dan status positif, coral untuk pengeluaran atau perhatian, serta ungu atau neutral untuk konteks currency, perbandingan, dan surplus/defisit. Kartu tetap memakai label eksplisit, tanda `+`/`−`, serta teks `Surplus` atau `Defisit`; warna tidak menjadi satu-satunya penanda makna. Semua nominal dan status tetap berasal dari report server-side, dipisahkan per currency, dan tidak dihitung ulang oleh browser.
+
 ### Anggaran dan insight
 
 Screen Anggaran belum boleh menampilkan angka contoh sebagai data nyata. Budget memerlukan schema, periode, kategori, nominal limit, status, repository, service, dan perhitungan server-side. Insight juga harus berasal dari structured metrics; AI tidak boleh menghitung saldo atau menjadi sumber angka finansial.
