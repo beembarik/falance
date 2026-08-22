@@ -179,7 +179,7 @@ When password protection is selected, the backend must encrypt the PDF before de
 
 ## Milestone 10 — Telegram Mini App Expansion
 
-Status: IN PROGRESS — SLICES 1–7 IMPLEMENTED; PRODUCTION VALIDATION PENDING
+Status: IN PROGRESS — SLICES 1–8 IMPLEMENTED; PRODUCTION VALIDATION PENDING
 
 This milestone expands the first authorized report view into a family-finance workspace while preserving the existing server-side authorization boundary. The Mini App is mobile-first but not mobile-only: the same component and domain-data system should adapt to Telegram phone, tablet, desktop, and ordinary browser fallback contexts.
 
@@ -198,7 +198,7 @@ Every family selector or family context control must remain server-authorized. T
 | 5 | Read-only Akun & Keluarga screen with profile context, optional Telegram avatar viewer, family name, role, active members, and permission-aware presentation | Existing family service reads plus validated `photo_url` from viewer `initData`; administrative mutations remain server-side | Complete; production validated |
 | 6 | Minimal Tambah Transaksi flow for `INCOME`/`EXPENSE`, amount, currency, date, and description | New Mini App write endpoint using validated `initData` and `FamilyService`; no category/payment method, no client-controlled family ID, and no automatic retry | Implemented locally; production validation pending |
 | 7 | Transaction detail/edit and soft-void interactions with explicit confirmation semantics | `PATCH` edit endpoint plus request-confirm-cancel endpoint using `PendingConfirmation`; no hard deletion and no client-controlled family ID | Implemented locally; validation pending |
-| 8 | Optional family administration actions such as invitation and lifecycle management | Existing service authorization, role checks, audit, Y/N confirmation, and last-OWNER invariant | Planned |
+| 8 | Family administration actions from the Account screen: create invitation, rename family, change MEMBER/ADMIN role, and deactivate active members | Existing service authorization, role checks, audit, Y/N confirmation for deactivation, and last-OWNER invariant; no client-controlled family ID | Implemented locally; production validation pending |
 | 9 | Category and analytics contract preparation before category summaries or budget UI | New persisted schema decision required; no use of AI `categorySuggestion` as authoritative data | Planned |
 
 ### Explicitly deferred from the current Mini App scope

@@ -107,8 +107,8 @@ test("Mini App account returns only the authorized family view", async () => {
         activeMemberCount: 2,
       },
       members: [
-        { name: "Owner Falancé", username: "owner", role: "OWNER", joinedAt: "2026-01-01T00:00:00.000Z" },
-        { name: "Member Falancé", username: null, role: "MEMBER", joinedAt: "2026-01-02T00:00:00.000Z" },
+        { memberId: "mem_owner", name: "Owner Falancé", username: "owner", role: "OWNER", joinedAt: "2026-01-01T00:00:00.000Z" },
+        { memberId: "mem_member", name: "Member Falancé", username: null, role: "MEMBER", joinedAt: "2026-01-02T00:00:00.000Z" },
       ],
     });
     const responseText = JSON.stringify(await (await POST(new Request("https://falance.example.com/api/mini-app/account", {

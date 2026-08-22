@@ -19,8 +19,9 @@ Milestone 9 telah menyediakan report read-only, autentikasi Telegram `initData`,
 | Transaksi read-only dan filter | Direncanakan pada Slice 3 |
 | Laporan sebagai screen terpisah | Direncanakan pada Slice 4 |
 | Akun & Keluarga read-only | Direncanakan pada Slice 5 |
-| Tambah Transaksi dari Mini App | Direncanakan sebagai dedicated write slice |
-| Edit dan void transaksi dari Mini App | Direncanakan setelah write path stabil |
+| Tambah Transaksi dari Mini App | Tersedia melalui Slice 6 |
+| Edit dan void transaksi dari Mini App | Tersedia melalui Slice 7 |
+| Administrasi keluarga dari Mini App | Tersedia lokal melalui Slice 8; validasi production pending |
 | Kategori dan category summaries | Deferred sampai schema persisted diterima |
 | Anggaran | Deferred sampai schema budget dan kategori tersedia |
 | AI financial insight | Deferred; rule-based metrics didahulukan |
@@ -129,9 +130,9 @@ Screen Laporan memakai report read model yang deterministic. Ringkasan pemasukan
 
 ### Akun & Keluarga
 
-Fase awal bersifat read-only: identitas/konteks viewer, nama keluarga, role, jumlah anggota, daftar anggota aktif, dan permission summary. Avatar viewer mencoba optional Telegram `photo_url` dari raw `initData` yang telah divalidasi server-side bila tersedia. Jika URL tersebut tidak tersedia atau gagal dimuat, UI beralih ke signed short-lived same-origin proxy yang dibuat Account API; proxy mengotorisasi ulang viewer dan mengambil foto terbaru melalui Bot API secara server-side. Bot token tidak pernah dikirim ke browser, URL foto tidak disimpan ke Google Sheets, dan avatar tidak digunakan untuk authorization. Jika foto tidak tersedia, akses Telegram dibatasi, URL tidak valid, atau gambar gagal dimuat, UI menggunakan inisial sebagai fallback. Avatar anggota keluarga lain tidak diambil pada slice ini.
+Account screen menyediakan identitas/konteks viewer, nama keluarga, role, jumlah anggota, daftar anggota aktif, dan permission summary. Avatar viewer mencoba optional Telegram `photo_url` dari raw `initData` yang telah divalidasi server-side bila tersedia. Jika URL tersebut tidak tersedia atau gagal dimuat, UI beralih ke signed short-lived same-origin proxy yang dibuat Account API; proxy mengotorisasi ulang viewer dan mengambil foto terbaru melalui Bot API secara server-side. Bot token tidak pernah dikirim ke browser, URL foto tidak disimpan ke Google Sheets, dan avatar tidak digunakan untuk authorization. Jika foto tidak tersedia, akses Telegram dibatasi, URL tidak valid, atau gambar gagal dimuat, UI menggunakan inisial sebagai fallback. Avatar anggota keluarga lain tidak diambil pada slice ini.
 
-Kontrol invite, role, deactivation, archival, atau reactivation baru ditambahkan setelah endpoint dan interaction semantics-nya dipetakan ke service yang sudah ada.
+Kontrol invite, perubahan role, dan deactivation anggota tersedia pada Slice 8 melalui endpoint administrasi terotorisasi. Owner dapat membuat undangan, mengganti role `MEMBER`/`ADMIN`, dan meminta deactivation anggota aktif dengan konfirmasi durable lima menit; owner juga dapat mengganti nama keluarga. Admin hanya dapat membuat undangan. Semua target menggunakan opaque `member_id` yang dikirim sebagai identifier, tetapi family dan authorization tetap diselesaikan server-side. Archival, reactivation, dan daftar anggota suspended tetap menggunakan boundary Telegram sampai surface Mini App-nya ditambahkan secara eksplisit.
 
 ### Tambah Transaksi
 

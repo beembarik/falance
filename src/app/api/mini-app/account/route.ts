@@ -51,6 +51,7 @@ export async function POST(request: Request): Promise<Response> {
         activeMemberCount: members.length,
       },
       members: members.map((member) => ({
+        memberId: member.memberId,
         name: member.name,
         username: member.username,
         role: member.role,
