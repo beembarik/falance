@@ -3,6 +3,7 @@ import { createHmac } from "node:crypto";
 import test from "node:test";
 
 import { POST } from "../src/app/api/mini-app/report/pdf/route";
+import { POST as preparePdf } from "../src/app/api/mini-app/report/pdf/prepare/route";
 import { GoogleSheetsFamilyRepository } from "../src/lib/family/google-sheets-repository";
 import type { Family, FamilyMember, Transaction } from "../src/lib/family/types";
 
@@ -124,6 +125,29 @@ test("Mini App PDF returns a valid PDF for an OWNER with optional password", asy
   } finally {
     restoreRepository();
     restoreEnv("TELEGRAM_BOT_TOKEN", originalToken);
+  }
+});
+
+test("Mini App PDF prepare returns a signed action URL for an OWNER", async () => {
+  const originalToken = process.env.TELEGRAM_BOT_TOKEN;
+  const originalSecret = process.env.FALANCE_REPORT_TOKEN_SECRET;
+  process.env.TELEGRAM_BOT_TOKEN = botToken;
+  process.env.FALANCE_REPORT_TOKEN_SECRET = "report-secret";
+  const restoreRepository = mockRepository(owner);
+  try {
+    const response = await preparePdf(new Request("https://falance.example.com/api/mini-app/report/pdf/prepare", {
+      method: "POST",
+      body: JSON.stringify({ initData: signedInitData("100"), month: "2026-08", password: "rahasia-pdf" }),
+      headers: { "content-type": "application/json" },
+    }));
+    assert.equal(response.status, 200);
+    const payload = await response.json() as { action?: { url: string; fileName: string } };
+    assert.match(payload.action?.url ?? "", /^https:\/\/falance\.example\.com\/api\/mini-app\/report\/download\?token=/);
+    assert.equal(payload.action?.fileName, "falance-report-2026-08-01-2026-08-31.pdf");
+  } finally {
+    restoreRepository();
+    restoreEnv("TELEGRAM_BOT_TOKEN", originalToken);
+    restoreEnv("FALANCE_REPORT_TOKEN_SECRET", originalSecret);
   }
 });
 

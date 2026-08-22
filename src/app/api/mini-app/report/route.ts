@@ -2,6 +2,7 @@ import { GoogleSheetsFamilyRepository } from "../../../../lib/family/google-shee
 import { FamilyService, FamilyServiceError } from "../../../../lib/family/service";
 import { ReportPeriodError } from "../../../../lib/family/report";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../lib/telegram/mini-app-auth";
+import { buildReportDownloadAction } from "../../../../lib/telegram/report-download-token";
 
 export const runtime = "nodejs";
 
@@ -50,8 +51,32 @@ export async function POST(request: Request): Promise<Response> {
       typeof payload.endDate === "string" && payload.endDate.trim() ? payload.endDate.trim() : undefined,
     );
 
+    const actions = membership.role === "OWNER" || membership.role === "ADMIN"
+      ? {
+          csv: buildReportDownloadAction(request, {
+            telegramUserId: validated.telegramUser.telegramUserId,
+            format: "csv",
+            period: report.period,
+            fileName: `falance-report-${report.period.startDate}-${report.period.endDate}.csv`,
+          }),
+          pdf: buildReportDownloadAction(request, {
+            telegramUserId: validated.telegramUser.telegramUserId,
+            format: "pdf",
+            period: report.period,
+            fileName: `falance-report-${report.period.startDate}-${report.period.endDate}.pdf`,
+          }),
+          print: buildReportDownloadAction(request, {
+            telegramUserId: validated.telegramUser.telegramUserId,
+            format: "print",
+            period: report.period,
+            fileName: `falance-report-${report.period.startDate}-${report.period.endDate}.html`,
+          }),
+        }
+      : undefined;
+
     return Response.json({
       familyName: family.familyName,
+      actions,
       viewer: {
         name: membership.name,
         role: membership.role,

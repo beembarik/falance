@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+type ReportAction = { url: string; fileName: string };
+
 type ReportResponse = {
   familyName: string;
   viewer: { name: string; role: string };
+  actions?: { csv: ReportAction; pdf: ReportAction; print: ReportAction };
   report: {
     period: { month: string | null; startDate: string; endDate: string; label: string };
     transactionCount: number;
@@ -30,6 +33,8 @@ type TelegramWebApp = {
   initData: string;
   ready: () => void;
   expand: () => void;
+  downloadFile?: (params: { url: string; file_name: string }, callback?: (accepted: boolean) => void) => void;
+  openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
   setHeaderColor?: (color: string) => void;
   setBackgroundColor?: (color: string) => void;
 };
@@ -87,60 +92,70 @@ export default function Home() {
   }, []);
 
   const exportCsv = useCallback(() => {
-    if (!initDataRef.current || !data || (data.viewer.role !== "OWNER" && data.viewer.role !== "ADMIN")) return;
+    const action = data?.actions?.csv;
+    if (!initDataRef.current || !action || data.viewer.role === "MEMBER") return;
     setExporting(true);
     setExportError("");
     try {
-      submitMiniAppReportForm("/api/mini-app/report/export", {
-        initData: initDataRef.current,
-        month,
-        startDate,
-        endDate,
+      requestTelegramDownload(action, (message) => {
+        setExporting(false);
+        if (message) setExportError(message);
       });
-      window.setTimeout(() => setExporting(false), 2_000);
+      window.setTimeout(() => setExporting(false), 10_000);
     } catch (exportLoadError) {
       setExporting(false);
       setExportError(exportLoadError instanceof Error ? exportLoadError.message : "Export tidak dapat dibuat.");
     }
-  }, [data, endDate, month, startDate]);
+  }, [data]);
 
   const printReport = useCallback(() => {
-    if (!initDataRef.current || !data || (data.viewer.role !== "OWNER" && data.viewer.role !== "ADMIN")) return;
+    const action = data?.actions?.print;
+    if (!initDataRef.current || !action || data.viewer.role === "MEMBER") return;
     setPrinting(true);
     setPrintError("");
     try {
-      submitMiniAppReportForm("/api/mini-app/report/print", {
-        initData: initDataRef.current,
-        month,
-        startDate,
-        endDate,
-      });
-      window.setTimeout(() => setPrinting(false), 2_000);
+      requestTelegramPrint(action.url);
+      setPrinting(false);
     } catch (printLoadError) {
       setPrinting(false);
       setPrintError(printLoadError instanceof Error ? printLoadError.message : "Tampilan cetak tidak dapat dibuat.");
     }
-  }, [data, endDate, month, startDate]);
+  }, [data]);
 
-  const exportPdf = useCallback(() => {
-    if (!initDataRef.current || !data || (data.viewer.role !== "OWNER" && data.viewer.role !== "ADMIN")) return;
+  const exportPdf = useCallback(async () => {
+    const action = data?.actions?.pdf;
+    if (!initDataRef.current || !action || data.viewer.role === "MEMBER") return;
     setPdfExporting(true);
     setPdfError("");
     try {
-      submitMiniAppReportForm("/api/mini-app/report/pdf", {
-        initData: initDataRef.current,
-        month,
-        startDate,
-        endDate,
-        password: pdfPassword,
+      let downloadAction = action;
+      if (pdfPassword) {
+        const response = await fetch("/api/mini-app/report/pdf/prepare", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            initData: initDataRef.current,
+            month: data.report.period.month || undefined,
+            startDate: data.report.period.month ? undefined : data.report.period.startDate,
+            endDate: data.report.period.month ? undefined : data.report.period.endDate,
+            password: pdfPassword,
+          }),
+        });
+        const payload = await response.json() as { action?: ReportAction; error?: string };
+        if (!response.ok || !payload.action) throw new Error(payload.error || "PDF tidak dapat dibuat.");
+        downloadAction = payload.action;
+      }
+      requestTelegramDownload(downloadAction, (message) => {
+        setPdfExporting(false);
+        if (message) setPdfError(message);
       });
       setPdfPassword("");
-      window.setTimeout(() => setPdfExporting(false), 2_000);
+      window.setTimeout(() => setPdfExporting(false), 10_000);
     } catch (pdfLoadError) {
       setPdfExporting(false);
       setPdfError(pdfLoadError instanceof Error ? pdfLoadError.message : "PDF tidak dapat dibuat.");
     }
-  }, [data, endDate, month, pdfPassword, startDate]);
+  }, [data, pdfPassword]);
 
   useEffect(() => {
     const webApp = window.Telegram?.WebApp;
@@ -373,21 +388,28 @@ function formatDisplayDate(value: string): string {
   return `${day}/${month}/${year}`;
 }
 
-function submitMiniAppReportForm(action: string, fields: Record<string, string | undefined>): void {
-  const form = document.createElement("form");
-  form.method = "POST";
-  form.action = action;
-  form.target = "_blank";
-  form.style.display = "none";
-  for (const [name, value] of Object.entries(fields)) {
-    if (!value) continue;
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = name;
-    input.value = value;
-    form.appendChild(input);
+function requestTelegramDownload(action: ReportAction, onResult: (message?: string) => void): void {
+  const webApp = window.Telegram?.WebApp;
+  if (webApp?.downloadFile) {
+    webApp.downloadFile({ url: action.url, file_name: action.fileName }, (accepted) => {
+      if (!accepted) onResult("Telegram membatalkan permintaan download.");
+    });
+    return;
   }
-  document.body.appendChild(form);
-  form.submit();
-  form.remove();
+  if (webApp?.openLink) {
+    webApp.openLink(action.url);
+    return;
+  }
+  const opened = window.open(action.url, "_blank", "noopener,noreferrer");
+  if (!opened) throw new Error("Telegram tidak menyediakan fitur download dan popup diblokir browser.");
+}
+
+function requestTelegramPrint(url: string): void {
+  const webApp = window.Telegram?.WebApp;
+  if (webApp?.openLink) {
+    webApp.openLink(url, { try_instant_view: false });
+    return;
+  }
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  if (!opened) throw new Error("Popup diblokir browser. Izinkan popup untuk membuka tampilan cetak.");
 }

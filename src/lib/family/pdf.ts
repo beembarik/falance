@@ -9,6 +9,14 @@ const MUTED_COLOR = "#475569";
 const HEADER_FILL = "#e2e8f0";
 const BORDER_COLOR = "#cbd5e1";
 
+export function validatePdfPassword(password: string | undefined): string | undefined {
+  const normalized = password && password.length > 0 ? password : undefined;
+  if (normalized && (normalized.length < 8 || Buffer.byteLength(normalized, "utf8") > 127)) {
+    throw new Error("PDF password must be 8–127 UTF-8 bytes.");
+  }
+  return normalized;
+}
+
 export function buildFinancialPdf(
   familyName: string,
   report: FinancialReport,
