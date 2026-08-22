@@ -83,6 +83,26 @@ test("Mini App print rejects MEMBER with an Indonesian authorization error", asy
   }
 });
 
+test("Mini App print accepts a direct form POST for a valid OWNER", async () => {
+  const originalToken = process.env.TELEGRAM_BOT_TOKEN;
+  process.env.TELEGRAM_BOT_TOKEN = botToken;
+  const restoreRepository = mockRepository(owner);
+  try {
+    const body = new URLSearchParams({ initData: signedInitData("100"), month: "2026-08" });
+    const response = await POST(new Request("https://falance.example.com/api/mini-app/report/print", {
+      method: "POST",
+      body,
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+    }));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "text/html; charset=utf-8");
+    assert.match(await response.text(), /Keluarga &lt;Test&gt;/);
+  } finally {
+    restoreRepository();
+    restoreEnv("TELEGRAM_BOT_TOKEN", originalToken);
+  }
+});
+
 test("Mini App print returns family-scoped HTML for a valid OWNER", async () => {
   const originalToken = process.env.TELEGRAM_BOT_TOKEN;
   process.env.TELEGRAM_BOT_TOKEN = botToken;

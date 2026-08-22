@@ -149,7 +149,7 @@ Slice webhook authentication dan update_id idempotency sudah divalidasi end-to-e
 
 Status: IN PROGRESS — SLICE 5: server-side PDF export; Milestone 8 operationally ready dengan validasi pra-public-beta yang ditunda
 
-Reports must never expose the central Google Spreadsheet directly. Every report request resolves the user’s active membership and `family_id` server-side, then returns only data belonging to that family. Slice 1 menyediakan `/report` untuk bulan berjalan atau periode `YYYY-MM`, dengan agregasi multi-currency, income, expense, saldo, transaction count, dan exclusion untuk `VOID` atau transaksi di luar periode. Slice 2 menambahkan Mini App terautentikasi dengan filter bulan atau rentang tanggal maksimal 366 hari dan detail transaksi maksimal 50 row. Slice 3 menambahkan CSV export family-scoped yang tidak dibatasi 50 row dan hanya dapat diminta oleh `OWNER` atau `ADMIN`. Slice 4 menambahkan print-friendly HTML report dengan authorization yang sama. Slice 5 menambahkan server-side PDF export berbasis PDFKit, optional password protection dengan PDF version 1.7ext3, password ephemeral, dan direct streaming tanpa persistent artifact.
+Reports must never expose the central Google Spreadsheet directly. Every report request resolves the user’s active membership and `family_id` server-side, then returns only data belonging to that family. Slice 1 menyediakan `/report` untuk bulan berjalan atau periode `YYYY-MM`, dengan agregasi multi-currency, income, expense, saldo, transaction count, dan exclusion untuk `VOID` atau transaksi di luar periode. Slice 2 menambahkan Mini App terautentikasi dengan filter bulan atau rentang tanggal maksimal 366 hari dan detail transaksi maksimal 50 row. Slice 3 menambahkan CSV export family-scoped yang tidak dibatasi 50 row dan hanya dapat diminta oleh `OWNER` atau `ADMIN`. Slice 4 menambahkan print-friendly HTML report dengan authorization yang sama. Slice 5 menambahkan server-side PDF export berbasis PDFKit, optional password protection dengan PDF version 1.7ext3, password ephemeral, dan direct streaming tanpa persistent artifact. Setelah production WebView testing, delivery CSV/print/PDF menggunakan native form `POST` navigation agar tidak bergantung pada Blob URL atau `document.write()` behavior yang berbeda di Telegram WebView.
 
 Report access follows this role boundary: all active roles may view reports through Telegram and the authenticated Mini App, while only `OWNER` and `ADMIN` may request or receive CSV, print, or PDF export artifacts.
 
@@ -162,7 +162,7 @@ Report access follows this role boundary: all active roles may view reports thro
 - [x] Role-safe CSV export untuk `OWNER` dan `ADMIN`, dengan unbounded transaction detail list dan server-side CSV safeguards
 - [x] Print-friendly report view untuk `OWNER` dan `ADMIN`, dengan HTML escaping dan browser print stylesheet
 - [x] PDF export generated server-side per authorized request, dengan optional server-side PDF password
-- [x] Regression tests untuk report family isolation, role permission, date filters, CSV serialization, print HTML escaping, dan export authorization
+- [x] Regression tests untuk report family isolation, role permission, date filters, CSV serialization, print HTML escaping, PDF encryption, JSON route authorization, dan direct form POST delivery
 - [x] First authorized report views in the Telegram Mini App
 - [x] CSV export for authorized family data
 - [x] PDF export generated per authorized request

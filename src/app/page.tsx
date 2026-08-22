@@ -86,96 +86,59 @@ export default function Home() {
     }
   }, []);
 
-  const exportCsv = useCallback(async () => {
+  const exportCsv = useCallback(() => {
     if (!initDataRef.current || !data || (data.viewer.role !== "OWNER" && data.viewer.role !== "ADMIN")) return;
     setExporting(true);
     setExportError("");
     try {
-      const response = await fetch("/api/mini-app/report/export", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          initData: initDataRef.current,
-          month: month || undefined,
-          startDate: startDate || undefined,
-          endDate: endDate || undefined,
-        }),
+      submitMiniAppReportForm("/api/mini-app/report/export", {
+        initData: initDataRef.current,
+        month,
+        startDate,
+        endDate,
       });
-      if (!response.ok) {
-        const payload = await response.json() as { error?: string };
-        throw new Error(payload.error || "Export tidak dapat dibuat.");
-      }
-      downloadBlob(await response.blob(), "falance-report.csv");
+      window.setTimeout(() => setExporting(false), 2_000);
     } catch (exportLoadError) {
-      setExportError(exportLoadError instanceof Error ? exportLoadError.message : "Export tidak dapat dibuat.");
-    } finally {
       setExporting(false);
+      setExportError(exportLoadError instanceof Error ? exportLoadError.message : "Export tidak dapat dibuat.");
     }
   }, [data, endDate, month, startDate]);
 
-  const printReport = useCallback(async () => {
+  const printReport = useCallback(() => {
     if (!initDataRef.current || !data || (data.viewer.role !== "OWNER" && data.viewer.role !== "ADMIN")) return;
     setPrinting(true);
     setPrintError("");
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      setPrinting(false);
-      setPrintError("Popup diblokir browser. Izinkan popup untuk membuka tampilan cetak.");
-      return;
-    }
     try {
-      const response = await fetch("/api/mini-app/report/print", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          initData: initDataRef.current,
-          month: month || undefined,
-          startDate: startDate || undefined,
-          endDate: endDate || undefined,
-        }),
+      submitMiniAppReportForm("/api/mini-app/report/print", {
+        initData: initDataRef.current,
+        month,
+        startDate,
+        endDate,
       });
-      if (!response.ok) {
-        const payload = await response.json() as { error?: string };
-        throw new Error(payload.error || "Tampilan cetak tidak dapat dibuat.");
-      }
-      const url = URL.createObjectURL(await response.blob());
-      printWindow.location.href = url;
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      printWindow.focus();
+      window.setTimeout(() => setPrinting(false), 2_000);
     } catch (printLoadError) {
-      printWindow.close();
-      setPrintError(printLoadError instanceof Error ? printLoadError.message : "Tampilan cetak tidak dapat dibuat.");
-    } finally {
       setPrinting(false);
+      setPrintError(printLoadError instanceof Error ? printLoadError.message : "Tampilan cetak tidak dapat dibuat.");
     }
   }, [data, endDate, month, startDate]);
 
-  const exportPdf = useCallback(async () => {
+  const exportPdf = useCallback(() => {
     if (!initDataRef.current || !data || (data.viewer.role !== "OWNER" && data.viewer.role !== "ADMIN")) return;
     setPdfExporting(true);
     setPdfError("");
     try {
-      const response = await fetch("/api/mini-app/report/pdf", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          initData: initDataRef.current,
-          month: month || undefined,
-          startDate: startDate || undefined,
-          endDate: endDate || undefined,
-          password: pdfPassword || undefined,
-        }),
+      submitMiniAppReportForm("/api/mini-app/report/pdf", {
+        initData: initDataRef.current,
+        month,
+        startDate,
+        endDate,
+        password: pdfPassword,
       });
-      if (!response.ok) {
-        const payload = await response.json() as { error?: string };
-        throw new Error(payload.error || "PDF tidak dapat dibuat.");
-      }
-      downloadBlob(await response.blob(), "falance-report.pdf");
       setPdfPassword("");
+      window.setTimeout(() => setPdfExporting(false), 2_000);
     } catch (pdfLoadError) {
-      setPdfError(pdfLoadError instanceof Error ? pdfLoadError.message : "PDF tidak dapat dibuat.");
-    } finally {
       setPdfExporting(false);
+      setPdfError(pdfLoadError instanceof Error ? pdfLoadError.message : "PDF tidak dapat dibuat.");
     }
   }, [data, endDate, month, pdfPassword, startDate]);
 
@@ -410,14 +373,21 @@ function formatDisplayDate(value: string): string {
   return `${day}/${month}/${year}`;
 }
 
-function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.rel = "noopener";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+function submitMiniAppReportForm(action: string, fields: Record<string, string | undefined>): void {
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = action;
+  form.target = "_blank";
+  form.style.display = "none";
+  for (const [name, value] of Object.entries(fields)) {
+    if (!value) continue;
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = value;
+    form.appendChild(input);
+  }
+  document.body.appendChild(form);
+  form.submit();
+  form.remove();
 }

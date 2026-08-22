@@ -83,6 +83,27 @@ test("Mini App PDF rejects MEMBER before creating a PDF", async () => {
   }
 });
 
+test("Mini App PDF accepts a direct form POST for an OWNER with optional password", async () => {
+  const originalToken = process.env.TELEGRAM_BOT_TOKEN;
+  process.env.TELEGRAM_BOT_TOKEN = botToken;
+  const restoreRepository = mockRepository(owner);
+  try {
+    const body = new URLSearchParams({ initData: signedInitData("100"), month: "2026-08", password: "rahasia-pdf" });
+    const response = await POST(new Request("https://falance.example.com/api/mini-app/report/pdf", {
+      method: "POST",
+      body,
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+    }));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "application/pdf");
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    assert.equal(new TextDecoder("latin1").decode(bytes.slice(0, 8)), "%PDF-1.7");
+  } finally {
+    restoreRepository();
+    restoreEnv("TELEGRAM_BOT_TOKEN", originalToken);
+  }
+});
+
 test("Mini App PDF returns a valid PDF for an OWNER with optional password", async () => {
   const originalToken = process.env.TELEGRAM_BOT_TOKEN;
   process.env.TELEGRAM_BOT_TOKEN = botToken;

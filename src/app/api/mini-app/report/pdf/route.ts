@@ -2,22 +2,17 @@ import { GoogleSheetsFamilyRepository } from "../../../../../lib/family/google-s
 import { FamilyService, FamilyServiceError, UnauthorizedError } from "../../../../../lib/family/service";
 import { ReportPeriodError } from "../../../../../lib/family/report";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../../lib/telegram/mini-app-auth";
+import { readMiniAppReportRequest, type MiniAppReportRequestPayload } from "../../../../../lib/telegram/mini-app-request";
 import { buildFinancialPdf } from "../../../../../lib/family/pdf";
 
 export const runtime = "nodejs";
 
-type MiniAppPdfRequest = {
-  initData?: unknown;
-  month?: unknown;
-  startDate?: unknown;
-  endDate?: unknown;
-  password?: unknown;
-};
+type MiniAppPdfRequest = MiniAppReportRequestPayload;
 
 export async function POST(request: Request): Promise<Response> {
   let payload: MiniAppPdfRequest;
   try {
-    payload = await request.json() as MiniAppPdfRequest;
+    payload = await readMiniAppReportRequest(request) as MiniAppPdfRequest;
   } catch {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
