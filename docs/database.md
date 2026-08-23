@@ -8,7 +8,7 @@ The service account needs access to the spreadsheet identified by `GOOGLE_FAMILY
 
 ## Registry initialization and quota behavior
 
-Before accessing a registry sheet, the repository asks `GoogleSheetsClient` to verify the central worksheet set and headers. Initialization is cached per spreadsheet ID within the client instance, including concurrent calls that share the same in-flight promise. Subsequent repository reads and writes on that client do not repeat the metadata and twelve-header read sequence.
+Before accessing a registry sheet, the repository asks `GoogleSheetsClient` to verify the central worksheet set and headers. Initialization is cached per spreadsheet ID within the client instance, including concurrent calls that share the same in-flight promise. Subsequent repository reads and writes on that client do not repeat the metadata and thirteen-header read sequence.
 
 A new serverless cold start may perform initialization again. This is expected, but repeated initialization within one warm client instance is avoided because Google Sheets applies read quotas per user. A `429 RESOURCE_EXHAUSTED` response indicates that the request budget was exceeded; it is not evidence of a missing family or a per-family spreadsheet.
 
@@ -80,7 +80,7 @@ There is deliberately no `spreadsheet_id` column. The central spreadsheet ID bel
 | `confirmation_id` | Server-generated pending confirmation identifier. |
 | `telegram_user_id` | Telegram identity that created the pending action. |
 | `family_id` | Server-resolved family boundary for the action. |
-| `action` | `REVOKE_INVITATION`, `DEACTIVATE_MEMBER`, or `ARCHIVE_FAMILY`. |
+| `action` | `REVOKE_INVITATION`, `DEACTIVATE_MEMBER`, `ARCHIVE_FAMILY`, or `VOID_TRANSACTION`. |
 | `target` | Server-resolved invitation code, member ID, or family ID required to complete the action. |
 | `created_at` | ISO-8601 creation timestamp. |
 | `expires_at` | Confirmation expiry, currently five minutes after creation. |
@@ -147,6 +147,25 @@ Pending drafts are temporary server state. A natural-language message creates or
 | `status` | `CLAIMED` while approval is in progress or `COMPLETED` after recovery-safe completion. |
 
 Approval claims are durable server state used before transaction creation. The service serializes draft lifecycle operations in a warm instance, persists the claim and a deterministic `transaction_id`, avoids creating another transaction when a completed claim is recovered, completes the claim after transaction persistence, and then marks the draft `COMPLETED`. A 60-second lease permits recovery when a serverless execution stops after claiming. Google Sheets does not provide a compare-and-swap primitive for the read-then-update sequence, so this worksheet improves durable retry recovery and in-process suppression but is not a final guarantee of atomic cross-instance uniqueness; cross-instance validation and a storage primitive with conditional writes remain Milestone 8 hardening work.
+
+### AI Usage worksheets
+
+`AI Vision Usage` and `AI Text Usage` are separate durable quota worksheets. The separation preserves the existing vision rows while allowing text workload policy to evolve independently.
+
+| Column | Meaning |
+| --- | --- |
+| `usage_key` | Server-created combination of resolved `family_id` and Telegram user key. |
+| `family_id` | Server-resolved family boundary. It is never supplied by the browser or treated as client authorization. |
+| `telegram_user_id` | Server-side workload owner key used for per-user/per-family quota enforcement; it is not returned to browser, Telegram, or diagnostic logs. |
+| `window_started_at` | Beginning of the current rolling quota window. |
+| `request_count` | Number of claimed attempts in the active window, including provider failures. |
+| `last_claimed_at` | Timestamp of the most recent claim. |
+| `lease_until` | Expiry of the in-flight claim; stale claims may be reclaimed. |
+| `status` | `IN_FLIGHT` while the AI workload is running or `COMPLETED` after the handler finishes. |
+
+The text policy defaults to a five-second cooldown, thirty attempts per one-hour rolling window, and a sixty-second lease. It is configured through `FALANCE_AI_TEXT_COOLDOWN_SECONDS`, `FALANCE_AI_TEXT_WINDOW_SECONDS`, `FALANCE_AI_TEXT_MAX_REQUESTS`, and `FALANCE_AI_TEXT_LEASE_SECONDS`. A natural-language request claims before provider invocation and completes in `finally`; `/addincome` and `/addexpense` bypass this text quota. Vision retains its existing independent policy and worksheet.
+
+These worksheets intentionally do not contain prompts, raw provider responses, token counts, API keys, receipt bytes, family names, or display names. Registry integrity checks validate their shape, unique key, family/member references, status, and non-negative request count without emitting row values. Warm-instance keyed locks reduce same-instance races, but Google Sheets read-then-update remains non-atomic across serverless instances.
 
 ### Transactions
 
