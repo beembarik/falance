@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "check:registry": "node --import ./tests/typescript-register.mjs --experimental-strip-types scripts/check-registry-integrity.mjs",
+    "rehearse:migration": "node --import ./tests/typescript-register.mjs --experimental-strip-types scripts/rehearse-supabase-migration.mjs",
     "test": "node --import ./tests/typescript-register.mjs --experimental-strip-types --test tests/**/*.test.ts"
   },
   "dependencies": {

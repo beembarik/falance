@@ -7,7 +7,7 @@ import {
   MemberManagementError,
   UnauthorizedError,
 } from "../../../../lib/family/service";
-import { GoogleSheetsFamilyRepository } from "../../../../lib/family/google-sheets-repository";
+import { createFamilyRepository } from "../../../../lib/family/repository-factory";
 import type { MemberRole } from "../../../../lib/family/types";
 import { buildInvitationShareMessage } from "../../../../lib/telegram/invitation-share";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../lib/telegram/mini-app-auth";
@@ -53,7 +53,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const validated = validateMiniAppInitData(payload.initData, botToken);
-    const service = new FamilyService(new GoogleSheetsFamilyRepository());
+    const service = new FamilyService(createFamilyRepository());
     const actor = validated.telegramUser;
 
     if (payload.action === "CREATE_INVITATION") {

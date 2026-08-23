@@ -1,4 +1,4 @@
-import { GoogleSheetsFamilyRepository } from "../../../../../lib/family/google-sheets-repository";
+import { createFamilyRepository } from "../../../../../lib/family/repository-factory";
 import { FamilyService, FamilyServiceError, UnauthorizedError } from "../../../../../lib/family/service";
 import { ReportPeriodError, buildFinancialPrintHtml, formatReportGeneratedAt } from "../../../../../lib/family/report";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../../lib/telegram/mini-app-auth";
@@ -35,7 +35,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const validated = validateMiniAppInitData(payload.initData, botToken);
-    const service = new FamilyService(new GoogleSheetsFamilyRepository());
+    const service = new FamilyService(createFamilyRepository());
     const exported = await service.getFinancialExportReport(
       validated.telegramUser.telegramUserId,
       stringValue(payload.month),

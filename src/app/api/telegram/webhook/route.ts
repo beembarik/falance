@@ -4,7 +4,7 @@ import {
   TelegramConfigurationError,
   sendTelegramMessage,
 } from "@/lib/telegram/client";
-import { GoogleSheetsFamilyRepository } from "@/lib/family/google-sheets-repository";
+import { createFamilyRepository } from "@/lib/family/repository-factory";
 import { FamilyService } from "@/lib/family/service";
 import {
   handleTelegramCallbackQuery,
@@ -104,7 +104,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const repository = new GoogleSheetsFamilyRepository();
+    const repository = createFamilyRepository();
     const claimed = await repository.claimTelegramUpdate(payload.update_id, new Date().toISOString());
     if (!claimed) {
       logDuration("telegram.update", measureDuration(requestStartedAt), {

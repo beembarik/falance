@@ -1,5 +1,5 @@
 import { ConfirmationError, FamilyService, FamilyServiceError, TransactionError, UnauthorizedError } from "../../../../../lib/family/service";
-import { GoogleSheetsFamilyRepository } from "../../../../../lib/family/google-sheets-repository";
+import { createFamilyRepository } from "../../../../../lib/family/repository-factory";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../../lib/telegram/mini-app-auth";
 import { readMiniAppTransactionRequest, stringValue } from "../../../../../lib/telegram/mini-app-transaction-request";
 
@@ -35,7 +35,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const validated = validateMiniAppInitData(payload.initData, botToken);
-    const service = new FamilyService(new GoogleSheetsFamilyRepository());
+    const service = new FamilyService(createFamilyRepository());
     if (action === "REQUEST") {
       const pending = await service.requestTransactionVoid(validated.telegramUser, transactionId!);
       return Response.json({

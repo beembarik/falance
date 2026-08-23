@@ -1,4 +1,4 @@
-import { GoogleSheetsFamilyRepository } from "../../../../../lib/family/google-sheets-repository";
+import { createFamilyRepository } from "../../../../../lib/family/repository-factory";
 import { FamilyService, FamilyServiceError, UnauthorizedError } from "../../../../../lib/family/service";
 import { ReportPeriodError, buildFinancialCsv, buildFinancialPrintHtml, formatReportGeneratedAt } from "../../../../../lib/family/report";
 import { buildFinancialPdf, validatePdfPassword } from "../../../../../lib/family/pdf";
@@ -14,7 +14,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!payload) return Response.json({ error: "Download link tidak valid atau sudah kedaluwarsa." }, { status: 401 });
 
   try {
-    const service = new FamilyService(new GoogleSheetsFamilyRepository());
+    const service = new FamilyService(createFamilyRepository());
     const exported = await service.getFinancialExportReport(
       payload.uid,
       payload.month,

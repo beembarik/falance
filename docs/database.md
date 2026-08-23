@@ -2,7 +2,7 @@
 
 ## Storage model
 
-The current storage implementation is one existing Google Spreadsheet per Falancé deployment. It is the backend database, not a direct user-facing interface. All families share this spreadsheet and are isolated logically by `family_id`.
+The current storage implementation is one existing Google Spreadsheet per Falancé deployment. It is the backend database, not a direct user-facing interface. All families share this spreadsheet and are isolated logically by `family_id`. Route construction now goes through a repository factory whose default backend remains `google-sheets`; the factory rejects unsupported backends until a separately validated adapter is available.
 
 The service account needs access to the spreadsheet identified by `GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID`. It does not need Google Drive access, a Drive folder, or permission to create spreadsheets.
 
@@ -35,6 +35,18 @@ Operational failures are reported through redacted server-side logs. The log inc
 | `plan` | Current plan label. |
 
 There is deliberately no `spreadsheet_id` column. The central spreadsheet ID belongs to deployment configuration, not to a family.
+
+## Supabase migration rehearsal
+
+The repository includes a local-only migration rehearsal command:
+
+```bash
+npm run rehearse:migration -- --input /path/to/sanitized-registry-snapshot.json --output /path/to/rehearsal-report.json
+```
+
+The snapshot must contain a top-level `sheets` object whose keys are the thirteen authoritative worksheet names and whose values are arrays of row objects. The rehearsal validates primary keys, required fields, enums, positive transaction amounts, non-negative AI request counts, family/member references, unknown worksheets, row counts, and deterministic SHA-256 digests of canonical rows. The report contains only worksheet names, counts, digests, and issue codes; it does not print row values. The command does not connect to Google, Supabase, or production and does not perform a cutover.
+
+The intended future cutover remains non-destructive: export a controlled snapshot, rehearse and reconcile it locally, import with idempotent upserts into a locked Supabase schema, compare counts and canonical digests, freeze writes for a final delta, then switch the repository backend flag. Google Sheets must remain available as a read-only rollback source until the Supabase path is production-validated.
 
 ### Members
 

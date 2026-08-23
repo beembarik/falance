@@ -1,4 +1,4 @@
-import { GoogleSheetsFamilyRepository } from "../../../../../../lib/family/google-sheets-repository";
+import { createFamilyRepository } from "../../../../../../lib/family/repository-factory";
 import { FamilyService, FamilyServiceError, UnauthorizedError } from "../../../../../../lib/family/service";
 import { ReportPeriodError } from "../../../../../../lib/family/report";
 import { validatePdfPassword } from "../../../../../../lib/family/pdf";
@@ -75,7 +75,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const service = new FamilyService(new GoogleSheetsFamilyRepository());
+    const service = new FamilyService(createFamilyRepository());
     const exported = await service.getFinancialExportReport(telegramUserId, month, startDate, endDate);
     const action = buildReportDownloadAction(request, {
       telegramUserId,

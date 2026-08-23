@@ -1,5 +1,5 @@
 import { FamilyService, FamilyServiceError, TransactionError, UnauthorizedError } from "../../../../lib/family/service";
-import { GoogleSheetsFamilyRepository } from "../../../../lib/family/google-sheets-repository";
+import { createFamilyRepository } from "../../../../lib/family/repository-factory";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../lib/telegram/mini-app-auth";
 import { parseMiniAppTransactionInput, readMiniAppTransactionRequest, type MiniAppTransactionPayload } from "../../../../lib/telegram/mini-app-transaction-request";
 
@@ -28,7 +28,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const validated = validateMiniAppInitData(payload.initData, botToken);
-    const service = new FamilyService(new GoogleSheetsFamilyRepository());
+    const service = new FamilyService(createFamilyRepository());
     const transaction = await service.createTransaction(validated.telegramUser, input);
     return Response.json({
       message: "Transaksi berhasil dicatat.",
@@ -86,7 +86,7 @@ export async function PATCH(request: Request): Promise<Response> {
 
   try {
     const validated = validateMiniAppInitData(payload.initData, botToken);
-    const service = new FamilyService(new GoogleSheetsFamilyRepository());
+    const service = new FamilyService(createFamilyRepository());
     const transaction = await service.updateTransaction(validated.telegramUser, transactionId, input);
     return Response.json({
       message: "Transaksi berhasil diperbarui.",

@@ -1,5 +1,5 @@
 import { FamilyService, FamilyServiceError } from "../../../../lib/family/service";
-import { GoogleSheetsFamilyRepository } from "../../../../lib/family/google-sheets-repository";
+import { createFamilyRepository } from "../../../../lib/family/repository-factory";
 import { downloadTelegramProfilePhoto, TelegramApiError } from "../../../../lib/telegram/client";
 import { verifyMiniAppAvatarToken } from "../../../../lib/telegram/mini-app-avatar-token";
 
@@ -11,7 +11,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!telegramUserId) return new Response("Unauthorized.", { status: 401 });
 
   try {
-    const service = new FamilyService(new GoogleSheetsFamilyRepository());
+    const service = new FamilyService(createFamilyRepository());
     const membership = await service.getActiveMembership(telegramUserId);
     if (!membership) return new Response("Forbidden.", { status: 403 });
     const image = await downloadTelegramProfilePhoto(telegramUserId);

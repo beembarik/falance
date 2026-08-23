@@ -1,6 +1,6 @@
 import { FamilyService, FamilyServiceError } from "../../../../lib/family/service";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../lib/telegram/mini-app-auth";
-import { GoogleSheetsFamilyRepository } from "../../../../lib/family/google-sheets-repository";
+import { createFamilyRepository } from "../../../../lib/family/repository-factory";
 import { buildMiniAppAvatarUrl } from "../../../../lib/telegram/mini-app-avatar-token";
 
 export const runtime = "nodejs";
@@ -29,7 +29,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const validated = validateMiniAppInitData(payload.initData, botToken);
-    const service = new FamilyService(new GoogleSheetsFamilyRepository());
+    const service = new FamilyService(createFamilyRepository());
     const membership = await service.getActiveMembership(validated.telegramUser.telegramUserId);
     if (!membership) return Response.json({ error: "Mini App access denied." }, { status: 403 });
     const family = await service.getActiveFamily(validated.telegramUser.telegramUserId);

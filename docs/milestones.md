@@ -265,7 +265,9 @@ Slice 4 maps quota exhaustion and classified provider failures to safe Indonesia
 
 ## Milestone 12 — Supabase Migration
 
-Status: PLANNED — PRIORITAS P2 setelah bottleneck Google Sheets terbukti atau sebelum scale-out
+Status: IN PREPARATION — repository factory non-breaking dan migration rehearsal lokal sudah tersedia; adapter Supabase, import production, dual-read, dan cutover belum diaktifkan.
+
+The preparation layer keeps `google-sheets` as the default `FALANCE_PERSISTENCE_BACKEND`. `npm run rehearse:migration` validates a sanitized thirteen-worksheet snapshot using schema rules, foreign-reference checks, row counts, and deterministic canonical digests. It never connects to production and does not perform a cutover. The next implementation slice is the actual Supabase schema and adapter contract, followed by an import rehearsal against an operator-provided sanitized snapshot.
 
 Supabase is the planned future storage implementation, not an immediate replacement. Google Sheets remains the active adapter until migration readiness is demonstrated for the current one-to-two-family operating scope.
 
