@@ -3,6 +3,12 @@ import type { TransactionType } from "../family/types";
 import { TransactionError, validateTransactionInput } from "../family/service";
 import { logDuration } from "../observability/timing";
 import { getAiProviderConfig } from "./provider-config";
+import {
+  classifyProviderRequestError,
+  classifyProviderStatus,
+  providerFailureOutcome,
+  type AiProviderFailureDetails,
+} from "./provider-errors";
 
 export type TransactionDraftConfidence = "HIGH" | "MEDIUM" | "LOW";
 
@@ -42,7 +48,15 @@ export interface TransactionTextParser {
   parse(text: string, today: string): Promise<TransactionTextParseResult>;
 }
 
-export class TransactionTextParserUnavailableError extends Error {}
+export class TransactionTextParserUnavailableError extends Error {
+  readonly details: AiProviderFailureDetails;
+
+  constructor(message: string, details: AiProviderFailureDetails = { kind: "network" }) {
+    super(message);
+    this.name = "TransactionTextParserUnavailableError";
+    this.details = details;
+  }
+}
 
 interface ProviderExtraction {
   transaction_type: TransactionType | null;
@@ -91,7 +105,7 @@ export class OpenAICompatibleTransactionTextParser implements TransactionTextPar
     const apiKey = provider.apiKey;
     const model = provider.model || "gpt-5-mini";
     if (!baseUrl || !apiKey) {
-      throw new TransactionTextParserUnavailableError("AI transaction parser is not configured.");
+      throw new TransactionTextParserUnavailableError("AI transaction parser is not configured.", { kind: "not_configured" });
     }
 
     const controller = new AbortController();
@@ -129,23 +143,25 @@ export class OpenAICompatibleTransactionTextParser implements TransactionTextPar
         }),
         signal: controller.signal,
       });
-    } catch {
+    } catch (error) {
+      const details = classifyProviderRequestError(error);
       logDuration("ai.text.request", performance.now() - providerStartedAt, {
         provider: providerHost(baseUrl),
-        outcome: "error",
+        outcome: providerFailureOutcome(details),
       });
-      throw new TransactionTextParserUnavailableError("AI transaction parser request failed.");
+      throw new TransactionTextParserUnavailableError("AI transaction parser request failed.", details);
     } finally {
       clearTimeout(timeout);
     }
 
+    const responseFailure = response.ok ? null : classifyProviderStatus(response.status);
     logDuration("ai.text.request", performance.now() - providerStartedAt, {
       provider: providerHost(baseUrl),
       status: response.status,
-      outcome: response.ok ? "success" : "error",
+      outcome: responseFailure ? providerFailureOutcome(responseFailure) : "success",
     });
-    if (!response.ok) {
-      throw new TransactionTextParserUnavailableError("AI transaction parser returned an error.");
+    if (responseFailure) {
+      throw new TransactionTextParserUnavailableError("AI transaction parser returned an error.", responseFailure);
     }
 
     const responseParsingStartedAt = performance.now();
@@ -156,7 +172,7 @@ export class OpenAICompatibleTransactionTextParser implements TransactionTextPar
         provider: providerHost(baseUrl),
         outcome: "no_content",
       });
-      throw new TransactionTextParserUnavailableError("AI transaction parser returned no content.");
+      throw new TransactionTextParserUnavailableError("AI transaction parser returned no content.", { kind: "invalid_response", status: response.status });
     }
 
     let parsed: unknown;
@@ -167,14 +183,14 @@ export class OpenAICompatibleTransactionTextParser implements TransactionTextPar
         provider: providerHost(baseUrl),
         outcome: "invalid_json",
       });
-      throw new TransactionTextParserUnavailableError("AI transaction parser returned invalid JSON.");
+      throw new TransactionTextParserUnavailableError("AI transaction parser returned invalid JSON.", { kind: "invalid_response", status: response.status });
     }
     if (!isProviderExtraction(parsed)) {
       logDuration("ai.text.response", performance.now() - responseParsingStartedAt, {
         provider: providerHost(baseUrl),
         outcome: "schema_invalid",
       });
-      throw new TransactionTextParserUnavailableError("AI transaction parser returned an invalid schema.");
+      throw new TransactionTextParserUnavailableError("AI transaction parser returned an invalid schema.", { kind: "invalid_response", status: response.status });
     }
 
     const result = normalizeExtraction(parsed, text, today);

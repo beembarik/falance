@@ -14,6 +14,7 @@ const originalModel = process.env.FALANCE_AI_MODEL;
 const originalTextBase = process.env.FALANCE_AI_TEXT_API_BASE;
 const originalTextKey = process.env.FALANCE_AI_TEXT_API_KEY;
 const originalTextModel = process.env.FALANCE_AI_TEXT_MODEL;
+const originalTimingLogs = process.env.FALANCE_TIMING_LOGS;
 
 test.afterEach(() => {
   globalThis.fetch = originalFetch;
@@ -23,6 +24,7 @@ test.afterEach(() => {
   restoreEnv("FALANCE_AI_TEXT_API_BASE", originalTextBase);
   restoreEnv("FALANCE_AI_TEXT_API_KEY", originalTextKey);
   restoreEnv("FALANCE_AI_TEXT_MODEL", originalTextModel);
+  restoreEnv("FALANCE_TIMING_LOGS", originalTimingLogs);
 });
 
 test("uses JSON Object Mode for Groq Compound models", async () => {
@@ -323,4 +325,81 @@ function nextDate(value: string): string {
 function restoreEnv(name: string, value: string | undefined): void {
   if (value === undefined) delete process.env[name];
   else process.env[name] = value;
+}
+
+
+test("classifies HTTP 429 as rate limited without logging provider response content", async () => {
+  configureProvider();
+  const logs: unknown[][] = [];
+  const originalConsoleInfo = console.info;
+  process.env.FALANCE_TIMING_LOGS = "true";
+  console.info = (...args: unknown[]) => logs.push(args);
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: "sensitive provider response" }), { status: 429 });
+
+  try {
+    const error = await captureFailure(() => new OpenAICompatibleTransactionTextParser().parse("beli susu 35 ribu", "2026-08-20"));
+    assert.equal(error.details.kind, "rate_limited");
+    assert.equal(error.details.status, 429);
+    assert.equal(JSON.stringify(logs).includes("sensitive provider response"), false);
+    assert.equal(JSON.stringify(logs).includes("test-key"), false);
+    assert.equal(logs.some((entry) => (entry[1] as Record<string, unknown>)?.outcome === "rate_limited"), true);
+  } finally {
+    console.info = originalConsoleInfo;
+  }
+});
+
+test("classifies HTTP 503 as server error and does not perform a fallback call", async () => {
+  configureProvider();
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response("provider response", { status: 503 });
+  };
+
+  const error = await captureFailure(() => new OpenAICompatibleTransactionTextParser().parse("beli susu 35 ribu", "2026-08-20"));
+
+  assert.equal(error.details.kind, "server_error");
+  assert.equal(error.details.status, 503);
+  assert.equal(calls, 1);
+});
+
+test("classifies an aborted provider request as timeout", async () => {
+  configureProvider();
+  globalThis.fetch = async () => {
+    throw Object.assign(new Error("provider timeout"), { name: "AbortError" });
+  };
+
+  const error = await captureFailure(() => new OpenAICompatibleTransactionTextParser().parse("beli susu 35 ribu", "2026-08-20"));
+
+  assert.equal(error.details.kind, "timeout");
+  assert.equal(error.details.status, undefined);
+});
+
+test("classifies a network failure without exposing its message", async () => {
+  configureProvider();
+  const logs: unknown[][] = [];
+  const originalConsoleInfo = console.info;
+  process.env.FALANCE_TIMING_LOGS = "true";
+  console.info = (...args: unknown[]) => logs.push(args);
+  globalThis.fetch = async () => {
+    throw new Error("network detail with secret-provider-content");
+  };
+
+  try {
+    const error = await captureFailure(() => new OpenAICompatibleTransactionTextParser().parse("beli susu 35 ribu", "2026-08-20"));
+    assert.equal(error.details.kind, "network");
+    assert.equal(JSON.stringify(logs).includes("secret-provider-content"), false);
+  } finally {
+    console.info = originalConsoleInfo;
+  }
+});
+
+async function captureFailure(action: () => Promise<unknown>): Promise<TransactionTextParserUnavailableError> {
+  try {
+    await action();
+  } catch (error) {
+    assert.ok(error instanceof TransactionTextParserUnavailableError);
+    return error;
+  }
+  throw new Error("Expected parser failure");
 }

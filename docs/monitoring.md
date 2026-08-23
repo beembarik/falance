@@ -25,7 +25,7 @@ Aktifkan `FALANCE_TIMING_LOGS=true` hanya ketika melakukan diagnosis latency ata
 
 `telegram.update.error` perlu dikorelasikan dengan `google.request` dan `ai.*` berdasarkan waktu deployment/function invocation, bukan berdasarkan Telegram user ID atau update ID. Falancé sengaja tidak mencatat identifier tersebut pada timing event.
 
-Untuk AI, `outcome=no_content`, `invalid_json`, `schema_invalid`, dan `needs_clarification` menunjukkan kegagalan atau hasil yang tidak dapat dipakai dari provider; event tersebut tidak mencatat prompt, response content, receipt image, API key, atau transaction data.
+Untuk AI, response-phase `outcome=no_content`, `invalid_json`, `schema_invalid`, dan `needs_clarification` menunjukkan hasil provider yang tidak dapat langsung dipakai. Request-phase dapat menghasilkan `success`, `timeout`, `network`, `rate_limited`, `server_error`, atau `client_error`. `not_configured` dicatat pada error classification internal ketika provider belum dikonfigurasi. Event tersebut tidak mencatat prompt, response content, receipt image, API key, atau transaction data. Klasifikasi ini belum mengaktifkan fallback otomatis; fallback dibatasi untuk slice berikutnya setelah policy dan retry safety divalidasi.
 
 ## Prosedur diagnosis latency
 

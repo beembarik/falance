@@ -9,8 +9,22 @@ import {
 import type { TelegramDownloadedImage } from "../telegram/client";
 import { logDuration } from "../observability/timing";
 import { getAiProviderConfig } from "./provider-config";
+import {
+  classifyProviderRequestError,
+  classifyProviderStatus,
+  providerFailureOutcome,
+  type AiProviderFailureDetails,
+} from "./provider-errors";
 
-export class ReceiptParserUnavailableError extends Error {}
+export class ReceiptParserUnavailableError extends Error {
+  readonly details: AiProviderFailureDetails;
+
+  constructor(message: string, details: AiProviderFailureDetails = { kind: "network" }) {
+    super(message);
+    this.name = "ReceiptParserUnavailableError";
+    this.details = details;
+  }
+}
 
 export interface ReceiptParser {
   parse(
@@ -71,7 +85,7 @@ export class OpenAICompatibleReceiptParser implements ReceiptParser {
     const apiKey = provider.apiKey;
     const model = provider.model;
     if (!baseUrl || !apiKey || !model) {
-      throw new ReceiptParserUnavailableError("Receipt parser is not configured.");
+      throw new ReceiptParserUnavailableError("Receipt parser is not configured.", { kind: "not_configured" });
     }
 
     const controller = new AbortController();
@@ -129,22 +143,24 @@ export class OpenAICompatibleReceiptParser implements ReceiptParser {
         }),
         signal: controller.signal,
       });
-    } catch {
+    } catch (error) {
+      const details = classifyProviderRequestError(error);
       logDuration("ai.vision.request", performance.now() - providerStartedAt, {
         provider: providerHost(baseUrl),
-        outcome: "error",
+        outcome: providerFailureOutcome(details),
       });
-      throw new ReceiptParserUnavailableError("Receipt parser request failed.");
+      throw new ReceiptParserUnavailableError("Receipt parser request failed.", details);
     } finally {
       clearTimeout(timeout);
     }
 
+    const responseFailure = response.ok ? null : classifyProviderStatus(response.status);
     logDuration("ai.vision.request", performance.now() - providerStartedAt, {
       provider: providerHost(baseUrl),
       status: response.status,
-      outcome: response.ok ? "success" : "error",
+      outcome: responseFailure ? providerFailureOutcome(responseFailure) : "success",
     });
-    if (!response.ok) throw new ReceiptParserUnavailableError("Receipt parser returned an error.");
+    if (responseFailure) throw new ReceiptParserUnavailableError("Receipt parser returned an error.", responseFailure);
     const responseParsingStartedAt = performance.now();
     const payload = await response.json().catch(() => null) as unknown;
     const content = getMessageContent(payload);
@@ -153,7 +169,7 @@ export class OpenAICompatibleReceiptParser implements ReceiptParser {
         provider: providerHost(baseUrl),
         outcome: "no_content",
       });
-      throw new ReceiptParserUnavailableError("Receipt parser returned no content.");
+      throw new ReceiptParserUnavailableError("Receipt parser returned no content.", { kind: "invalid_response", status: response.status });
     }
 
     let parsed: unknown;
@@ -164,14 +180,14 @@ export class OpenAICompatibleReceiptParser implements ReceiptParser {
         provider: providerHost(baseUrl),
         outcome: "invalid_json",
       });
-      throw new ReceiptParserUnavailableError("Receipt parser returned invalid JSON.");
+      throw new ReceiptParserUnavailableError("Receipt parser returned invalid JSON.", { kind: "invalid_response", status: response.status });
     }
     if (!isReceiptExtraction(parsed)) {
       logDuration("ai.vision.response", performance.now() - responseParsingStartedAt, {
         provider: providerHost(baseUrl),
         outcome: "schema_invalid",
       });
-      throw new ReceiptParserUnavailableError("Receipt parser returned an invalid schema.");
+      throw new ReceiptParserUnavailableError("Receipt parser returned an invalid schema.", { kind: "invalid_response", status: response.status });
     }
 
     const result = normalizeReceiptExtraction(parsed, today);

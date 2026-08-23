@@ -227,7 +227,7 @@ Milestone 10 is complete only when the core Mini App screens have loading, empty
 
 ## Milestone 11 — AI Usage, Quota, and Provider Reliability
 
-Status: IN PROGRESS — SLICE 1 IMPLEMENTED LOCALLY; VALIDATION PRODUCTION PENDING
+Status: IN PROGRESS — SLICES 1–2 IMPLEMENTED LOCALLY; VALIDATION PRODUCTION PENDING
 
 The text parser and receipt parser continue to use separate text and vision model configuration. This milestone adds operational controls without allowing AI to determine identity, authorization, `family_id`, or transaction status.
 
@@ -246,6 +246,12 @@ Slice 1 adds a separate `AI Text Usage` worksheet to the single central registry
 Natural-language text parsing claims a quota slot before the provider call and completes the claim in `finally`, including parser/provider failure. A claim counts as an attempt, not only a successful parse, so provider outages cannot create an uncontrolled retry loop. The default text policy is a five-second cooldown, thirty claims per one-hour rolling window, and a sixty-second in-flight lease; all values are server-only environment configuration. `/addincome` and `/addexpense` bypass AI text quota because they do not invoke AI.
 
 Family and user isolation is enforced by `FamilyService` resolving active membership and by repository keys formed from the resolved family/user combination. Warm-instance keyed locks reduce same-instance races. Google Sheets still lacks compare-and-swap for the read-then-update path, so cross-instance quota atomicity remains a pre-public-beta hardening item. Provider error classification, one-level transient fallback, and degraded-mode messaging are intentionally deferred to later M11 slices.
+
+### M11 Slice 2 — Provider error classification
+
+Slice 2 adds a shared, privacy-safe classification contract for text and receipt vision provider failures. HTTP 408/504 are classified as `timeout`, HTTP 429 as `rate_limited`, HTTP 5xx as `server_error`, other HTTP 4xx as `client_error`, aborted fetches as `timeout`, other fetch exceptions as `network`, missing configuration as `not_configured`, and malformed provider content/schema as `invalid_response`. Timing outcomes expose only provider host, status, safe outcome, and duration. Provider error messages and response bodies remain excluded.
+
+Slice 2 deliberately performs exactly one provider request per parser invocation. It does not add automatic retry, fallback, multi-provider loops, or persistence behavior. One-level fallback is reserved for the next slice and may only use the transient classifications after its budget, authorization, and draft-safety tests are complete.
 
 ## Milestone 12 — Supabase Migration
 

@@ -1,6 +1,6 @@
 # Operasi AI Falancé
 
-Dokumen ini menjelaskan kontrol operasional AI pada Falancé. Kontrol ini berlaku untuk **AI text parser** dan **receipt vision parser**, tetapi implementasi M11 Slice 1 baru menambahkan tracking dan quota durable untuk workload text. Provider fallback otomatis, retry policy provider, dan degraded mode tetap menjadi slice berikutnya.
+Dokumen ini menjelaskan kontrol operasional AI pada Falancé. Kontrol ini berlaku untuk **AI text parser** dan **receipt vision parser**. M11 Slice 1 menambahkan tracking dan quota durable untuk workload text, sedangkan M11 Slice 2 menambahkan klasifikasi error provider dan outcome timing yang aman. Provider fallback otomatis, retry policy provider, dan degraded mode tetap menjadi slice berikutnya.
 
 ## Prinsip keamanan
 
@@ -44,6 +44,14 @@ Repository memiliki keyed lock untuk kombinasi deployment, family, dan user pada
 
 Validasi cross-instance dan keputusan storage primitive dengan conditional write tetap merupakan hardening backlog dan wajib sebelum public beta. Jangan menganggap quota worksheet sebagai billing ledger atau sebagai sistem global anti-abuse sampai batas lintas instance tersebut diselesaikan.
 
+## Klasifikasi error provider
+
+M11 Slice 2 membedakan kegagalan request provider menjadi `timeout`, `network`, `rate_limited`, `server_error`, dan `client_error`. HTTP 408 dan 504 diklasifikasikan sebagai timeout, HTTP 429 sebagai rate limit, HTTP 5xx sebagai server error, dan HTTP 4xx lainnya sebagai client error. Provider yang belum memiliki base/key/model menghasilkan `not_configured`. Response yang tidak memiliki content, JSON valid, atau schema yang sesuai tetap menjadi `invalid_response` pada error detail dan mempertahankan outcome response-phase yang lebih spesifik (`no_content`, `invalid_json`, atau `schema_invalid`).
+
+Klasifikasi hanya disimpan pada error object internal dan safe timing outcome. Pesan publik tetap generik dalam Bahasa Indonesia, dan detail error provider, response body, API key, prompt, receipt, serta transaction data tidak diteruskan ke user atau log.
+
+Request network exception yang memiliki `AbortError` diklasifikasikan sebagai timeout; exception lainnya diklasifikasikan sebagai network. Parser tetap melakukan tepat satu provider request pada Slice 2. Tidak ada automatic fallback atau retry tersembunyi.
+
 ## Urutan pekerjaan M11 berikutnya
 
-Slice berikutnya harus mengklasifikasikan timeout, network error, HTTP 429, dan HTTP 5xx tanpa mencatat secret atau response content. Setelah itu barulah boleh ditambahkan satu constrained fallback attempt untuk failure transient yang diklasifikasikan, tetap melalui schema validation dan draft approval. Multi-provider loop, silent fallback tanpa klasifikasi, dan automatic persistence tidak diperbolehkan.
+Slice berikutnya boleh menambahkan satu constrained fallback attempt hanya untuk failure transient yang diklasifikasikan, yaitu timeout, network, rate limit, atau server error, tetap melalui schema validation dan draft approval. Multi-provider loop, silent fallback tanpa klasifikasi, retry tanpa budget, dan automatic persistence tidak diperbolehkan.

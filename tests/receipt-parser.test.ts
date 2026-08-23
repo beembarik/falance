@@ -14,6 +14,7 @@ const originalKey = process.env.FALANCE_AI_API_KEY;
 const originalVisionModel = process.env.FALANCE_AI_VISION_MODEL;
 const originalVisionBase = process.env.FALANCE_AI_VISION_API_BASE;
 const originalVisionKey = process.env.FALANCE_AI_VISION_API_KEY;
+const originalTimingLogs = process.env.FALANCE_TIMING_LOGS;
 
 const image: TelegramDownloadedImage = {
   data: new Uint8Array([1, 2, 3]),
@@ -28,6 +29,7 @@ test.afterEach(() => {
   restoreEnv("FALANCE_AI_VISION_MODEL", originalVisionModel);
   restoreEnv("FALANCE_AI_VISION_API_BASE", originalVisionBase);
   restoreEnv("FALANCE_AI_VISION_API_KEY", originalVisionKey);
+  restoreEnv("FALANCE_TIMING_LOGS", originalTimingLogs);
 });
 
 test("prefers dedicated vision provider configuration over shared legacy configuration", async () => {
@@ -164,4 +166,36 @@ function mockProviderResponse(extraction: unknown): void {
 function restoreEnv(name: string, value: string | undefined): void {
   if (value === undefined) delete process.env[name];
   else process.env[name] = value;
+}
+
+
+test("classifies receipt vision HTTP 429 as rate limited", async () => {
+  configureProvider();
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: "sensitive vision response" }), { status: 429 });
+
+  const error = await captureFailure(() => new OpenAICompatibleReceiptParser().parse(image, null, "2026-08-20"));
+
+  assert.equal(error.details.kind, "rate_limited");
+  assert.equal(error.details.status, 429);
+});
+
+test("classifies an aborted receipt vision request as timeout", async () => {
+  configureProvider();
+  globalThis.fetch = async () => {
+    throw Object.assign(new Error("vision timeout"), { name: "AbortError" });
+  };
+
+  const error = await captureFailure(() => new OpenAICompatibleReceiptParser().parse(image, null, "2026-08-20"));
+
+  assert.equal(error.details.kind, "timeout");
+});
+
+async function captureFailure(action: () => Promise<unknown>): Promise<ReceiptParserUnavailableError> {
+  try {
+    await action();
+  } catch (error) {
+    assert.ok(error instanceof ReceiptParserUnavailableError);
+    return error;
+  }
+  throw new Error("Expected parser failure");
 }
