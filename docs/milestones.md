@@ -276,7 +276,8 @@ Supabase is the planned future storage implementation, not an immediate replacem
 - [x] Migration tooling, sanitized data validation, and reconciliation rehearsal from the central registry
 - [x] Staged dual-read/shadow-read wrapper implemented with Google Sheets as authoritative primary; shadow-read is guarded to Preview/local only
 - [ ] Observation-window validation on an authenticated Preview deployment
-- [ ] Cutover, rollback, backup, and recovery procedure
+- [x] Local-only cutover/rollback rehearsal with synthetic fixture, simulated final delta, deterministic import plan, and non-destructive rollback checks
+- [ ] Live cutover, rollback, backup, and recovery procedure on approved environments
 - [ ] Production verification that Telegram commands, drafts, receipts, reports, and audit behavior remain compatible
 - [ ] Explicit deprecation plan for Google Sheets only after migration acceptance
 

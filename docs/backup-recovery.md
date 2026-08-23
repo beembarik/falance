@@ -79,6 +79,18 @@ Google Sheets tidak menyediakan compare-and-swap atau unique conditional write p
 Runbook ini juga bukan pengganti backup provider, version history, atau disaster-recovery policy organisasi. Sebelum public beta, lakukan latihan restoration terkontrol pada salinan registry dan verifikasi bahwa seluruh command tetap mempertahankan isolasi family.
 
 
+## M12 local-only cutover dan rollback rehearsal
+
+The repository provides a local-only rehearsal command that simulates the non-destructive migration sequence with a synthetic fixture:
+
+```bash
+npm run rehearse:supabase-cutover -- --output /tmp/falance-cutover-rehearsal.json
+```
+
+The command performs no network access and never reads production credentials. It validates a healthy pre-cutover backup, creates a foreign-key-safe Supabase import plan, simulates a write-freeze final delta, verifies repeated import-plan generation is deterministic, and compares the rollback plan with the original backup plan. The simulated source of truth remains Google Sheets before and after the rehearsal, and no production switch or destructive rollback is applied.
+
+A successful rehearsal must report `healthy: true`, `productionSwitchApplied: false`, `networkWriteAttempted: false`, `final_delta_detected_after_freeze: true`, `import_plan_is_idempotent: true`, and `rollback_plan_matches_backup: true`. The fixture is synthetic and proves orchestration and safety properties only; it does not prove live Supabase connectivity, Google Sheets restoration, Telegram compatibility, or production cutover readiness. Live cutover requires a separately approved maintenance window, a point-in-time backup, a reconciled sanitized import, final delta handling, post-switch smoke tests, and an explicit rollback decision.
+
 ## Slice 18 security hardening dan pre-public-beta checks
 
 M10 Slice 18 menambahkan baseline security headers pada seluruh response Next.js, termasuk `Content-Security-Policy`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Permissions-Policy` tanpa camera/microphone/geolocation, dan HSTS untuk deployment HTTPS. Seluruh response API diberi `Cache-Control: no-store, max-age=0` agar raw `initData`, signed action URL, report content, dan error response tidak disimpan oleh cache.

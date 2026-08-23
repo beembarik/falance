@@ -10,6 +10,7 @@
     "check:registry": "node --import ./tests/typescript-register.mjs --experimental-strip-types scripts/check-registry-integrity.mjs",
     "rehearse:migration": "node --import ./tests/typescript-register.mjs --experimental-strip-types scripts/rehearse-supabase-migration.mjs",
     "prepare:supabase-import": "node --import ./tests/typescript-register.mjs --experimental-strip-types scripts/prepare-supabase-import.mjs",
+    "rehearse:supabase-cutover": "node --import ./tests/typescript-register.mjs --experimental-strip-types scripts/rehearse-supabase-cutover.mjs",
     "test": "node --import ./tests/typescript-register.mjs --experimental-strip-types --test tests/**/*.test.ts"
   },
   "dependencies": {
