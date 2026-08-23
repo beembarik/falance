@@ -46,6 +46,14 @@ npm run rehearse:migration -- --input /path/to/sanitized-registry-snapshot.json 
 
 The snapshot must contain a top-level `sheets` object whose keys are the thirteen authoritative worksheet names and whose values are arrays of row objects. The rehearsal validates primary keys, required fields, enums, positive transaction amounts, non-negative AI request counts, family/member references, unknown worksheets, row counts, and deterministic SHA-256 digests of canonical rows. The report contains only worksheet names, counts, digests, and issue codes; it does not print row values. The command does not connect to Google, Supabase, or production and does not perform a cutover.
 
+After a healthy rehearsal, an operator may create a local import plan from the same sanitized snapshot:
+
+```bash
+npm run prepare:supabase-import -- --input /path/to/sanitized-registry-snapshot.json --output /path/to/local-import-plan.json --local-only
+```
+
+The `--local-only` confirmation is mandatory. This command only projects validated rows into foreign-key-safe, idempotent upsert batches; it does not execute SQL, contact Supabase, or change any deployment configuration. The resulting plan may contain snapshot values and must remain in the operator's protected local workspace.
+
 The intended future cutover remains non-destructive: export a controlled snapshot, rehearse and reconcile it locally, import with idempotent upserts into a locked Supabase schema, compare counts and canonical digests, freeze writes for a final delta, then switch the repository backend flag. Google Sheets must remain available as a read-only rollback source until the Supabase path is production-validated.
 
 ### Members
