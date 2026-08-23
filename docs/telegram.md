@@ -135,3 +135,10 @@ Category summaries are now available as a read-only Mini App Dashboard visualiza
 The text parser detects Groq Compound model IDs such as `groq/compound-mini` and sends JSON Object Mode instead of strict JSON Schema Mode. Groq documents strict Structured Outputs only for selected GPT-OSS models; other models should use JSON Object Mode and still pass the result through Falancé server-side schema validation. The recommended strict Groq model for this parser is `openai/gpt-oss-20b`, while `groq/compound-mini` remains usable with best-effort JSON parsing.
 
 The Mini App security policy permits the official Telegram Web origins `web.telegram.org`, `webk.telegram.org`, and `webz.telegram.org` as frame ancestors. `X-Frame-Options` is intentionally omitted because its `DENY` value conflicts with Telegram Web embedding. The policy still blocks arbitrary embedding, disables browser capabilities not required by Falancé, and keeps API responses non-cacheable.
+
+
+## AI provider separation
+
+Text parsing and receipt vision parsing support dedicated server-only provider settings. Text uses `FALANCE_AI_TEXT_API_BASE`, `FALANCE_AI_TEXT_API_KEY`, and `FALANCE_AI_TEXT_MODEL`; vision uses `FALANCE_AI_VISION_API_BASE`, `FALANCE_AI_VISION_API_KEY`, and `FALANCE_AI_VISION_MODEL`. Dedicated base and key values override the shared legacy `FALANCE_AI_API_BASE` and `FALANCE_AI_API_KEY` settings. Text also falls back to the legacy `FALANCE_AI_MODEL` before its default model, while vision still requires an explicit vision model.
+
+Each provider response remains draft-only and is validated by Falancé before any approval or persistence. Provider credentials, prompts, raw images, and responses remain server-only. A provider fallback is not enabled implicitly by this configuration split; if introduced later, it must be limited to one secondary attempt for classified transient failures and must return through the same schema validation and user approval boundary.

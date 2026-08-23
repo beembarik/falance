@@ -12,6 +12,8 @@ const originalFetch = globalThis.fetch;
 const originalBase = process.env.FALANCE_AI_API_BASE;
 const originalKey = process.env.FALANCE_AI_API_KEY;
 const originalVisionModel = process.env.FALANCE_AI_VISION_MODEL;
+const originalVisionBase = process.env.FALANCE_AI_VISION_API_BASE;
+const originalVisionKey = process.env.FALANCE_AI_VISION_API_KEY;
 
 const image: TelegramDownloadedImage = {
   data: new Uint8Array([1, 2, 3]),
@@ -24,6 +26,38 @@ test.afterEach(() => {
   restoreEnv("FALANCE_AI_API_BASE", originalBase);
   restoreEnv("FALANCE_AI_API_KEY", originalKey);
   restoreEnv("FALANCE_AI_VISION_MODEL", originalVisionModel);
+  restoreEnv("FALANCE_AI_VISION_API_BASE", originalVisionBase);
+  restoreEnv("FALANCE_AI_VISION_API_KEY", originalVisionKey);
+});
+
+test("prefers dedicated vision provider configuration over shared legacy configuration", async () => {
+  configureProvider();
+  process.env.FALANCE_AI_VISION_API_BASE = "https://vision.example.test/v1";
+  process.env.FALANCE_AI_VISION_API_KEY = "vision-key";
+  let requestUrl = "";
+  const captured = { requestBody: null as Record<string, unknown> | null };
+  globalThis.fetch = async (input, init) => {
+    requestUrl = String(input);
+    captured.requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        transaction_type: "EXPENSE",
+        amount_minor: 45000,
+        currency: "IDR",
+        transaction_date: "2026-08-20",
+        description: "Makan siang",
+        category_suggestion: null,
+        description_suggestion: null,
+        confidence: "HIGH",
+      }) } }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  const result = await new OpenAICompatibleReceiptParser().parse(image, null, "2026-08-20");
+
+  assert.equal(result.kind, "READY");
+  assert.equal(requestUrl, "https://vision.example.test/v1/chat/completions");
+  assert.equal(captured.requestBody?.model, "vision-test-model");
 });
 
 test("extracts a receipt into the shared transaction draft shape", async () => {

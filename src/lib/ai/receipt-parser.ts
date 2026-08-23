@@ -8,6 +8,7 @@ import {
 } from "./transaction-text-parser";
 import type { TelegramDownloadedImage } from "../telegram/client";
 import { logDuration } from "../observability/timing";
+import { getAiProviderConfig } from "./provider-config";
 
 export class ReceiptParserUnavailableError extends Error {}
 
@@ -65,9 +66,10 @@ export class OpenAICompatibleReceiptParser implements ReceiptParser {
     caption: string | null,
     today: string,
   ): Promise<TransactionTextParseResult> {
-    const baseUrl = process.env.FALANCE_AI_API_BASE?.trim().replace(/\/+$/, "");
-    const apiKey = process.env.FALANCE_AI_API_KEY?.trim();
-    const model = process.env.FALANCE_AI_VISION_MODEL?.trim();
+    const provider = getAiProviderConfig("vision");
+    const baseUrl = provider.apiBase?.replace(/\/+$/, "");
+    const apiKey = provider.apiKey;
+    const model = provider.model;
     if (!baseUrl || !apiKey || !model) {
       throw new ReceiptParserUnavailableError("Receipt parser is not configured.");
     }

@@ -2,6 +2,7 @@ import type { CreateTransactionInput } from "../family/service";
 import type { TransactionType } from "../family/types";
 import { TransactionError, validateTransactionInput } from "../family/service";
 import { logDuration } from "../observability/timing";
+import { getAiProviderConfig } from "./provider-config";
 
 export type TransactionDraftConfidence = "HIGH" | "MEDIUM" | "LOW";
 
@@ -85,9 +86,10 @@ export function createTransactionTextParser(): TransactionTextParser {
 
 export class OpenAICompatibleTransactionTextParser implements TransactionTextParser {
   async parse(text: string, today: string): Promise<TransactionTextParseResult> {
-    const baseUrl = process.env.FALANCE_AI_API_BASE?.trim().replace(/\/+$/, "");
-    const apiKey = process.env.FALANCE_AI_API_KEY?.trim();
-    const model = process.env.FALANCE_AI_MODEL?.trim() || "gpt-5-mini";
+    const provider = getAiProviderConfig("text");
+    const baseUrl = provider.apiBase?.replace(/\/+$/, "");
+    const apiKey = provider.apiKey;
+    const model = provider.model || "gpt-5-mini";
     if (!baseUrl || !apiKey) {
       throw new TransactionTextParserUnavailableError("AI transaction parser is not configured.");
     }

@@ -11,12 +11,18 @@ const originalFetch = globalThis.fetch;
 const originalBase = process.env.FALANCE_AI_API_BASE;
 const originalKey = process.env.FALANCE_AI_API_KEY;
 const originalModel = process.env.FALANCE_AI_MODEL;
+const originalTextBase = process.env.FALANCE_AI_TEXT_API_BASE;
+const originalTextKey = process.env.FALANCE_AI_TEXT_API_KEY;
+const originalTextModel = process.env.FALANCE_AI_TEXT_MODEL;
 
 test.afterEach(() => {
   globalThis.fetch = originalFetch;
   restoreEnv("FALANCE_AI_API_BASE", originalBase);
   restoreEnv("FALANCE_AI_API_KEY", originalKey);
   restoreEnv("FALANCE_AI_MODEL", originalModel);
+  restoreEnv("FALANCE_AI_TEXT_API_BASE", originalTextBase);
+  restoreEnv("FALANCE_AI_TEXT_API_KEY", originalTextKey);
+  restoreEnv("FALANCE_AI_TEXT_MODEL", originalTextModel);
 });
 
 test("uses JSON Object Mode for Groq Compound models", async () => {
@@ -44,6 +50,37 @@ test("uses JSON Object Mode for Groq Compound models", async () => {
 
   assert.equal(result.kind, "READY");
   assert.deepEqual(captured.requestBody?.response_format, { type: "json_object" });
+});
+
+test("prefers dedicated text provider configuration over shared legacy configuration", async () => {
+  configureProvider();
+  process.env.FALANCE_AI_TEXT_API_BASE = "https://text.example.test/v1";
+  process.env.FALANCE_AI_TEXT_API_KEY = "text-key";
+  process.env.FALANCE_AI_TEXT_MODEL = "text-model";
+  let requestUrl = "";
+  const captured = { requestBody: null as Record<string, unknown> | null };
+  globalThis.fetch = async (input, init) => {
+    requestUrl = String(input);
+    captured.requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        transaction_type: "EXPENSE",
+        amount_minor: 35000,
+        currency: "IDR",
+        transaction_date: "2026-08-19",
+        description: "Beli susu",
+        category_suggestion: null,
+        description_suggestion: null,
+        confidence: "HIGH",
+      }) } }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  const result = await new OpenAICompatibleTransactionTextParser().parse("beli susu 35 ribu", "2026-08-20");
+
+  assert.equal(result.kind, "READY");
+  assert.equal(requestUrl, "https://text.example.test/v1/chat/completions");
+  assert.equal(captured.requestBody?.model, "text-model");
 });
 
 test("normalizes a structured provider extraction into a ready transaction draft", async () => {

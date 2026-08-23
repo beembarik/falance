@@ -1,6 +1,28 @@
 # Changelog
 All notable changes to Falancé are documented in this file.
 
+## [0.7.8] — 2026-08-23
+
+### Added
+
+- Added dedicated server-only AI provider configuration for text parsing and receipt vision through `FALANCE_AI_TEXT_*` and `FALANCE_AI_VISION_*` variables.
+- Preserved compatibility with the shared legacy `FALANCE_AI_API_BASE`, `FALANCE_AI_API_KEY`, `FALANCE_AI_MODEL`, and `FALANCE_AI_VISION_MODEL` variables.
+- Added regression coverage proving dedicated text and vision provider settings override matching shared settings.
+
+### Security and behavior
+
+- AI output remains draft-only and continues through deterministic server-side validation and explicit user approval.
+- Automatic multi-provider fallback is not enabled by this release; quota, retry, fallback, and usage controls remain Milestone 11 scope.
+
+### Verification
+
+- `npm run lint` passes.
+- `npm run build` passes.
+- `npm test` passes with 210 tests.
+- `git diff --check` passes.
+
+[0.7.8]: https://github.com/beembarik/falance/releases/tag/v0.7.8
+
 ## [0.7.7] — 2026-08-23
 
 ### Fixed
