@@ -274,7 +274,7 @@ Supabase is the planned future storage implementation, not an immediate replacem
 - [x] Supabase schema preserving mandatory `family_id` tenant boundaries and soft-state semantics
 - [x] Supabase repository implementing the existing business-facing repository contract behind a server-side client seam; live write contract execution passed on the dedicated Supabase test project
 - [x] Migration tooling, sanitized data validation, and reconciliation rehearsal from the central registry
-- [ ] Staged dual-read or shadow verification without changing Telegram authorization behavior
+- [x] Staged dual-read/shadow-read wrapper implemented with Google Sheets as authoritative primary; observation-window validation remains pending
 - [ ] Cutover, rollback, backup, and recovery procedure
 - [ ] Production verification that Telegram commands, drafts, receipts, reports, and audit behavior remain compatible
 - [ ] Explicit deprecation plan for Google Sheets only after migration acceptance

@@ -56,6 +56,10 @@ The `--local-only` confirmation is mandatory. This command only projects validat
 
 The intended future cutover remains non-destructive: export a controlled snapshot, rehearse and reconcile it locally, import with idempotent upserts into a locked Supabase schema, compare counts and canonical digests, freeze writes for a final delta, then switch the repository backend flag. Google Sheets must remain available as a read-only rollback source until the Supabase path is production-validated.
 
+### Shadow-read validation
+
+Shadow-read mode is opt-in through `FALANCE_SHADOW_READS=true`, `FALANCE_SHADOW_SUPABASE_URL`, and the server-only `FALANCE_SHADOW_SUPABASE_SERVICE_ROLE_KEY`. It is valid only when `FALANCE_PERSISTENCE_BACKEND` remains `google-sheets`: Google Sheets is the authoritative primary repository, while the Supabase read adapter is a secondary comparator. Read methods return the Google result immediately and compare the Supabase result asynchronously; a secondary timeout, malformed response, or mismatch never changes the user response or authorization decision. Diagnostics contain only the operation label and short SHA-256 digests, never family IDs, Telegram IDs, row values, credentials, or provider responses. All write and claim methods are delegated only to Google Sheets, so shadow mode is not dual-write and cannot migrate data by itself. Disable the flag after the observation window and review mismatch/secondary-failure counts before any cutover decision.
+
 ### Supabase atomic operations
 
 Migration `0002_atomic_operations.sql` defines server-side atomic primitives for the cross-instance race-sensitive paths: Telegram `update_id` claims, draft approval claims, one-time invitation consumption, and independent text/vision AI quota claims. Each function performs its read-and-condition-and-write sequence in one PostgreSQL transaction; claim rows are locked with `FOR UPDATE`, while stale leases may be reclaimed and completed claims remain terminal. The AI function preserves the existing cooldown, rolling-window, and lease semantics and counts every claimed attempt, including provider failures.
