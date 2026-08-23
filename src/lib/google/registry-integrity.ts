@@ -79,6 +79,7 @@ export async function inspectRegistryIntegrity(
   validateTransactions(rowsBySheet.get("Transactions") ?? [], rowsBySheet.get("Families") ?? [], rowsBySheet.get("Members") ?? [], issues);
   validateProcessedUpdates(rowsBySheet.get("Processed Telegram Updates") ?? [], issues);
   validateVisionUsage(rowsBySheet.get("AI Vision Usage") ?? [], rowsBySheet.get("Families") ?? [], rowsBySheet.get("Members") ?? [], issues);
+  validateAiUsage("AI Text Usage", rowsBySheet.get("AI Text Usage") ?? [], rowsBySheet.get("Families") ?? [], rowsBySheet.get("Members") ?? [], issues);
   validateDraftApprovalClaims(
     rowsBySheet.get("Draft Approval Claims") ?? [],
     rowsBySheet.get("Families") ?? [],
@@ -212,16 +213,26 @@ function validateProcessedUpdates(rows: string[][], issues: RegistryIntegrityIss
 }
 
 function validateVisionUsage(rows: string[][], familyRows: string[][], memberRows: string[][], issues: RegistryIntegrityIssue[]): void {
+  validateAiUsage("AI Vision Usage", rows, familyRows, memberRows, issues);
+}
+
+function validateAiUsage(
+  sheetName: string,
+  rows: string[][],
+  familyRows: string[][],
+  memberRows: string[][],
+  issues: RegistryIntegrityIssue[],
+): void {
   const familyIds = new Set(familyRows.map((row) => row[0]).filter(Boolean));
   const members = new Set(memberRows.filter((row) => row[1]).map((row) => `${row[1]}:${row[2]}`));
   const ids = new Set<string>();
-  forEachRow("AI Vision Usage", rows, (row, rowNumber) => {
-    required("AI Vision Usage", row, rowNumber, [0, 1, 2, 3, 4, 5, 6, 7], issues);
-    unique("AI Vision Usage", row[0], ids, rowNumber, issues);
-    foreign("AI Vision Usage", rowNumber, "family_id", row[1], familyIds, issues);
-    if (!members.has(`${row[1]}:${row[2]}`)) issue(issues, "AI Vision Usage", rowNumber, "telegram_user_id", "ORPHAN_MEMBER");
-    if (!new Set(["IN_FLIGHT", "COMPLETED"]).has(row[7])) issue(issues, "AI Vision Usage", rowNumber, "status", "INVALID_ENUM");
-    if (!Number.isSafeInteger(Number(row[4])) || Number(row[4]) < 0) issue(issues, "AI Vision Usage", rowNumber, "request_count", "INVALID_COUNT");
+  forEachRow(sheetName, rows, (row, rowNumber) => {
+    required(sheetName, row, rowNumber, [0, 1, 2, 3, 4, 5, 6, 7], issues);
+    unique(sheetName, row[0], ids, rowNumber, issues);
+    foreign(sheetName, rowNumber, "family_id", row[1], familyIds, issues);
+    if (!members.has(`${row[1]}:${row[2]}`)) issue(issues, sheetName, rowNumber, "telegram_user_id", "ORPHAN_MEMBER");
+    if (!new Set(["IN_FLIGHT", "COMPLETED"]).has(row[7])) issue(issues, sheetName, rowNumber, "status", "INVALID_ENUM");
+    if (!Number.isSafeInteger(Number(row[4])) || Number(row[4]) < 0) issue(issues, sheetName, rowNumber, "request_count", "INVALID_COUNT");
   });
 }
 

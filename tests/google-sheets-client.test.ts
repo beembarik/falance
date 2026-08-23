@@ -177,6 +177,7 @@ test("reports registry foreign references without exposing row values", async ()
     Transactions: ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status", "category"],
     "Processed Telegram Updates": ["update_id", "claimed_at", "completed_at", "status"],
     "AI Vision Usage": ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"],
+    "AI Text Usage": ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"],
     "Draft Approval Claims": ["draft_id", "telegram_user_id", "family_id", "transaction_id", "claimed_at", "completed_at", "lease_until", "status"],
   };
   const values: Record<string, string[][]> = Object.fromEntries(Object.entries(headers).map(([name, header]) => [name, [header]]));
@@ -255,6 +256,7 @@ test("initializes the single central registry without Drive or spreadsheet creat
       ["audit_id", "family_id", "actor_member_id", "actor_role", "action", "target_type", "target_id", "previous_value", "new_value", "created_at"],
       ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status", "category"],
       ["update_id", "claimed_at", "completed_at", "status"],
+      ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"],
       ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"],
       ["draft_id", "telegram_user_id", "family_id", "transaction_id", "claimed_at", "completed_at", "lease_until", "status"],
     ]);
@@ -785,6 +787,66 @@ test("enforces durable AI vision cooldown, lease, and rolling-window quota", asy
     assert.equal(await repository.claimReceiptVision("fam_1", "100", afterCooldown, 30_000, 3_600_000, 2, 60_000), true);
     await repository.completeReceiptVision("fam_1", "100", "2026-08-21T00:00:32.000Z");
     assert.equal(await repository.claimReceiptVision("fam_1", "100", "2026-08-21T00:01:03.000Z", 30_000, 3_600_000, 2, 60_000), false);
+  } finally {
+    restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
+  }
+});
+
+
+test("enforces durable AI text cooldown, lease, and rolling-window quota", async () => {
+  const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
+  process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";
+  const header = ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"];
+  const values: string[][] = [header];
+  const fakeClient = {
+    ensureRegistry: async () => {},
+    getValues: async (_spreadsheetId: string, range: string) => range.startsWith("AI Text Usage") ? values : [],
+    appendRows: async (_spreadsheetId: string, _sheet: string, rows: string[][]) => values.push(...rows),
+    updateValues: async (_spreadsheetId: string, range: string, rows: readonly (readonly string[])[]) => {
+      const rowIndex = Number(range.match(/!A(\d+)/)?.[1] ?? "0") - 1;
+      values[rowIndex] = [...rows[0]];
+    },
+  } as unknown as GoogleSheetsClient;
+  const repository = new GoogleSheetsFamilyRepository(fakeClient);
+  const first = "2026-08-21T00:00:00.000Z";
+  const tooSoon = "2026-08-21T00:00:00.001Z";
+  const afterCooldown = "2026-08-21T00:00:06.000Z";
+
+  try {
+    assert.equal(await repository.claimTextUsage("fam_1", "100", first, 5_000, 3_600_000, 2, 60_000), true);
+    assert.equal(await repository.claimTextUsage("fam_1", "100", tooSoon, 5_000, 3_600_000, 2, 60_000), false);
+    await repository.completeTextUsage("fam_1", "100", "2026-08-21T00:00:02.000Z");
+    assert.equal(await repository.claimTextUsage("fam_1", "100", afterCooldown, 5_000, 3_600_000, 2, 60_000), true);
+    await repository.completeTextUsage("fam_1", "100", "2026-08-21T00:00:07.000Z");
+    assert.equal(await repository.claimTextUsage("fam_1", "100", "2026-08-21T00:00:12.000Z", 5_000, 3_600_000, 2, 60_000), false);
+    assert.equal(values[1]?.[7], "COMPLETED");
+  } finally {
+    restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
+  }
+});
+
+
+
+test("isolates AI text usage by server-resolved family and user key", async () => {
+  const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
+  process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";
+  const values: string[][] = [["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"]];
+  const fakeClient = {
+    ensureRegistry: async () => {},
+    getValues: async (_spreadsheetId: string, range: string) => range.startsWith("AI Text Usage") ? values : [],
+    appendRows: async (_spreadsheetId: string, _sheet: string, rows: string[][]) => values.push(...rows),
+    updateValues: async (_spreadsheetId: string, range: string, rows: readonly (readonly string[])[]) => {
+      const rowIndex = Number(range.match(/!A(\d+)/)?.[1] ?? "0") - 1;
+      values[rowIndex] = [...rows[0]];
+    },
+  } as unknown as GoogleSheetsClient;
+  const repository = new GoogleSheetsFamilyRepository(fakeClient);
+
+  try {
+    assert.equal(await repository.claimTextUsage("fam_1", "user_1", "2026-08-21T00:00:00.000Z", 5_000, 3_600_000, 1, 60_000), true);
+    assert.equal(await repository.claimTextUsage("fam_1", "user_2", "2026-08-21T00:00:00.000Z", 5_000, 3_600_000, 1, 60_000), true);
+    assert.equal(await repository.claimTextUsage("fam_2", "user_1", "2026-08-21T00:00:00.000Z", 5_000, 3_600_000, 1, 60_000), true);
+    assert.deepEqual(values.slice(1).map((row) => row[0]).sort(), ["fam_1:user_1", "fam_1:user_2", "fam_2:user_1"]);
   } finally {
     restoreEnvironment("GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID", originalRegistryId);
   }

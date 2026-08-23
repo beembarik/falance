@@ -14,6 +14,7 @@ import type { AuditLogEntry, DraftApprovalClaim, Family, FamilyMember, Invitatio
 const sharedGoogleSheetsClient = new GoogleSheetsClient();
 const telegramUpdateClaimLocks = new Map<string, Promise<boolean>>();
 const receiptVisionClaimLocks = new Map<string, Promise<boolean>>();
+const textUsageClaimLocks = new Map<string, Promise<boolean>>();
 const draftApprovalClaimLocks = new Map<string, Promise<boolean>>();
 const TELEGRAM_UPDATE_CLAIM_LEASE_MS = 5 * 60 * 1000;
 
@@ -426,6 +427,46 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     ]], "completeReceiptVision");
   }
 
+  async claimTextUsage(
+    familyId: string,
+    telegramUserId: string,
+    claimedAt: string,
+    cooldownMs: number,
+    windowMs: number,
+    maxRequests: number,
+    leaseMs: number,
+  ): Promise<boolean> {
+    const lockKey = `${this.registryId()}:${familyId}:${telegramUserId}`;
+    const previous = textUsageClaimLocks.get(lockKey) ?? Promise.resolve(false);
+    const claim = previous.catch(() => false).then(() => this.claimTextUsageWithoutLock(
+      familyId,
+      telegramUserId,
+      claimedAt,
+      cooldownMs,
+      windowMs,
+      maxRequests,
+      leaseMs,
+    ));
+    const trackedClaim = claim.finally(() => {
+      if (textUsageClaimLocks.get(lockKey) === trackedClaim) textUsageClaimLocks.delete(lockKey);
+    });
+    textUsageClaimLocks.set(lockKey, trackedClaim);
+    return trackedClaim;
+  }
+
+  async completeTextUsage(familyId: string, telegramUserId: string, completedAt: string): Promise<void> {
+    void completedAt;
+    const rows = await this.rows("AI Text Usage", "completeTextUsage");
+    const usageKey = `${familyId}:${telegramUserId}`;
+    const index = rows.findIndex((row) => row[0] === usageKey);
+    if (index < 0) throw new GoogleConfigurationError("AI text usage record is missing.");
+    const row = rows[index];
+    if (row[7] === "COMPLETED" && !row[6]) return;
+    await this.client.updateValues(this.registryId(), `AI Text Usage!A${index + 2}`, [[
+      ...row.slice(0, 6), "", "COMPLETED",
+    ]], "completeTextUsage");
+  }
+
   private async claimDraftApprovalWithoutLock(
     draftId: string,
     telegramUserId: string,
@@ -454,6 +495,61 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     await this.client.updateValues(this.registryId(), `Draft Approval Claims!A${index + 2}`, [[
       draftId, telegramUserId, familyId, transactionId, claimedAt, "", leaseUntil, "CLAIMED",
     ]], "claimDraftApproval");
+    return true;
+  }
+
+  private async claimTextUsageWithoutLock(
+    familyId: string,
+    telegramUserId: string,
+    claimedAt: string,
+    cooldownMs: number,
+    windowMs: number,
+    maxRequests: number,
+    leaseMs: number,
+  ): Promise<boolean> {
+    const rows = await this.rows("AI Text Usage", "claimTextUsage");
+    const usageKey = `${familyId}:${telegramUserId}`;
+    const index = rows.findIndex((row) => row[0] === usageKey);
+    const claimedAtMs = Date.parse(claimedAt);
+    if (Number.isNaN(claimedAtMs)) return false;
+    const leaseUntil = new Date(claimedAtMs + leaseMs).toISOString();
+    if (index < 0) {
+      await this.append("AI Text Usage", [
+        usageKey,
+        familyId,
+        telegramUserId,
+        claimedAt,
+        "1",
+        claimedAt,
+        leaseUntil,
+        "IN_FLIGHT",
+      ], "claimTextUsage");
+      return true;
+    }
+
+    const row = rows[index];
+    const previousLeaseMs = Date.parse(row[6]);
+    if (!Number.isNaN(previousLeaseMs) && previousLeaseMs > claimedAtMs) return false;
+
+    const previousClaimMs = Date.parse(row[5]);
+    if (!Number.isNaN(previousClaimMs) && claimedAtMs - previousClaimMs < cooldownMs) return false;
+
+    const previousWindowMs = Date.parse(row[3]);
+    const previousCount = Number(row[4]);
+    const windowActive = !Number.isNaN(previousWindowMs) && claimedAtMs - previousWindowMs < windowMs;
+    const requestCount = windowActive ? previousCount + 1 : 1;
+    if (windowActive && (!Number.isSafeInteger(previousCount) || requestCount > maxRequests)) return false;
+
+    await this.client.updateValues(this.registryId(), `AI Text Usage!A${index + 2}`, [[
+      usageKey,
+      familyId,
+      telegramUserId,
+      windowActive ? row[3] : claimedAt,
+      String(requestCount),
+      claimedAt,
+      leaseUntil,
+      "IN_FLIGHT",
+    ]], "claimTextUsage");
     return true;
   }
 

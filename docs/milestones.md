@@ -227,17 +227,25 @@ Milestone 10 is complete only when the core Mini App screens have loading, empty
 
 ## Milestone 11 — AI Usage, Quota, and Provider Reliability
 
-Status: PLANNED — PRIORITAS P2 sebelum scaling AI atau monetisasi
+Status: IN PROGRESS — SLICE 1 IMPLEMENTED LOCALLY; VALIDATION PRODUCTION PENDING
 
 The text parser and receipt parser continue to use separate text and vision model configuration. This milestone adds operational controls without allowing AI to determine identity, authorization, `family_id`, or transaction status.
 
-- [ ] Server-side AI usage tracking by user and family with privacy-safe aggregation
-- [ ] Configurable quotas and rate limits for text and vision workloads
+- [x] Server-side AI usage tracking by user and family with privacy-safe operational metadata
+- [x] Configurable quotas and rate limits for text and vision workloads
 - [ ] Provider timeout, retry, fallback, and degraded-mode behavior
 - [ ] Cost and token observability without logging prompts, credentials, or sensitive receipt content
-- [ ] Clear Indonesian user feedback for quota exhaustion and provider unavailability
-- [ ] Tests proving quota isolation, provider failure safety, and no duplicate persistence
+- [x] Clear Indonesian user feedback for quota exhaustion
+- [x] Tests proving text quota isolation, claim denial before provider invocation, completion after provider failure, and no duplicate persistence
 - [ ] Optional authorized AI report insights after deterministic reports are stable
+
+### M11 Slice 1 — Privacy-safe AI text usage and quota
+
+Slice 1 adds a separate `AI Text Usage` worksheet to the single central registry. Existing `AI Vision Usage` rows are not migrated, deleted, or rewritten. Both worksheets use operational claim fields only: `usage_key`, server-resolved `family_id`, server-resolved Telegram user key, window timestamps, request count, lease, and `IN_FLIGHT`/`COMPLETED` state. Prompt, raw response, token count, receipt bytes, API key, family name, and display name are outside the schema and logging boundary.
+
+Natural-language text parsing claims a quota slot before the provider call and completes the claim in `finally`, including parser/provider failure. A claim counts as an attempt, not only a successful parse, so provider outages cannot create an uncontrolled retry loop. The default text policy is a five-second cooldown, thirty claims per one-hour rolling window, and a sixty-second in-flight lease; all values are server-only environment configuration. `/addincome` and `/addexpense` bypass AI text quota because they do not invoke AI.
+
+Family and user isolation is enforced by `FamilyService` resolving active membership and by repository keys formed from the resolved family/user combination. Warm-instance keyed locks reduce same-instance races. Google Sheets still lacks compare-and-swap for the read-then-update path, so cross-instance quota atomicity remains a pre-public-beta hardening item. Provider error classification, one-level transient fallback, and degraded-mode messaging are intentionally deferred to later M11 slices.
 
 ## Milestone 12 — Supabase Migration
 

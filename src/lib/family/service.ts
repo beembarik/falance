@@ -30,6 +30,10 @@ const DEFAULT_RECEIPT_VISION_COOLDOWN_SECONDS = 30;
 const DEFAULT_RECEIPT_VISION_WINDOW_SECONDS = 3_600;
 const DEFAULT_RECEIPT_VISION_MAX_REQUESTS = 5;
 const DEFAULT_RECEIPT_VISION_LEASE_SECONDS = 60;
+const DEFAULT_AI_TEXT_COOLDOWN_SECONDS = 5;
+const DEFAULT_AI_TEXT_WINDOW_SECONDS = 3_600;
+const DEFAULT_AI_TEXT_MAX_REQUESTS = 30;
+const DEFAULT_AI_TEXT_LEASE_SECONDS = 60;
 const DEFAULT_DRAFT_APPROVAL_LEASE_MS = 60 * 1000;
 
 export interface CreateTransactionInput {
@@ -60,6 +64,11 @@ export interface ConfirmationResult {
 }
 
 export interface ReceiptVisionClaim {
+  familyId: string;
+  telegramUserId: string;
+}
+
+export interface AiTextUsageClaim {
   familyId: string;
   telegramUserId: string;
 }
@@ -114,6 +123,24 @@ export class FamilyService {
 
   async completeReceiptVision(claim: ReceiptVisionClaim): Promise<void> {
     await this.repository.completeReceiptVision(claim.familyId, claim.telegramUserId, new Date().toISOString());
+  }
+
+  async claimAiTextUsage(user: TelegramUser): Promise<AiTextUsageClaim | null> {
+    const member = await this.requireActiveMember(user.telegramUserId);
+    const claimed = await this.repository.claimTextUsage(
+      member.familyId,
+      user.telegramUserId,
+      new Date().toISOString(),
+      getAiTextCooldownSeconds() * 1000,
+      getAiTextWindowSeconds() * 1000,
+      getAiTextMaxRequests(),
+      getAiTextLeaseSeconds() * 1000,
+    );
+    return claimed ? { familyId: member.familyId, telegramUserId: user.telegramUserId } : null;
+  }
+
+  async completeAiTextUsage(claim: AiTextUsageClaim): Promise<void> {
+    await this.repository.completeTextUsage(claim.familyId, claim.telegramUserId, new Date().toISOString());
   }
 
   async beginFamilyCreation(user: TelegramUser): Promise<void> {
@@ -1031,6 +1058,22 @@ function getReceiptVisionMaxRequests(): number {
 
 function getReceiptVisionLeaseSeconds(): number {
   return readPositiveIntegerEnv("FALANCE_RECEIPT_VISION_LEASE_SECONDS", DEFAULT_RECEIPT_VISION_LEASE_SECONDS);
+}
+
+function getAiTextCooldownSeconds(): number {
+  return readPositiveIntegerEnv("FALANCE_AI_TEXT_COOLDOWN_SECONDS", DEFAULT_AI_TEXT_COOLDOWN_SECONDS);
+}
+
+function getAiTextWindowSeconds(): number {
+  return readPositiveIntegerEnv("FALANCE_AI_TEXT_WINDOW_SECONDS", DEFAULT_AI_TEXT_WINDOW_SECONDS);
+}
+
+function getAiTextMaxRequests(): number {
+  return readPositiveIntegerEnv("FALANCE_AI_TEXT_MAX_REQUESTS", DEFAULT_AI_TEXT_MAX_REQUESTS);
+}
+
+function getAiTextLeaseSeconds(): number {
+  return readPositiveIntegerEnv("FALANCE_AI_TEXT_LEASE_SECONDS", DEFAULT_AI_TEXT_LEASE_SECONDS);
 }
 
 function readPositiveIntegerEnv(name: string, fallback: number): number {

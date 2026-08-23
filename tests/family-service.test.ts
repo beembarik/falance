@@ -995,6 +995,16 @@ class FakeFamilyRepository implements FamilyRepository {
     leaseUntil: string;
     status: "IN_FLIGHT" | "COMPLETED";
   }> = [];
+  textUsage: Array<{
+    usageKey: string;
+    familyId: string;
+    telegramUserId: string;
+    windowStartedAt: string;
+    requestCount: number;
+    lastClaimedAt: string;
+    leaseUntil: string;
+    status: "IN_FLIGHT" | "COMPLETED";
+  }> = [];
   failAuditLog = false;
   failMemberCreation = false;
   spreadsheetCreationCalls = 0;
@@ -1141,6 +1151,32 @@ class FakeFamilyRepository implements FamilyRepository {
     existing.leaseUntil = "";
     existing.status = "COMPLETED";
   }
+  async claimTextUsage(familyId: string, telegramUserId: string, claimedAt: string, cooldownMs: number, windowMs: number, maxRequests: number, leaseMs: number) {
+    const usageKey = `${familyId}:${telegramUserId}`;
+    const existing = this.textUsage.find((value) => value.usageKey === usageKey);
+    const claimedAtMs = Date.parse(claimedAt);
+    if (!existing) {
+      this.textUsage.push({ usageKey, familyId, telegramUserId, windowStartedAt: claimedAt, requestCount: 1, lastClaimedAt: claimedAt, leaseUntil: new Date(claimedAtMs + leaseMs).toISOString(), status: "IN_FLIGHT" });
+      return true;
+    }
+    if (Date.parse(existing.leaseUntil) > claimedAtMs) return false;
+    if (claimedAtMs - Date.parse(existing.lastClaimedAt) < cooldownMs) return false;
+    const windowActive = claimedAtMs - Date.parse(existing.windowStartedAt) < windowMs;
+    const requestCount = windowActive ? existing.requestCount + 1 : 1;
+    if (windowActive && requestCount > maxRequests) return false;
+    existing.windowStartedAt = windowActive ? existing.windowStartedAt : claimedAt;
+    existing.requestCount = requestCount;
+    existing.lastClaimedAt = claimedAt;
+    existing.leaseUntil = new Date(claimedAtMs + leaseMs).toISOString();
+    existing.status = "IN_FLIGHT";
+    return true;
+  }
+  async completeTextUsage(familyId: string, telegramUserId: string) {
+    const existing = this.textUsage.find((value) => value.usageKey === `${familyId}:${telegramUserId}`);
+    if (!existing) throw new Error("text usage missing");
+    existing.leaseUntil = "";
+    existing.status = "COMPLETED";
+  }
   async createPendingFamilyCreation(value: PendingFamilyCreation) {
     this.pending = this.pending.filter((pendingValue) => pendingValue.telegramUserId !== value.telegramUserId);
     this.pending.push({ ...value, status: "PENDING" });
@@ -1151,3 +1187,22 @@ class FakeFamilyRepository implements FamilyRepository {
     if (value) value.status = "COMPLETED";
   }
 }
+
+
+test("claims AI text usage against the server-resolved active family and user", async () => {
+  const repository = setupMember("OWNER");
+  const claim = await new FamilyService(repository).claimAiTextUsage(owner);
+
+  assert.deepEqual(claim, { familyId: "fam_1", telegramUserId: "100" });
+  assert.deepEqual(repository.textUsage.map((value) => ({ familyId: value.familyId, telegramUserId: value.telegramUserId, requestCount: value.requestCount, status: value.status })), [
+    { familyId: "fam_1", telegramUserId: "100", requestCount: 1, status: "IN_FLIGHT" },
+  ]);
+});
+
+test("does not create AI text usage for an unregistered user", async () => {
+  const repository = new FakeFamilyRepository();
+  const service = new FamilyService(repository);
+
+  await assert.rejects(service.claimAiTextUsage(owner), UnauthorizedError);
+  assert.equal(repository.textUsage.length, 0);
+});

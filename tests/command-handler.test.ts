@@ -538,6 +538,8 @@ function fakeService(overrides: Record<string, unknown>): FamilyService {
     cancelPendingConfirmation: async () => {},
     claimReceiptVision: async () => ({ familyId: "fam_1", telegramUserId: owner.telegramUserId }),
     completeReceiptVision: async () => {},
+    claimAiTextUsage: async () => ({ familyId: "fam_1", telegramUserId: owner.telegramUserId }),
+    completeAiTextUsage: async () => {},
     getActiveMembership: async () => ({
       memberId: "mem_100",
       familyId: "fam_1",
@@ -551,3 +553,55 @@ function fakeService(overrides: Record<string, unknown>): FamilyService {
     ...overrides,
   } as unknown as FamilyService;
 }
+
+
+test("denies natural-language parsing before invoking the parser when text quota is exhausted", async () => {
+  let parsed = false;
+  const service = fakeService({ claimAiTextUsage: async () => null });
+  const response = await handleTelegramTextMessage(
+    service,
+    owner,
+    "beli susu 35 ribu",
+    { parse: async () => { parsed = true; throw new Error("parser must not run"); } },
+  );
+
+  assert.equal(parsed, false);
+  assert.match(response, /Batas penggunaan AI text/);
+});
+
+test("completes a text usage claim when the parser fails", async () => {
+  let completed = false;
+  const service = fakeService({ completeAiTextUsage: async () => { completed = true; } });
+  const response = await handleTelegramTextMessage(
+    service,
+    owner,
+    "beli susu 35 ribu",
+    { parse: async () => { throw new Error("provider unavailable"); } },
+  );
+
+  assert.equal(completed, true);
+  assert.match(response, /gangguan saat memproses/);
+});
+
+test("does not claim AI text usage for a manual transaction command", async () => {
+  const transaction: Transaction = {
+    transactionId: "txn_manual_1",
+    familyId: "fam_1",
+    transactionType: "EXPENSE",
+    amountMinor: 35000,
+    currency: "IDR",
+    transactionDate: "2026-08-20",
+    description: "Beli susu",
+    createdByMemberId: "mem_100",
+    createdAt: "2026-08-20T00:00:00.000Z",
+    status: "ACTIVE",
+  };
+  const service = fakeService({
+    claimAiTextUsage: async () => { throw new Error("manual commands must bypass AI quota"); },
+    createTransaction: async () => transaction,
+  });
+
+  const response = await handleTelegramTextMessage(service, owner, "/addexpense 35000 2026-08-20 Beli susu");
+
+  assert.match(response, /berhasil dicatat/);
+});

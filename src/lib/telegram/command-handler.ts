@@ -271,22 +271,29 @@ export async function handleTelegramTextMessageResponse(
       return `✅ Keluarga ${family.familyName} berhasil dibuat. Kamu adalah OWNER keluarga ini.`;
     }
     if (!command.startsWith("/") && command !== "Y" && command !== "N") {
-      const parsed = await transactionTextParser.parse(command, getBusinessDate());
-      if (parsed.kind === "READY") {
-        const draft = await service.createPendingTransactionDraft(
-          user,
-          parsed.draft,
-          parsed.draft.confidence,
-          {
-            transactionDateInferred: parsed.draft.transactionDateInferred,
-            categorySuggestion: parsed.draft.categorySuggestion,
-            descriptionSuggestion: parsed.draft.descriptionSuggestion,
-          },
-        );
-        return { text: formatTransactionDraftMessage(draft), replyMarkup: formatDraftActionMarkup(draft.draftId, draft.status) };
+      const textUsageClaim = await service.claimAiTextUsage(user);
+      if (!textUsageClaim) return { text: "⏳ Batas penggunaan AI text sementara tercapai. Coba lagi beberapa saat lagi atau gunakan /addincome atau /addexpense." };
+
+      try {
+        const parsed = await transactionTextParser.parse(command, getBusinessDate());
+        if (parsed.kind === "READY") {
+          const draft = await service.createPendingTransactionDraft(
+            user,
+            parsed.draft,
+            parsed.draft.confidence,
+            {
+              transactionDateInferred: parsed.draft.transactionDateInferred,
+              categorySuggestion: parsed.draft.categorySuggestion,
+              descriptionSuggestion: parsed.draft.descriptionSuggestion,
+            },
+          );
+          return { text: formatTransactionDraftMessage(draft), replyMarkup: formatDraftActionMarkup(draft.draftId, draft.status) };
+        }
+        if (parsed.kind === "NEEDS_CLARIFICATION") return `🤔 ${parsed.question}`;
+        return `🤔 ${parsed.reason}`;
+      } finally {
+        await service.completeAiTextUsage(textUsageClaim).catch(() => undefined);
       }
-      if (parsed.kind === "NEEDS_CLARIFICATION") return `🤔 ${parsed.question}`;
-      return `🤔 ${parsed.reason}`;
     }
     return "Falancé sedang dalam pengembangan. Fitur pencatatan keuangan akan segera hadir.";
   } catch (error) {

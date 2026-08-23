@@ -70,4 +70,14 @@ export interface FamilyRepository {
     leaseMs: number,
   ): Promise<boolean>;
   completeReceiptVision(familyId: string, telegramUserId: string, completedAt: string): Promise<void>;
+  claimTextUsage(
+    familyId: string,
+    telegramUserId: string,
+    claimedAt: string,
+    cooldownMs: number,
+    windowMs: number,
+    maxRequests: number,
+    leaseMs: number,
+  ): Promise<boolean>;
+  completeTextUsage(familyId: string, telegramUserId: string, completedAt: string): Promise<void>;
 }
