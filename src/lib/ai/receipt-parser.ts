@@ -8,13 +8,9 @@ import {
 } from "./transaction-text-parser";
 import type { TelegramDownloadedImage } from "../telegram/client";
 import { logDuration } from "../observability/timing";
-import { getAiProviderConfig } from "./provider-config";
-import {
-  classifyProviderRequestError,
-  classifyProviderStatus,
-  providerFailureOutcome,
-  type AiProviderFailureDetails,
-} from "./provider-errors";
+import { getAiProviderConfig, getAiProviderFallbackConfig } from "./provider-config";
+import type { AiProviderFailureDetails } from "./provider-errors";
+import { requestWithOneLevelFallback } from "./provider-request";
 
 export class ReceiptParserUnavailableError extends Error {
   readonly details: AiProviderFailureDetails;
@@ -81,92 +77,77 @@ export class OpenAICompatibleReceiptParser implements ReceiptParser {
     today: string,
   ): Promise<TransactionTextParseResult> {
     const provider = getAiProviderConfig("vision");
+    const fallback = getAiProviderFallbackConfig("vision");
     const baseUrl = provider.apiBase?.replace(/\/+$/, "");
-    const apiKey = provider.apiKey;
-    const model = provider.model;
-    if (!baseUrl || !apiKey || !model) {
+    if (!baseUrl || !provider.apiKey || !provider.model) {
       throw new ReceiptParserUnavailableError("Receipt parser is not configured.", { kind: "not_configured" });
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15_000);
-    const providerStartedAt = performance.now();
-    let response: Response;
-    try {
-      response = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0,
-          max_completion_tokens: 700,
-          messages: [
-            {
-              role: "system",
-              content: [
-                "You extract one household finance transaction from a receipt image and optional Indonesian caption.",
-                "Return only the requested JSON object.",
-                "Never infer family_id, member identity, permissions, or transaction status.",
-                `Today is ${today}. Resolve a clearly printed relative date against this date; if the receipt date is missing or unreadable, return null.`,
-                "Read the final payable total, not a subtotal, tax-only value, discount-only value, or item quantity.",
-                "If the receipt is unreadable, ambiguous, or missing a required transaction field, return null for that field.",
-                `category_suggestion must be null or one of: ${TRANSACTION_CATEGORY_SUGGESTIONS.join(", ")}.`,
-                "description_suggestion is an optional concise Indonesian description; return null when the extracted description is already clear.",
-                "amount_minor is a positive integer in the smallest currency unit; for IDR, use whole rupiah.",
-              ].join(" "),
-            },
-            {
-              role: "user",
-              content: [
-                { type: "text", text: caption?.trim() || "Ekstrak transaksi dari receipt ini." },
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: `data:${image.mimeType};base64,${bytesToBase64(image.data)}`,
-                    detail: "high",
-                  },
-                },
-              ],
-            },
-          ],
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "receipt_transaction_extraction",
-              strict: true,
-              schema: RECEIPT_EXTRACTION_SCHEMA,
-            },
+    const request = await requestWithOneLevelFallback(
+      "vision",
+      provider,
+      fallback,
+      15_000,
+      (model) => ({
+        model,
+        temperature: 0,
+        max_completion_tokens: 700,
+        messages: [
+          {
+            role: "system",
+            content: [
+              "You extract one household finance transaction from a receipt image and optional Indonesian caption.",
+              "Return only the requested JSON object.",
+              "Never infer family_id, member identity, permissions, or transaction status.",
+              `Today is ${today}. Resolve a clearly printed relative date against this date; if the receipt date is missing or unreadable, return null.`,
+              "Read the final payable total, not a subtotal, tax-only value, discount-only value, or item quantity.",
+              "If the receipt is unreadable, ambiguous, or missing a required transaction field, return null for that field.",
+              `category_suggestion must be null or one of: ${TRANSACTION_CATEGORY_SUGGESTIONS.join(", ")}.`,
+              "description_suggestion is an optional concise Indonesian description; return null when the extracted description is already clear.",
+              "amount_minor is a positive integer in the smallest currency unit; for IDR, use whole rupiah.",
+            ].join(" "),
           },
-        }),
-        signal: controller.signal,
-      });
-    } catch (error) {
-      const details = classifyProviderRequestError(error);
-      logDuration("ai.vision.request", performance.now() - providerStartedAt, {
-        provider: providerHost(baseUrl),
-        outcome: providerFailureOutcome(details),
-      });
-      throw new ReceiptParserUnavailableError("Receipt parser request failed.", details);
-    } finally {
-      clearTimeout(timeout);
+          {
+            role: "user",
+            content: [
+              { type: "text", text: caption?.trim() || "Ekstrak transaksi dari receipt ini." },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${image.mimeType};base64,${bytesToBase64(image.data)}`,
+                  detail: "high",
+                },
+              },
+            ],
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "receipt_transaction_extraction",
+            strict: true,
+            schema: RECEIPT_EXTRACTION_SCHEMA,
+          },
+        },
+      }),
+    );
+    if (request.failure) {
+      throw new ReceiptParserUnavailableError("Receipt parser request failed.", request.failure);
     }
+    if (!request.response) {
+      throw new ReceiptParserUnavailableError("Receipt parser request failed.", { kind: "network" });
+    }
+    const response = request.response;
+    const responseBaseUrl = request.providerRole === "fallback"
+      ? fallback.apiBase?.replace(/\/+$/, "")
+      : baseUrl;
 
-    const responseFailure = response.ok ? null : classifyProviderStatus(response.status);
-    logDuration("ai.vision.request", performance.now() - providerStartedAt, {
-      provider: providerHost(baseUrl),
-      status: response.status,
-      outcome: responseFailure ? providerFailureOutcome(responseFailure) : "success",
-    });
-    if (responseFailure) throw new ReceiptParserUnavailableError("Receipt parser returned an error.", responseFailure);
     const responseParsingStartedAt = performance.now();
     const payload = await response.json().catch(() => null) as unknown;
     const content = getMessageContent(payload);
     if (!content) {
       logDuration("ai.vision.response", performance.now() - responseParsingStartedAt, {
-        provider: providerHost(baseUrl),
+        provider: providerHost(responseBaseUrl),
         outcome: "no_content",
       });
       throw new ReceiptParserUnavailableError("Receipt parser returned no content.", { kind: "invalid_response", status: response.status });
@@ -177,14 +158,14 @@ export class OpenAICompatibleReceiptParser implements ReceiptParser {
       parsed = JSON.parse(content) as unknown;
     } catch {
       logDuration("ai.vision.response", performance.now() - responseParsingStartedAt, {
-        provider: providerHost(baseUrl),
+        provider: providerHost(responseBaseUrl),
         outcome: "invalid_json",
       });
       throw new ReceiptParserUnavailableError("Receipt parser returned invalid JSON.", { kind: "invalid_response", status: response.status });
     }
     if (!isReceiptExtraction(parsed)) {
       logDuration("ai.vision.response", performance.now() - responseParsingStartedAt, {
-        provider: providerHost(baseUrl),
+        provider: providerHost(responseBaseUrl),
         outcome: "schema_invalid",
       });
       throw new ReceiptParserUnavailableError("Receipt parser returned an invalid schema.", { kind: "invalid_response", status: response.status });
@@ -192,7 +173,7 @@ export class OpenAICompatibleReceiptParser implements ReceiptParser {
 
     const result = normalizeReceiptExtraction(parsed, today);
     logDuration("ai.vision.response", performance.now() - responseParsingStartedAt, {
-      provider: providerHost(baseUrl),
+      provider: providerHost(responseBaseUrl),
       outcome: result.kind.toLowerCase(),
     });
     return result;
@@ -220,7 +201,8 @@ function isReceiptExtraction(value: unknown): value is ReceiptExtraction {
     && (descriptionSuggestion === null || typeof descriptionSuggestion === "string" || descriptionSuggestion === undefined);
 }
 
-function providerHost(baseUrl: string): string {
+function providerHost(baseUrl: string | undefined): string {
+  if (!baseUrl) return "unconfigured";
   try {
     return new URL(baseUrl).host || "unknown";
   } catch {

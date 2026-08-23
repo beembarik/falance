@@ -14,6 +14,9 @@ const originalKey = process.env.FALANCE_AI_API_KEY;
 const originalVisionModel = process.env.FALANCE_AI_VISION_MODEL;
 const originalVisionBase = process.env.FALANCE_AI_VISION_API_BASE;
 const originalVisionKey = process.env.FALANCE_AI_VISION_API_KEY;
+const originalVisionFallbackBase = process.env.FALANCE_AI_VISION_FALLBACK_API_BASE;
+const originalVisionFallbackKey = process.env.FALANCE_AI_VISION_FALLBACK_API_KEY;
+const originalVisionFallbackModel = process.env.FALANCE_AI_VISION_FALLBACK_MODEL;
 const originalTimingLogs = process.env.FALANCE_TIMING_LOGS;
 
 const image: TelegramDownloadedImage = {
@@ -29,6 +32,9 @@ test.afterEach(() => {
   restoreEnv("FALANCE_AI_VISION_MODEL", originalVisionModel);
   restoreEnv("FALANCE_AI_VISION_API_BASE", originalVisionBase);
   restoreEnv("FALANCE_AI_VISION_API_KEY", originalVisionKey);
+  restoreEnv("FALANCE_AI_VISION_FALLBACK_API_BASE", originalVisionFallbackBase);
+  restoreEnv("FALANCE_AI_VISION_FALLBACK_API_KEY", originalVisionFallbackKey);
+  restoreEnv("FALANCE_AI_VISION_FALLBACK_MODEL", originalVisionFallbackModel);
   restoreEnv("FALANCE_TIMING_LOGS", originalTimingLogs);
 });
 
@@ -199,3 +205,43 @@ async function captureFailure(action: () => Promise<unknown>): Promise<ReceiptPa
   }
   throw new Error("Expected parser failure");
 }
+
+
+test("uses one fallback vision provider after a transient primary failure", async () => {
+  configureProvider();
+  process.env.FALANCE_AI_VISION_FALLBACK_API_BASE = "https://vision-fallback.example.test/v1";
+  process.env.FALANCE_AI_VISION_FALLBACK_API_KEY = "vision-fallback-key";
+  process.env.FALANCE_AI_VISION_FALLBACK_MODEL = "vision-fallback-model";
+  const requestUrls: string[] = [];
+  const requestModels: string[] = [];
+  let calls = 0;
+  globalThis.fetch = async (input, init) => {
+    calls += 1;
+    requestUrls.push(String(input));
+    const body = JSON.parse(String(init?.body)) as { model: string };
+    requestModels.push(body.model);
+    if (calls === 1) return new Response("vision provider limited", { status: 429 });
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        transaction_type: "EXPENSE",
+        amount_minor: 45000,
+        currency: "IDR",
+        transaction_date: "2026-08-20",
+        description: "Makan siang",
+        category_suggestion: null,
+        description_suggestion: null,
+        confidence: "HIGH",
+      }) } }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  const result = await new OpenAICompatibleReceiptParser().parse(image, "Makan siang", "2026-08-20");
+
+  assert.equal(result.kind, "READY");
+  assert.equal(calls, 2);
+  assert.deepEqual(requestUrls, [
+    "https://ai.example.test/v1/chat/completions",
+    "https://vision-fallback.example.test/v1/chat/completions",
+  ]);
+  assert.deepEqual(requestModels, ["vision-test-model", "vision-fallback-model"]);
+});

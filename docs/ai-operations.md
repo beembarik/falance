@@ -1,6 +1,6 @@
 # Operasi AI Falancé
 
-Dokumen ini menjelaskan kontrol operasional AI pada Falancé. Kontrol ini berlaku untuk **AI text parser** dan **receipt vision parser**. M11 Slice 1 menambahkan tracking dan quota durable untuk workload text, sedangkan M11 Slice 2 menambahkan klasifikasi error provider dan outcome timing yang aman. Provider fallback otomatis, retry policy provider, dan degraded mode tetap menjadi slice berikutnya.
+Dokumen ini menjelaskan kontrol operasional AI pada Falancé. Kontrol ini berlaku untuk **AI text parser** dan **receipt vision parser**. M11 Slice 1 menambahkan tracking dan quota durable untuk workload text, M11 Slice 2 menambahkan klasifikasi error provider dan outcome timing yang aman, dan M11 Slice 3 menambahkan fallback provider satu tingkat untuk kegagalan transient. Retry policy provider yang lebih luas dan degraded mode tetap menjadi slice berikutnya.
 
 ## Prinsip keamanan
 
@@ -50,8 +50,16 @@ M11 Slice 2 membedakan kegagalan request provider menjadi `timeout`, `network`, 
 
 Klasifikasi hanya disimpan pada error object internal dan safe timing outcome. Pesan publik tetap generik dalam Bahasa Indonesia, dan detail error provider, response body, API key, prompt, receipt, serta transaction data tidak diteruskan ke user atau log.
 
-Request network exception yang memiliki `AbortError` diklasifikasikan sebagai timeout; exception lainnya diklasifikasikan sebagai network. Parser tetap melakukan tepat satu provider request pada Slice 2. Tidak ada automatic fallback atau retry tersembunyi.
+Request network exception yang memiliki `AbortError` diklasifikasikan sebagai timeout; exception lainnya diklasifikasikan sebagai network.
+
+## One-level fallback
+
+M11 Slice 3 menyediakan konfigurasi fallback terpisah untuk setiap workload. Fallback hanya digunakan bila seluruh trio base URL, API key, dan model tersedia, serta berbeda dari provider primary. Provider primary dicoba lebih dahulu. Fallback dapat dicoba **tepat satu kali** hanya bila primary gagal dengan `timeout`, `network`, `rate_limited`, atau `server_error`. Error `client_error`, `not_configured`, dan `invalid_response` tidak memicu fallback.
+
+Fallback tetap berada dalam satu invocation parser dan satu claim quota. Tidak ada provider loop, retry berulang, atau claim tambahan untuk fallback. Response fallback melewati parsing dan schema validation yang sama, lalu tetap menghasilkan draft yang harus melalui approval deterministik. Bila primary dan fallback sama-sama gagal, error terakhir dikembalikan sebagai error internal yang tetap dipetakan ke pesan publik generik.
+
+Konfigurasi fallback menggunakan `FALANCE_AI_TEXT_FALLBACK_API_BASE`, `FALANCE_AI_TEXT_FALLBACK_API_KEY`, `FALANCE_AI_TEXT_FALLBACK_MODEL` untuk text, serta prefix `FALANCE_AI_VISION_FALLBACK_*` untuk vision. Variable fallback bersifat server-only dan tidak boleh dikirim ke browser atau Telegram.
 
 ## Urutan pekerjaan M11 berikutnya
 
-Slice berikutnya boleh menambahkan satu constrained fallback attempt hanya untuk failure transient yang diklasifikasikan, yaitu timeout, network, rate limit, atau server error, tetap melalui schema validation dan draft approval. Multi-provider loop, silent fallback tanpa klasifikasi, retry tanpa budget, dan automatic persistence tidak diperbolehkan.
+Slice berikutnya menambahkan degraded-mode messaging yang jelas dalam Bahasa Indonesia dan runbook operasional berdasarkan klasifikasi error serta status quota. Multi-provider loop, silent fallback tanpa klasifikasi, retry tanpa budget, dan automatic persistence tidak diperbolehkan.

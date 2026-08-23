@@ -28,6 +28,13 @@ export function providerFailureOutcome(details: AiProviderFailureDetails): strin
   return details.kind;
 }
 
+export function isTransientProviderFailure(details: AiProviderFailureDetails): boolean {
+  return details.kind === "timeout"
+    || details.kind === "network"
+    || details.kind === "rate_limited"
+    || details.kind === "server_error";
+}
+
 function isAbortError(error: unknown): boolean {
   return typeof error === "object" && error !== null && "name" in error && error.name === "AbortError";
 }

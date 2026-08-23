@@ -2,13 +2,9 @@ import type { CreateTransactionInput } from "../family/service";
 import type { TransactionType } from "../family/types";
 import { TransactionError, validateTransactionInput } from "../family/service";
 import { logDuration } from "../observability/timing";
-import { getAiProviderConfig } from "./provider-config";
-import {
-  classifyProviderRequestError,
-  classifyProviderStatus,
-  providerFailureOutcome,
-  type AiProviderFailureDetails,
-} from "./provider-errors";
+import { getAiProviderConfig, getAiProviderFallbackConfig } from "./provider-config";
+import type { AiProviderFailureDetails } from "./provider-errors";
+import { requestWithOneLevelFallback } from "./provider-request";
 
 export type TransactionDraftConfidence = "HIGH" | "MEDIUM" | "LOW";
 
@@ -101,75 +97,57 @@ export function createTransactionTextParser(): TransactionTextParser {
 export class OpenAICompatibleTransactionTextParser implements TransactionTextParser {
   async parse(text: string, today: string): Promise<TransactionTextParseResult> {
     const provider = getAiProviderConfig("text");
+    const fallback = getAiProviderFallbackConfig("text");
     const baseUrl = provider.apiBase?.replace(/\/+$/, "");
-    const apiKey = provider.apiKey;
-    const model = provider.model || "gpt-5-mini";
-    if (!baseUrl || !apiKey) {
+    if (!baseUrl || !provider.apiKey || !provider.model) {
       throw new TransactionTextParserUnavailableError("AI transaction parser is not configured.", { kind: "not_configured" });
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
-    const providerStartedAt = performance.now();
-    let response: Response;
-    try {
-      response = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0,
-          max_completion_tokens: 500,
-          messages: [
-            {
-              role: "system",
-              content: [
-                "You extract one household finance transaction from Indonesian text.",
-                "Return only the requested JSON object.",
-                "Never infer family_id, member identity, permissions, or transaction status.",
-                `Today is ${today}. Resolve relative dates against this date.`,
-                "amount_minor is a positive integer in the smallest currency unit; for IDR, use whole rupiah.",
-                `category_suggestion must be null or one of: ${TRANSACTION_CATEGORY_SUGGESTIONS.join(", ")}.`,
-                "description_suggestion is an optional concise Indonesian description; return null when the original description is already clear.",
-                "If a required field is absent or ambiguous, return null for that field; the server may use today only when the message is not a planned transaction.",
-              ].join(" "),
-            },
-            { role: "user", content: text },
-          ],
-          response_format: buildResponseFormat(model),
-        }),
-        signal: controller.signal,
-      });
-    } catch (error) {
-      const details = classifyProviderRequestError(error);
-      logDuration("ai.text.request", performance.now() - providerStartedAt, {
-        provider: providerHost(baseUrl),
-        outcome: providerFailureOutcome(details),
-      });
-      throw new TransactionTextParserUnavailableError("AI transaction parser request failed.", details);
-    } finally {
-      clearTimeout(timeout);
+    const request = await requestWithOneLevelFallback(
+      "text",
+      provider,
+      fallback,
+      10_000,
+      (model) => ({
+        model,
+        temperature: 0,
+        max_completion_tokens: 500,
+        messages: [
+          {
+            role: "system",
+            content: [
+              "You extract one household finance transaction from Indonesian text.",
+              "Return only the requested JSON object.",
+              "Never infer family_id, member identity, permissions, or transaction status.",
+              `Today is ${today}. Resolve relative dates against this date.`,
+              "amount_minor is a positive integer in the smallest currency unit; for IDR, use whole rupiah.",
+              `category_suggestion must be null or one of: ${TRANSACTION_CATEGORY_SUGGESTIONS.join(", ")}.`,
+              "description_suggestion is an optional concise Indonesian description; return null when the original description is already clear.",
+              "If a required field is absent or ambiguous, return null for that field; the server may use today only when the message is not a planned transaction.",
+            ].join(" "),
+          },
+          { role: "user", content: text },
+        ],
+        response_format: buildResponseFormat(model),
+      }),
+    );
+    if (request.failure) {
+      throw new TransactionTextParserUnavailableError("AI transaction parser request failed.", request.failure);
     }
-
-    const responseFailure = response.ok ? null : classifyProviderStatus(response.status);
-    logDuration("ai.text.request", performance.now() - providerStartedAt, {
-      provider: providerHost(baseUrl),
-      status: response.status,
-      outcome: responseFailure ? providerFailureOutcome(responseFailure) : "success",
-    });
-    if (responseFailure) {
-      throw new TransactionTextParserUnavailableError("AI transaction parser returned an error.", responseFailure);
+    if (!request.response) {
+      throw new TransactionTextParserUnavailableError("AI transaction parser request failed.", { kind: "network" });
     }
+    const response = request.response;
+    const responseBaseUrl = request.providerRole === "fallback"
+      ? fallback.apiBase?.replace(/\/+$/, "")
+      : baseUrl;
 
     const responseParsingStartedAt = performance.now();
     const payload = await response.json().catch(() => null) as unknown;
     const content = getMessageContent(payload);
     if (!content) {
       logDuration("ai.text.response", performance.now() - responseParsingStartedAt, {
-        provider: providerHost(baseUrl),
+        provider: providerHost(responseBaseUrl),
         outcome: "no_content",
       });
       throw new TransactionTextParserUnavailableError("AI transaction parser returned no content.", { kind: "invalid_response", status: response.status });
@@ -180,14 +158,14 @@ export class OpenAICompatibleTransactionTextParser implements TransactionTextPar
       parsed = JSON.parse(content) as unknown;
     } catch {
       logDuration("ai.text.response", performance.now() - responseParsingStartedAt, {
-        provider: providerHost(baseUrl),
+        provider: providerHost(responseBaseUrl),
         outcome: "invalid_json",
       });
       throw new TransactionTextParserUnavailableError("AI transaction parser returned invalid JSON.", { kind: "invalid_response", status: response.status });
     }
     if (!isProviderExtraction(parsed)) {
       logDuration("ai.text.response", performance.now() - responseParsingStartedAt, {
-        provider: providerHost(baseUrl),
+        provider: providerHost(responseBaseUrl),
         outcome: "schema_invalid",
       });
       throw new TransactionTextParserUnavailableError("AI transaction parser returned an invalid schema.", { kind: "invalid_response", status: response.status });
@@ -195,7 +173,7 @@ export class OpenAICompatibleTransactionTextParser implements TransactionTextPar
 
     const result = normalizeExtraction(parsed, text, today);
     logDuration("ai.text.response", performance.now() - responseParsingStartedAt, {
-      provider: providerHost(baseUrl),
+      provider: providerHost(responseBaseUrl),
       outcome: result.kind.toLowerCase(),
     });
     return result;
@@ -310,7 +288,8 @@ function buildResponseFormat(model: string):
   };
 }
 
-function providerHost(baseUrl: string): string {
+function providerHost(baseUrl: string | undefined): string {
+  if (!baseUrl) return "unconfigured";
   try {
     return new URL(baseUrl).host || "unknown";
   } catch {

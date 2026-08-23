@@ -14,6 +14,9 @@ const originalModel = process.env.FALANCE_AI_MODEL;
 const originalTextBase = process.env.FALANCE_AI_TEXT_API_BASE;
 const originalTextKey = process.env.FALANCE_AI_TEXT_API_KEY;
 const originalTextModel = process.env.FALANCE_AI_TEXT_MODEL;
+const originalTextFallbackBase = process.env.FALANCE_AI_TEXT_FALLBACK_API_BASE;
+const originalTextFallbackKey = process.env.FALANCE_AI_TEXT_FALLBACK_API_KEY;
+const originalTextFallbackModel = process.env.FALANCE_AI_TEXT_FALLBACK_MODEL;
 const originalTimingLogs = process.env.FALANCE_TIMING_LOGS;
 
 test.afterEach(() => {
@@ -24,6 +27,9 @@ test.afterEach(() => {
   restoreEnv("FALANCE_AI_TEXT_API_BASE", originalTextBase);
   restoreEnv("FALANCE_AI_TEXT_API_KEY", originalTextKey);
   restoreEnv("FALANCE_AI_TEXT_MODEL", originalTextModel);
+  restoreEnv("FALANCE_AI_TEXT_FALLBACK_API_BASE", originalTextFallbackBase);
+  restoreEnv("FALANCE_AI_TEXT_FALLBACK_API_KEY", originalTextFallbackKey);
+  restoreEnv("FALANCE_AI_TEXT_FALLBACK_MODEL", originalTextFallbackModel);
   restoreEnv("FALANCE_TIMING_LOGS", originalTimingLogs);
 });
 
@@ -403,3 +409,78 @@ async function captureFailure(action: () => Promise<unknown>): Promise<Transacti
   }
   throw new Error("Expected parser failure");
 }
+
+
+test("uses one fallback provider after a transient primary failure and keeps the same draft contract", async () => {
+  configureProvider();
+  process.env.FALANCE_AI_TEXT_FALLBACK_API_BASE = "https://fallback.example.test/v1";
+  process.env.FALANCE_AI_TEXT_FALLBACK_API_KEY = "fallback-key";
+  process.env.FALANCE_AI_TEXT_FALLBACK_MODEL = "fallback-model";
+  const requestUrls: string[] = [];
+  const requestModels: string[] = [];
+  let calls = 0;
+  globalThis.fetch = async (input, init) => {
+    calls += 1;
+    requestUrls.push(String(input));
+    const body = JSON.parse(String(init?.body)) as { model: string };
+    requestModels.push(body.model);
+    if (calls === 1) return new Response("primary unavailable", { status: 503 });
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        transaction_type: "EXPENSE",
+        amount_minor: 35000,
+        currency: "IDR",
+        transaction_date: "2026-08-20",
+        description: "Beli susu",
+        category_suggestion: null,
+        description_suggestion: null,
+        confidence: "HIGH",
+      }) } }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  const result = await new OpenAICompatibleTransactionTextParser().parse("beli susu 35 ribu", "2026-08-20");
+
+  assert.equal(result.kind, "READY");
+  assert.equal(calls, 2);
+  assert.deepEqual(requestUrls, [
+    "https://ai.example.test/v1/chat/completions",
+    "https://fallback.example.test/v1/chat/completions",
+  ]);
+  assert.deepEqual(requestModels, ["test-model", "fallback-model"]);
+});
+
+test("does not use fallback for a non-transient client error", async () => {
+  configureProvider();
+  process.env.FALANCE_AI_TEXT_FALLBACK_API_BASE = "https://fallback.example.test/v1";
+  process.env.FALANCE_AI_TEXT_FALLBACK_API_KEY = "fallback-key";
+  process.env.FALANCE_AI_TEXT_FALLBACK_MODEL = "fallback-model";
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response("bad request", { status: 400 });
+  };
+
+  const error = await captureFailure(() => new OpenAICompatibleTransactionTextParser().parse("beli susu 35 ribu", "2026-08-20"));
+
+  assert.equal(error.details.kind, "client_error");
+  assert.equal(calls, 1);
+});
+
+
+test("limits fallback to one attempt when both providers fail transiently", async () => {
+  configureProvider();
+  process.env.FALANCE_AI_TEXT_FALLBACK_API_BASE = "https://fallback.example.test/v1";
+  process.env.FALANCE_AI_TEXT_FALLBACK_API_KEY = "fallback-key";
+  process.env.FALANCE_AI_TEXT_FALLBACK_MODEL = "fallback-model";
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response("provider unavailable", { status: 503 });
+  };
+
+  const error = await captureFailure(() => new OpenAICompatibleTransactionTextParser().parse("beli susu 35 ribu", "2026-08-20"));
+
+  assert.equal(error.details.kind, "server_error");
+  assert.equal(calls, 2);
+});
