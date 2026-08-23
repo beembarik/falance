@@ -265,15 +265,15 @@ Slice 4 maps quota exhaustion and classified provider failures to safe Indonesia
 
 ## Milestone 12 — Supabase Migration
 
-Status: IN IMPLEMENTATION — schema, read parity, atomic RPC primitives, dan full repository adapter seam sudah tersedia secara lokal; backend production tetap Google Sheets.
+Status: IN IMPLEMENTATION — live Supabase test validation selesai; import production, dual-read, cutover, dan rollback acceptance masih pending.
 
-The implementation layer keeps `google-sheets` as the default `FALANCE_PERSISTENCE_BACKEND`. `npm run rehearse:migration` validates a sanitized thirteen-worksheet snapshot using schema rules, foreign-reference checks, row counts, and deterministic canonical digests. Migration `0001_initial_schema.sql` defines the PostgreSQL tables and deny-by-default RLS; `0002_atomic_operations.sql` defines server-side atomic claims for update IDs, draft approvals, invitations, and AI usage. The read adapter now matches Google Sheets filtering semantics, and `SupabaseFamilyRepository` implements the repository contract behind an injected server-side write client. None of this connects to production or performs a cutover. The next implementation slice is live-client contract execution, followed by an import rehearsal against an operator-provided sanitized snapshot.
+The implementation layer keeps `google-sheets` as the default `FALANCE_PERSISTENCE_BACKEND`. `npm run rehearse:migration` validates a sanitized thirteen-worksheet snapshot using schema rules, foreign-reference checks, row counts, and deterministic canonical digests. Migration `0001_initial_schema.sql` defines the PostgreSQL tables and deny-by-default RLS; `0002_atomic_operations.sql` defines server-side atomic claims for update IDs, draft approvals, invitations, and AI usage. The read adapter now matches Google Sheets filtering semantics, and `SupabaseFamilyRepository` implements the repository contract behind an injected server-side write client. A live write validation on the dedicated Supabase test project passed snapshot import projection, family/member/transaction parity, update ID claims, draft approval claims and completion, one-time invitation consumption, AI text/vision quota claims, lease/counter/completion behavior, and cleanup with zero fixture rows remaining. The validation found and fixed a dynamic-SQL existence check in `claim_ai_usage`: the function now checks `usage_row is null` instead of relying on `IF NOT FOUND`. The reproducible SQL scenario is stored at `scripts/live-supabase-write-validation.sql`. None of this connects production or performs a cutover.
 
 Supabase is the planned future storage implementation, not an immediate replacement. Google Sheets remains the active adapter until migration readiness is demonstrated for the current one-to-two-family operating scope.
 
 - [x] Supabase schema preserving mandatory `family_id` tenant boundaries and soft-state semantics
-- [x] Supabase repository implementing the existing business-facing repository contract behind a server-side client seam; contract execution against a live Supabase project remains pending
-- [ ] Migration tooling, data validation, and reconciliation from the central registry
+- [x] Supabase repository implementing the existing business-facing repository contract behind a server-side client seam; live write contract execution passed on the dedicated Supabase test project
+- [x] Migration tooling, sanitized data validation, and reconciliation rehearsal from the central registry
 - [ ] Staged dual-read or shadow verification without changing Telegram authorization behavior
 - [ ] Cutover, rollback, backup, and recovery procedure
 - [ ] Production verification that Telegram commands, drafts, receipts, reports, and audit behavior remain compatible

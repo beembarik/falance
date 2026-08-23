@@ -126,7 +126,7 @@ begin
   execute format('select usage_key, window_started_at, request_count, last_claimed_at, lease_until from %I where usage_key = $1 for update', table_name)
     into usage_row using p_usage_key;
 
-  if not found then
+  if usage_row is null then
     execute format('insert into %I(usage_key, family_id, telegram_user_id, window_started_at, request_count, last_claimed_at, lease_until, status) values ($1,$2,$3,$4,1,$4,$4 + make_interval(secs => $5 / 1000.0),''IN_FLIGHT'')', table_name)
       using p_usage_key, p_family_id, p_telegram_user_id, p_claimed_at, p_lease_ms;
     return true;
