@@ -14,6 +14,14 @@ export function createFamilyRepository(): FamilyRepository {
   const primary = new GoogleSheetsFamilyRepository();
   if (process.env.FALANCE_SHADOW_READS !== "true") return primary;
 
+  const vercelEnvironment = process.env.VERCEL_ENV?.trim();
+  const isPreviewDeployment = vercelEnvironment === "preview";
+  const isLocalDevelopment = !vercelEnvironment && process.env.NODE_ENV !== "production";
+  if (!isPreviewDeployment && !isLocalDevelopment) {
+    console.warn("[ShadowRead] disabled outside Preview or local development");
+    return primary;
+  }
+
   const shadowUrl = process.env.FALANCE_SHADOW_SUPABASE_URL?.trim();
   const shadowKey = process.env.FALANCE_SHADOW_SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!shadowUrl || !shadowKey) {
