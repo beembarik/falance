@@ -1,6 +1,6 @@
 # Operasi AI Falancé
 
-Dokumen ini menjelaskan kontrol operasional AI pada Falancé. Kontrol ini berlaku untuk **AI text parser** dan **receipt vision parser**. M11 Slice 1 menambahkan tracking dan quota durable untuk workload text, M11 Slice 2 menambahkan klasifikasi error provider dan outcome timing yang aman, M11 Slice 3 menambahkan fallback provider satu tingkat untuk kegagalan transient, dan M11 Slice 4 menambahkan degraded-mode messaging Bahasa Indonesia. Retry policy provider yang lebih luas tetap berada di backlog.
+Dokumen ini menjelaskan kontrol operasional AI pada Falancé. Kontrol ini berlaku untuk **AI text parser** dan **receipt vision parser**. M11 Slice 1 menambahkan tracking dan quota durable untuk workload text, M11 Slice 2 menambahkan klasifikasi error provider dan outcome timing yang aman, M11 Slice 3 menambahkan fallback provider satu tingkat untuk kegagalan transient, M11 Slice 4 menambahkan degraded-mode messaging Bahasa Indonesia, dan perbaikan kompatibilitas receipt parser menerima JSON yang dibungkus markdown fence secara ketat. Retry policy provider yang lebih luas tetap berada di backlog.
 
 ## Prinsip keamanan
 
@@ -62,7 +62,7 @@ Konfigurasi fallback menggunakan `FALANCE_AI_TEXT_FALLBACK_API_BASE`, `FALANCE_A
 
 ## Degraded mode
 
-M11 Slice 4 memetakan error internal menjadi pesan publik Bahasa Indonesia yang aman. Quota exhaustion diberi pesan retry-later dan alternatif command manual sebelum parser dipanggil. `not_configured` memberi petunjuk konfigurasi atau alternatif manual. `rate_limited`, `timeout`, `network`, dan `server_error` memberi pesan bahwa layanan sementara tidak tersedia atau tidak merespons. Bila fallback sudah dicoba, pesan dapat menyatakan bahwa provider cadangan juga tidak tersedia tanpa menyebut host, status code, response body, atau detail credential. `invalid_response` menyatakan hasil tidak dapat divalidasi dan mengarahkan pengguna ke input alternatif.
+M11 Slice 4 memetakan error internal menjadi pesan publik Bahasa Indonesia yang aman. Quota exhaustion diberi pesan retry-later dan alternatif command manual sebelum parser dipanggil. `not_configured` memberi petunjuk konfigurasi atau alternatif manual. `rate_limited`, `timeout`, `network`, dan `server_error` memberi pesan bahwa layanan sementara tidak tersedia atau tidak merespons. Bila fallback sudah dicoba, pesan dapat menyatakan bahwa provider cadangan juga tidak tersedia tanpa menyebut host, status code, response body, atau detail credential. `invalid_response` menyatakan hasil tidak dapat divalidasi dan mengarahkan pengguna ke input alternatif. Receipt parser boleh menghapus whitespace dan satu markdown fence luar dengan label opsional `json`, kemudian tetap menjalankan `JSON.parse` dan schema validation; parser tidak boleh mengekstrak JSON parsial dari teks bebas atau menerima properti tambahan.
 
 Degraded mode tidak membeberkan `error.message`, status provider, model, URL, API key, prompt, response, receipt, atau transaction data. Semua error yang tidak dikenal tetap dipetakan ke pesan generik. Manual `/addincome` dan `/addexpense` tetap tersedia sebagai jalur non-AI.
 

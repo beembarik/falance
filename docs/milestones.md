@@ -261,7 +261,7 @@ The fallback remains inside the same parser invocation and the same AI quota cla
 
 ### M11 Slice 4 — Indonesian degraded mode
 
-Slice 4 maps quota exhaustion and classified provider failures to safe Indonesian messages at the Telegram command boundary. Messages distinguish unavailable configuration, temporary rate limits, timeout/network/server unavailability, fallback exhaustion, and invalid provider responses while never exposing provider error messages, status codes, model names, URLs, credentials, prompts, responses, receipts, or transaction data. Manual transaction commands remain the supported non-AI alternative.
+Slice 4 maps quota exhaustion and classified provider failures to safe Indonesian messages at the Telegram command boundary. Messages distinguish unavailable configuration, temporary rate limits, timeout/network/server unavailability, fallback exhaustion, and invalid provider responses while never exposing provider error messages, status codes, model names, URLs, credentials, prompts, responses, receipts, or transaction data. Manual transaction commands remain the supported non-AI alternative. Receipt parser compatibility also accepts one outer `json` markdown fence from a Gemini-compatible response, then still applies strict JSON parsing and schema validation; arbitrary text extraction and additional properties remain rejected.
 
 ## Milestone 12 — Supabase Migration
 

@@ -14,7 +14,7 @@ Aktifkan `FALANCE_TIMING_LOGS=true` hanya ketika melakukan diagnosis latency ata
 | `telegram.update` | Update Telegram berhasil, diabaikan, atau ditekan sebagai duplicate. | `updateType`, `outcome`, `status`, `handlerMs`, `deliveryMs`, `durationMs` |
 | `telegram.update.error` | Exception saat claim, handler, pengiriman Telegram, atau completion update. | `errorType`, `durationMs` |
 | `google.request` | Request Google Sheets atau metadata registry. | `operation`, `method`, `status`, `outcome`, `durationMs` |
-| `ai.text.request` / `ai.vision.request` | Request ke provider AI. | `provider`, `status`, `outcome`, `durationMs` |
+| `ai.text.request` / `ai.vision.request` | Request ke provider AI primary atau fallback. | `provider`, `providerRole`, `status`, `outcome`, `durationMs` |
 | `ai.text.response` / `ai.vision.response` | Parsing response provider AI. | `provider`, `outcome`, `durationMs` |
 
 ## Interpretasi event penting
@@ -25,11 +25,11 @@ Aktifkan `FALANCE_TIMING_LOGS=true` hanya ketika melakukan diagnosis latency ata
 
 `telegram.update.error` perlu dikorelasikan dengan `google.request` dan `ai.*` berdasarkan waktu deployment/function invocation, bukan berdasarkan Telegram user ID atau update ID. Falancé sengaja tidak mencatat identifier tersebut pada timing event.
 
-Untuk AI, response-phase `outcome=no_content`, `invalid_json`, `schema_invalid`, dan `needs_clarification` menunjukkan hasil provider yang tidak dapat langsung dipakai. Request-phase dapat menghasilkan `success`, `timeout`, `network`, `rate_limited`, `server_error`, atau `client_error`. `not_configured` dicatat pada error classification internal ketika provider belum dikonfigurasi. Event tersebut tidak mencatat prompt, response content, receipt image, API key, atau transaction data. Klasifikasi ini belum mengaktifkan fallback otomatis; fallback dibatasi untuk slice berikutnya setelah policy dan retry safety divalidasi.
+Untuk AI, response-phase `outcome=no_content`, `invalid_json`, `schema_invalid`, dan `needs_clarification` menunjukkan hasil provider yang tidak dapat langsung dipakai. Request-phase dapat menghasilkan `success`, `timeout`, `network`, `rate_limited`, `server_error`, atau `client_error`. `not_configured` dicatat pada error classification internal ketika provider belum dikonfigurasi. `providerRole=primary` atau `providerRole=fallback` menunjukkan attempt yang menghasilkan event tersebut. Event tersebut tidak mencatat prompt, response content, receipt image, API key, atau transaction data. Fallback tetap dibatasi maksimal satu attempt dan hanya untuk kegagalan transient.
 
 ## Prosedur diagnosis latency
 
-Pertama, aktifkan `FALANCE_TIMING_LOGS` pada environment production dan lakukan satu atau dua request terkontrol. Kedua, buka log deployment yang sama di Vercel dan kelompokkan event berdasarkan `scope`. Ketiga, bandingkan `handlerMs` dengan `deliveryMs`: handler tinggi biasanya mengarah ke Google Sheets atau AI provider, sedangkan delivery tinggi mengarah ke Telegram Bot API. Keempat, setelah penyebab ditemukan, nonaktifkan timing logs dan lakukan satu smoke test untuk memastikan webhook kembali normal.
+Pertama, gunakan Preview deployment atau jendela uji yang terkontrol sebelum mengubah production. Aktifkan `FALANCE_TIMING_LOGS` hanya sementara dan lakukan satu atau dua request terkontrol. Kedua, buka log deployment yang sama di Vercel dan kelompokkan event berdasarkan `scope`, `providerRole`, dan `outcome`. Ketiga, bandingkan `handlerMs` dengan `deliveryMs`: handler tinggi biasanya mengarah ke Google Sheets atau AI provider, sedangkan delivery tinggi mengarah ke Telegram Bot API. Keempat, bila menguji fallback, pastikan hanya ada satu event primary dan paling banyak satu event fallback untuk satu invocation. Kelima, nonaktifkan timing logs dan lakukan satu smoke test untuk memastikan webhook kembali normal.
 
 | Gejala | Pemeriksaan pertama | Tindakan aman |
 | --- | --- | --- |
@@ -47,4 +47,4 @@ Monitoring bersifat observability, bukan sumber authorization. `family_id` tetap
 
 ## Batasan dan tindak lanjut
 
-Vercel logs menyediakan agregasi dan pencarian operasional pada level deployment, tetapi belum menjadi metrics store atau alerting system khusus Falancé. Slice berikutnya setelah monitoring adalah runbook backup, recovery, partial-write retry, dan integritas registry. Validasi race lintas serverless instance tetap terbuka karena Google Sheets tidak menyediakan compare-and-swap atau unique conditional write pada pola adapter saat ini.
+Vercel logs menyediakan agregasi dan pencarian operasional pada level deployment, tetapi belum menjadi metrics store atau alerting system khusus Falancé. Karena itu, hitung event hanya pada level scope/providerRole/outcome dan jangan membuat dashboard berdasarkan Telegram ID, family ID, atau row values. Validasi race lintas serverless instance tetap terbuka karena Google Sheets tidak menyediakan compare-and-swap atau unique conditional write pada pola adapter saat ini. Runbook uji M11 tersedia pada `docs/m11-production-validation.md`.

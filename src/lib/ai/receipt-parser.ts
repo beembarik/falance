@@ -155,7 +155,7 @@ export class OpenAICompatibleReceiptParser implements ReceiptParser {
 
     let parsed: unknown;
     try {
-      parsed = JSON.parse(content) as unknown;
+      parsed = JSON.parse(normalizeJsonContent(content)) as unknown;
     } catch {
       logDuration("ai.vision.response", performance.now() - responseParsingStartedAt, {
         provider: providerHost(responseBaseUrl),
@@ -199,6 +199,12 @@ function isReceiptExtraction(value: unknown): value is ReceiptExtraction {
     && (confidence === "HIGH" || confidence === "MEDIUM" || confidence === "LOW")
     && (category === null || typeof category === "string" || category === undefined)
     && (descriptionSuggestion === null || typeof descriptionSuggestion === "string" || descriptionSuggestion === undefined);
+}
+
+function normalizeJsonContent(content: string): string {
+  const trimmed = content.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced?.[1]?.trim() ?? trimmed;
 }
 
 function providerHost(baseUrl: string | undefined): string {

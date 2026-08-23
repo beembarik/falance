@@ -245,3 +245,30 @@ test("uses one fallback vision provider after a transient primary failure", asyn
   ]);
   assert.deepEqual(requestModels, ["vision-test-model", "vision-fallback-model"]);
 });
+
+
+test("accepts a strictly fenced JSON response from a Gemini-compatible provider", async () => {
+  configureProvider();
+  const extraction = {
+    transaction_type: "EXPENSE",
+    amount_minor: 45000,
+    currency: "IDR",
+    transaction_date: "2026-08-20",
+    description: "Makan siang",
+    category_suggestion: null,
+    description_suggestion: null,
+    confidence: "HIGH",
+  };
+  const fencedContent = ["```json", JSON.stringify(extraction), "```"].join("\n");
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    choices: [{ message: { content: fencedContent } }],
+  }), { status: 200, headers: { "Content-Type": "application/json" } });
+
+  const result = await new OpenAICompatibleReceiptParser().parse(image, null, "2026-08-20");
+
+  assert.equal(result.kind, "READY");
+  if (result.kind === "READY") {
+    assert.equal(result.draft.amountMinor, 45000);
+    assert.equal(result.draft.description, "Makan siang");
+  }
+});
