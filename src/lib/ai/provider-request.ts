@@ -39,7 +39,10 @@ export async function requestWithOneLevelFallback(
     const result = await requestOnce(workload, provider.role, provider.config, timeoutMs, buildBody);
     if (!result.failure) return result;
     lastFailure = result.failure;
-    if (!isTransientProviderFailure(result.failure) || index === providers.length - 1) return result;
+    const failure = index > 0 ? { ...result.failure, fallbackAttempted: true } : result.failure;
+    if (!isTransientProviderFailure(result.failure) || index === providers.length - 1) {
+      return { ...result, failure };
+    }
   }
 
   return { response: null, failure: lastFailure ?? { kind: "network" }, providerRole: "primary" };

@@ -10,6 +10,7 @@ export type AiProviderFailureKind =
 export interface AiProviderFailureDetails {
   kind: AiProviderFailureKind;
   status?: number;
+  fallbackAttempted?: boolean;
 }
 
 export function classifyProviderStatus(status: number): AiProviderFailureDetails {

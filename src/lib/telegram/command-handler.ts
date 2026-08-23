@@ -359,8 +359,8 @@ function confirmationResultMessage(result: ConfirmationResult): string {
 function messageForError(error: unknown): string {
   if (error instanceof TransactionCommandError) return error.message;
   if (error instanceof ReportPeriodError) return "Periode tidak valid. Gunakan format YYYY-MM, misalnya /report 2026-08.";
-  if (error instanceof ReceiptParserUnavailableError) return "Parser receipt belum tersedia. Coba lagi nanti atau gunakan input transaksi melalui teks.";
-  if (error instanceof TransactionTextParserUnavailableError) return "Parser AI belum tersedia. Gunakan command transaksi terstruktur seperti /addincome atau /addexpense.";
+  if (error instanceof ReceiptParserUnavailableError) return messageForAiFailure("receipt", error.details);
+  if (error instanceof TransactionTextParserUnavailableError) return messageForAiFailure("text", error.details);
   if (error instanceof AlreadyRegisteredError) return "Kamu sudah terdaftar dalam keluarga aktif.";
   if (error instanceof UnauthorizedError) return "Kamu tidak memiliki izin untuk menjalankan perintah ini.";
   if (error instanceof InvitationError) return "Invitation tidak valid, sudah digunakan, dicabut, atau kedaluwarsa.";
@@ -372,4 +372,21 @@ function messageForError(error: unknown): string {
   if (error instanceof TransactionError) return "Transaksi tidak dapat diproses. Pastikan ID, status, dan data transaksi berada pada keluarga aktif kamu.";
   if (error instanceof FamilyServiceError) return "Permintaan tidak dapat diproses. Gunakan /createfamily untuk memulai kembali.";
   return "Terjadi gangguan saat memproses permintaan. Silakan coba lagi.";
+}
+
+function messageForAiFailure(workload: "text" | "receipt", details: { kind: string; fallbackAttempted?: boolean }): string {
+  const alternative = workload === "text"
+    ? "Gunakan command transaksi terstruktur seperti /addincome atau /addexpense."
+    : "Gunakan input transaksi melalui teks atau coba kirim receipt yang lebih jelas nanti.";
+  const subject = workload === "text" ? "Parser AI" : "Parser receipt";
+  const fallbackSuffix = details.fallbackAttempted ? " Provider cadangan juga tidak tersedia saat ini." : "";
+
+  if (details.kind === "not_configured") return `${subject} belum dikonfigurasi. ${alternative}`;
+  if (details.kind === "rate_limited") return `Layanan ${subject.toLowerCase()} sedang mencapai batas penggunaan sementara.${fallbackSuffix} Coba lagi beberapa saat lagi atau gunakan alternatif manual.`;
+  if (details.kind === "timeout") return `Layanan ${subject.toLowerCase()} tidak merespons tepat waktu.${fallbackSuffix} Coba lagi nanti atau gunakan alternatif manual.`;
+  if (details.kind === "network" || details.kind === "server_error") {
+    return `Layanan ${subject.toLowerCase()} sedang tidak tersedia.${fallbackSuffix} Coba lagi nanti atau gunakan alternatif manual.`;
+  }
+  if (details.kind === "invalid_response") return `${subject} mengembalikan hasil yang tidak dapat divalidasi. ${alternative}`;
+  return `${subject} tidak dapat memproses permintaan ini. ${alternative}`;
 }

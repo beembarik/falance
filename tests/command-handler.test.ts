@@ -10,7 +10,11 @@ import {
 import type { FamilyService, ConfirmationResult } from "../src/lib/family/service";
 import type { Family, TelegramUser, Transaction } from "../src/lib/family/types";
 import type { FinancialReport } from "../src/lib/family/report";
-import type { TransactionTextParser } from "../src/lib/ai/transaction-text-parser";
+import {
+  TransactionTextParserUnavailableError,
+  type TransactionTextParser,
+} from "../src/lib/ai/transaction-text-parser";
+import { ReceiptParserUnavailableError } from "../src/lib/ai/receipt-parser";
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
 
@@ -605,3 +609,95 @@ test("does not claim AI text usage for a manual transaction command", async () =
 
   assert.match(response, /berhasil dicatat/);
 });
+
+
+test("shows a safe Indonesian message for text provider rate limiting", async () => {
+  const service = fakeService({});
+  const response = await handleTelegramTextMessage(
+    service,
+    owner,
+    "beli susu 35 ribu",
+    {
+      parse: async () => {
+        throw new TransactionTextParserUnavailableError("secret provider response", { kind: "rate_limited", status: 429 });
+      },
+    },
+  );
+
+  assert.match(response, /mencapai batas penggunaan sementara/);
+  assert.match(response, /alternatif manual/);
+  assert.doesNotMatch(response, /secret provider response|429/);
+});
+
+test("explains fallback exhaustion without exposing provider details", async () => {
+  const response = await handleTelegramTextMessage(
+    fakeService({}),
+    owner,
+    "beli susu 35 ribu",
+    {
+      parse: async () => {
+        throw new TransactionTextParserUnavailableError("private provider body", { kind: "server_error", status: 503, fallbackAttempted: true });
+      },
+    },
+  );
+
+  assert.match(response, /sedang tidak tersedia/);
+  assert.match(response, /Provider cadangan juga tidak tersedia/);
+  assert.doesNotMatch(response, /private provider body|503/);
+});
+
+test("shows a safe receipt message for an invalid provider response", async () => {
+  const response = await handleTelegramPhotoMessageResponse(
+    fakeService({}),
+    owner,
+    [{ fileId: "photo_invalid_response", width: 1200, height: 1600 }],
+    null,
+    {
+      parse: async () => {
+        throw new ReceiptParserUnavailableError("private receipt response", { kind: "invalid_response", status: 200 });
+      },
+    },
+    async () => ({ data: new Uint8Array([1, 2, 3]), mimeType: "image/jpeg", filePath: "photos/receipt.jpg" }),
+  );
+
+  const text = typeof response === "string" ? response : response.text;
+  assert.match(text, /mengembalikan hasil yang tidak dapat divalidasi/);
+  assert.match(text, /receipt yang lebih jelas/);
+  assert.doesNotMatch(text, /private receipt response|200/);
+});
+
+
+for (const scenario of [
+  {
+    kind: "not_configured" as const,
+    expected: /Parser AI belum dikonfigurasi/,
+    forbidden: /not_configured/,
+  },
+  {
+    kind: "timeout" as const,
+    expected: /tidak merespons tepat waktu/,
+    forbidden: /timeout/,
+  },
+  {
+    kind: "network" as const,
+    expected: /sedang tidak tersedia/,
+    forbidden: /network/,
+  },
+]) {
+  test(`shows a safe text degraded-mode message for ${scenario.kind}`, async () => {
+    const response = await handleTelegramTextMessage(
+      fakeService({}),
+      owner,
+      "beli susu 35 ribu",
+      {
+        parse: async () => {
+          throw new TransactionTextParserUnavailableError("private provider details", { kind: scenario.kind });
+        },
+      },
+    );
+
+    assert.match(response, scenario.expected);
+    assert.doesNotMatch(response, scenario.forbidden);
+    assert.doesNotMatch(response, /private provider details/);
+  });
+}

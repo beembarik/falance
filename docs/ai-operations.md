@@ -1,6 +1,6 @@
 # Operasi AI Falancé
 
-Dokumen ini menjelaskan kontrol operasional AI pada Falancé. Kontrol ini berlaku untuk **AI text parser** dan **receipt vision parser**. M11 Slice 1 menambahkan tracking dan quota durable untuk workload text, M11 Slice 2 menambahkan klasifikasi error provider dan outcome timing yang aman, dan M11 Slice 3 menambahkan fallback provider satu tingkat untuk kegagalan transient. Retry policy provider yang lebih luas dan degraded mode tetap menjadi slice berikutnya.
+Dokumen ini menjelaskan kontrol operasional AI pada Falancé. Kontrol ini berlaku untuk **AI text parser** dan **receipt vision parser**. M11 Slice 1 menambahkan tracking dan quota durable untuk workload text, M11 Slice 2 menambahkan klasifikasi error provider dan outcome timing yang aman, M11 Slice 3 menambahkan fallback provider satu tingkat untuk kegagalan transient, dan M11 Slice 4 menambahkan degraded-mode messaging Bahasa Indonesia. Retry policy provider yang lebih luas tetap berada di backlog.
 
 ## Prinsip keamanan
 
@@ -60,6 +60,12 @@ Fallback tetap berada dalam satu invocation parser dan satu claim quota. Tidak a
 
 Konfigurasi fallback menggunakan `FALANCE_AI_TEXT_FALLBACK_API_BASE`, `FALANCE_AI_TEXT_FALLBACK_API_KEY`, `FALANCE_AI_TEXT_FALLBACK_MODEL` untuk text, serta prefix `FALANCE_AI_VISION_FALLBACK_*` untuk vision. Variable fallback bersifat server-only dan tidak boleh dikirim ke browser atau Telegram.
 
+## Degraded mode
+
+M11 Slice 4 memetakan error internal menjadi pesan publik Bahasa Indonesia yang aman. Quota exhaustion diberi pesan retry-later dan alternatif command manual sebelum parser dipanggil. `not_configured` memberi petunjuk konfigurasi atau alternatif manual. `rate_limited`, `timeout`, `network`, dan `server_error` memberi pesan bahwa layanan sementara tidak tersedia atau tidak merespons. Bila fallback sudah dicoba, pesan dapat menyatakan bahwa provider cadangan juga tidak tersedia tanpa menyebut host, status code, response body, atau detail credential. `invalid_response` menyatakan hasil tidak dapat divalidasi dan mengarahkan pengguna ke input alternatif.
+
+Degraded mode tidak membeberkan `error.message`, status provider, model, URL, API key, prompt, response, receipt, atau transaction data. Semua error yang tidak dikenal tetap dipetakan ke pesan generik. Manual `/addincome` dan `/addexpense` tetap tersedia sebagai jalur non-AI.
+
 ## Urutan pekerjaan M11 berikutnya
 
-Slice berikutnya menambahkan degraded-mode messaging yang jelas dalam Bahasa Indonesia dan runbook operasional berdasarkan klasifikasi error serta status quota. Multi-provider loop, silent fallback tanpa klasifikasi, retry tanpa budget, dan automatic persistence tidak diperbolehkan.
+M11 berikutnya dapat memfokuskan runbook operasional, provider health review, dan observability aggregate berdasarkan kebutuhan pilot. Multi-provider loop, silent fallback tanpa klasifikasi, retry tanpa budget, dan automatic persistence tidak diperbolehkan.

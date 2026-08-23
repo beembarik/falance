@@ -227,7 +227,7 @@ Milestone 10 is complete only when the core Mini App screens have loading, empty
 
 ## Milestone 11 — AI Usage, Quota, and Provider Reliability
 
-Status: IN PROGRESS — SLICES 1–3 IMPLEMENTED LOCALLY; VALIDATION PRODUCTION PENDING
+Status: IN PROGRESS — SLICES 1–4 IMPLEMENTED LOCALLY; VALIDATION PRODUCTION PENDING
 
 The text parser and receipt parser continue to use separate text and vision model configuration. This milestone adds operational controls without allowing AI to determine identity, authorization, `family_id`, or transaction status.
 
@@ -257,7 +257,11 @@ Slice 2 deliberately performs exactly one provider request per parser invocation
 
 Slice 3 adds optional server-only fallback settings for text and vision. The primary provider is always attempted first. A fallback is eligible only when all three values—base URL, API key, and model—are present and the fallback differs from the primary. It is attempted at most once and only for `timeout`, `network`, `rate_limited`, or `server_error`. Client errors, missing configuration, and invalid provider responses do not trigger fallback.
 
-The fallback remains inside the same parser invocation and the same AI quota claim. Its response uses the existing draft normalization and schema validation, and no fallback path can write a transaction directly. Provider loops, unbounded retry, automatic persistence, and degraded-mode user messaging remain deferred.
+The fallback remains inside the same parser invocation and the same AI quota claim. Its response uses the existing draft normalization and schema validation, and no fallback path can write a transaction directly. Provider loops, unbounded retry, and automatic persistence remain deferred.
+
+### M11 Slice 4 — Indonesian degraded mode
+
+Slice 4 maps quota exhaustion and classified provider failures to safe Indonesian messages at the Telegram command boundary. Messages distinguish unavailable configuration, temporary rate limits, timeout/network/server unavailability, fallback exhaustion, and invalid provider responses while never exposing provider error messages, status codes, model names, URLs, credentials, prompts, responses, receipts, or transaction data. Manual transaction commands remain the supported non-AI alternative.
 
 ## Milestone 12 — Supabase Migration
 
