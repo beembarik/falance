@@ -56,6 +56,12 @@ The `--local-only` confirmation is mandatory. This command only projects validat
 
 The intended future cutover remains non-destructive: export a controlled snapshot, rehearse and reconcile it locally, import with idempotent upserts into a locked Supabase schema, compare counts and canonical digests, freeze writes for a final delta, then switch the repository backend flag. Google Sheets must remain available as a read-only rollback source until the Supabase path is production-validated.
 
+### Supabase atomic operations
+
+Migration `0002_atomic_operations.sql` defines server-side atomic primitives for the cross-instance race-sensitive paths: Telegram `update_id` claims, draft approval claims, one-time invitation consumption, and independent text/vision AI quota claims. Each function performs its read-and-condition-and-write sequence in one PostgreSQL transaction; claim rows are locked with `FOR UPDATE`, while stale leases may be reclaimed and completed claims remain terminal. The AI function preserves the existing cooldown, rolling-window, and lease semantics and counts every claimed attempt, including provider failures.
+
+The functions are `security invoker`, have no public execute permission, and are granted only to `service_role`. The future adapter must call them only from the server-side persistence layer. Telegram authorization and `family_id` resolution remain responsibilities of `FamilyService`; RPC parameters must never be populated from an unverified browser field. The migration does not change the active backend, Telegram commands, or user-facing behavior.
+
 ### Members
 
 | Column | Meaning |

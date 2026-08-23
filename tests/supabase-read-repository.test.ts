@@ -10,6 +10,7 @@ class FakeQuery implements SupabaseReadQuery {
   constructor(rows: Row[]) { this.rows = rows; }
   select(): SupabaseReadQuery { return this; }
   eq(column: string, value: string | number): SupabaseReadQuery { this.rows = this.rows.filter((row) => row[column] === value); return this; }
+  in(column: string, values: readonly string[]): SupabaseReadQuery { this.rows = this.rows.filter((row) => values.includes(String(row[column]))); return this; }
   order(column: string, options?: { ascending?: boolean }): SupabaseReadQuery {
     const direction = options?.ascending === false ? -1 : 1;
     this.rows.sort((left, right) => String(left[column]).localeCompare(String(right[column])) * direction);
@@ -38,6 +39,24 @@ test("maps Supabase family and family-scoped active transactions to domain objec
 
   assert.deepEqual(await repository.findFamilyById("family-test"), { familyId: "family-test", familyName: "Test Family", status: "ACTIVE", createdAt: "2026-01-01T00:00:00.000Z", createdBy: "user-test", plan: "FREE" });
   assert.deepEqual(await repository.findTransactionsByFamilyId("family-test"), [{ transactionId: "txn-active", familyId: "family-test", transactionType: "EXPENSE", amountMinor: 1000, currency: "IDR", transactionDate: "2026-01-02", description: "Active", createdByMemberId: "member-test", createdAt: "2026-01-02T00:00:00.000Z", status: "ACTIVE", category: "FOOD" }]);
+});
+
+test("matches production read filters for active family, all family members, and editing drafts", async () => {
+  const repository = new SupabaseReadRepository(new FakeClient({
+    families: [
+      { family_id: "family-active", family_name: "Active", status: "ACTIVE", created_at: "2026-01-01T00:00:00.000Z", created_by: "user-test", plan: "FREE" },
+      { family_id: "family-suspended", family_name: "Suspended", status: "SUSPENDED", created_at: "2026-01-01T00:00:00.000Z", created_by: "user-test", plan: "FREE" },
+    ],
+    members: [
+      { member_id: "member-owner", family_id: "family-active", telegram_user_id: "user-test", name: "Owner", role: "OWNER", status: "ACTIVE", joined_at: "2026-01-01T00:00:00.000Z" },
+      { member_id: "member-left", family_id: "family-active", telegram_user_id: "left-user", name: "Left", role: "MEMBER", status: "LEFT", joined_at: "2026-01-02T00:00:00.000Z" },
+    ],
+    pending_transaction_drafts: [{ draft_id: "draft-editing", telegram_user_id: "user-test", family_id: "family-active", transaction_type: "EXPENSE", amount_minor: 1000, currency: "IDR", transaction_date: "2026-01-01", description: "Draft", confidence: "HIGH", created_at: "2026-01-01T00:00:00.000Z", expires_at: "2026-01-01T01:00:00.000Z", status: "EDITING" }],
+  }));
+
+  assert.equal((await repository.findFamilyByCreatedBy("user-test"))?.familyId, "family-active");
+  assert.equal((await repository.findMembersByFamilyId("family-active")).length, 2);
+  assert.equal((await repository.findPendingTransactionDraft("user-test"))?.draftId, "draft-editing");
 });
 
 test("does not provide write operations in the read-only adapter", () => {

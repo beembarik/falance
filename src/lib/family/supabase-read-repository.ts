@@ -16,6 +16,7 @@ import type {
 export interface SupabaseReadQuery {
   select(columns: string): SupabaseReadQuery;
   eq(column: string, value: string | number): SupabaseReadQuery;
+  in(column: string, values: readonly string[]): SupabaseReadQuery;
   order(column: string, options?: { ascending?: boolean }): SupabaseReadQuery;
   limit(count: number): SupabaseReadQuery;
   maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: { message?: string } | null }>;
@@ -35,7 +36,7 @@ export class SupabaseReadRepository implements FamilyRepository {
   }
 
   async findFamilyByCreatedBy(telegramUserId: string): Promise<Family | null> {
-    return this.single("families", (query) => query.eq("created_by", telegramUserId), toFamily);
+    return this.single("families", (query) => query.eq("created_by", telegramUserId).eq("status", "ACTIVE"), toFamily);
   }
 
   async findActiveMemberByTelegramUserId(telegramUserId: string): Promise<FamilyMember | null> {
@@ -43,7 +44,7 @@ export class SupabaseReadRepository implements FamilyRepository {
   }
 
   async findMembersByFamilyId(familyId: string): Promise<FamilyMember[]> {
-    return this.many("members", (query) => query.eq("family_id", familyId).eq("status", "ACTIVE").order("joined_at", { ascending: true }), toMember);
+    return this.many("members", (query) => query.eq("family_id", familyId).order("joined_at", { ascending: true }), toMember);
   }
 
   async findInvitationByCode(code: string): Promise<Invitation | null> {
@@ -59,7 +60,7 @@ export class SupabaseReadRepository implements FamilyRepository {
   }
 
   async findPendingTransactionDraft(telegramUserId: string): Promise<PendingTransactionDraft | null> {
-    return this.single("pending_transaction_drafts", (query) => query.eq("telegram_user_id", telegramUserId).eq("status", "PENDING"), toPendingTransactionDraft);
+    return this.single("pending_transaction_drafts", (query) => query.eq("telegram_user_id", telegramUserId).in("status", ["PENDING", "EDITING"]), toPendingTransactionDraft);
   }
 
   async findDraftApprovalClaim(draftId: string): Promise<DraftApprovalClaim | null> {
