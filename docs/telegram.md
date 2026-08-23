@@ -128,3 +128,10 @@ The Mini App now supports `Tambah Transaksi` through an authenticated endpoint, 
 ## Out of scope
 
 Category summaries are now available as a read-only Mini App Dashboard visualization, while budgets, payments, subscriptions, and Supabase remain outside the implemented surface. Mini App transaction creation, edit, soft-void, explicit category assignment, and category summary rendering use server-side authorization; budget, AI insight, and receipt upload work remain planned or deferred. M10 Slice 9 has production-validated the stable category-code, migration, and deterministic analytics contract in `docs/category-analytics.md`; M10 Slice 10 has been production-validated through Mini App create/edit testing; M10 Slice 11 adds category summaries and per-currency expense distribution. Receipt processing is available from Milestone 7, Telegram reports and authenticated Mini App reports are available from Milestone 9, role-safe CSV/print/PDF exports are available to OWNER/ADMIN, and the family Dashboard is available from Milestone 10. Broader Mini App transaction/family workspaces, AI operations, Supabase migration, and monetization remain planned.
+
+
+## Compatibility notes for Slice 18
+
+The text parser detects Groq Compound model IDs such as `groq/compound-mini` and sends JSON Object Mode instead of strict JSON Schema Mode. Groq documents strict Structured Outputs only for selected GPT-OSS models; other models should use JSON Object Mode and still pass the result through Falancé server-side schema validation. The recommended strict Groq model for this parser is `openai/gpt-oss-20b`, while `groq/compound-mini` remains usable with best-effort JSON parsing.
+
+The Mini App security policy permits the official Telegram Web origins `web.telegram.org`, `webk.telegram.org`, and `webz.telegram.org` as frame ancestors. `X-Frame-Options` is intentionally omitted because its `DENY` value conflicts with Telegram Web embedding. The policy still blocks arbitrary embedding, disables browser capabilities not required by Falancé, and keeps API responses non-cacheable.

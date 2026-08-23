@@ -1,6 +1,23 @@
 # Changelog
 All notable changes to Falancé are documented in this file.
 
+## [0.7.7] — 2026-08-23
+
+### Fixed
+
+- Updated Telegram Web CSP framing policy to allow only official `web.telegram.org`, `webk.telegram.org`, and `webz.telegram.org` origins, while preserving restricted embedding and removing the conflicting `X-Frame-Options: DENY` header.
+- Updated the OpenAI-compatible AI parser to use JSON Object Mode for Groq Compound models such as `groq/compound-mini`; strict JSON Schema Mode remains enabled for compatible models.
+- Added regression coverage for Telegram Web security policy and Groq Compound request formatting.
+
+### Verification
+
+- `npm run lint` passes.
+- `npm run build` passes.
+- `npm test` passes with 208 tests.
+- `git diff --check` passes.
+
+[0.7.7]: https://github.com/beembarik/falance/releases/tag/v0.7.7
+
 ## [0.7.6] — 2026-08-23
 
 ### Security and operational hardening

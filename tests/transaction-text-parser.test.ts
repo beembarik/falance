@@ -19,6 +19,33 @@ test.afterEach(() => {
   restoreEnv("FALANCE_AI_MODEL", originalModel);
 });
 
+test("uses JSON Object Mode for Groq Compound models", async () => {
+  process.env.FALANCE_AI_API_BASE = "https://api.groq.com/openai/v1";
+  process.env.FALANCE_AI_API_KEY = "test-key";
+  process.env.FALANCE_AI_MODEL = "groq/compound-mini";
+  const captured = { requestBody: null as Record<string, unknown> | null };
+  globalThis.fetch = async (_input, init) => {
+    captured.requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        transaction_type: "EXPENSE",
+        amount_minor: 35000,
+        currency: "IDR",
+        transaction_date: "2026-08-19",
+        description: "Beli susu",
+        category_suggestion: null,
+        description_suggestion: null,
+        confidence: "HIGH",
+      }) } }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  const result = await new OpenAICompatibleTransactionTextParser().parse("beli susu 35 ribu", "2026-08-20");
+
+  assert.equal(result.kind, "READY");
+  assert.deepEqual(captured.requestBody?.response_format, { type: "json_object" });
+});
+
 test("normalizes a structured provider extraction into a ready transaction draft", async () => {
   configureProvider();
   mockProviderResponse({

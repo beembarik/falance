@@ -11,7 +11,6 @@ const BRAND_GREEN = "#267a5a";
 const BRAND_GREEN_DARK = "#185a42";
 const BRAND_GREEN_LIGHT = "#e3f3ed";
 const BRAND_PURPLE = "#6650a7";
-const BRAND_CORAL = "#c85a4d";
 const BORDER_COLOR = "#b8dfd0";
 
 export function validatePdfPassword(password: string | undefined): string | undefined {

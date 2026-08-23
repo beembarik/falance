@@ -123,14 +123,7 @@ export class OpenAICompatibleTransactionTextParser implements TransactionTextPar
             },
             { role: "user", content: text },
           ],
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "transaction_extraction",
-              strict: true,
-              schema: TRANSACTION_EXTRACTION_SCHEMA,
-            },
-          },
+          response_format: buildResponseFormat(model),
         }),
         signal: controller.signal,
       });
@@ -281,6 +274,22 @@ function isProviderExtraction(value: unknown): value is ProviderExtraction {
     && (confidence === "HIGH" || confidence === "MEDIUM" || confidence === "LOW")
     && (category === null || typeof category === "string" || category === undefined)
     && (descriptionSuggestion === null || typeof descriptionSuggestion === "string" || descriptionSuggestion === undefined);
+}
+
+function buildResponseFormat(model: string):
+  | { type: "json_object" }
+  | { type: "json_schema"; json_schema: { name: string; strict: true; schema: typeof TRANSACTION_EXTRACTION_SCHEMA } } {
+  if (model.toLowerCase().startsWith("groq/compound")) {
+    return { type: "json_object" };
+  }
+  return {
+    type: "json_schema",
+    json_schema: {
+      name: "transaction_extraction",
+      strict: true,
+      schema: TRANSACTION_EXTRACTION_SCHEMA,
+    },
+  };
 }
 
 function providerHost(baseUrl: string): string {

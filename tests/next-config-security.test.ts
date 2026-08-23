@@ -5,10 +5,11 @@ import nextConfig, { SECURITY_HEADERS } from "../next.config";
 
 test("defines baseline security headers for every response", () => {
   const headers = new Map(SECURITY_HEADERS.map((header) => [header.key, header.value]));
-  assert.equal(headers.get("Content-Security-Policy")?.includes("frame-ancestors 'none'"), true);
+  assert.equal(headers.get("Content-Security-Policy")?.includes("frame-ancestors https://web.telegram.org"), true);
+  assert.equal(headers.get("Content-Security-Policy")?.includes("https://webk.telegram.org"), true);
   assert.equal(headers.get("Referrer-Policy"), "no-referrer");
   assert.equal(headers.get("X-Content-Type-Options"), "nosniff");
-  assert.equal(headers.get("X-Frame-Options"), "DENY");
+  assert.equal(headers.has("X-Frame-Options"), false);
   assert.equal(headers.get("Permissions-Policy"), "camera=(), microphone=(), geolocation=()");
   assert.equal(headers.get("Strict-Transport-Security"), "max-age=63072000; includeSubDomains");
 });
