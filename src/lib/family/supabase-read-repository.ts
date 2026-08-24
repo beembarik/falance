@@ -138,34 +138,49 @@ function requiredNumber(row: Record<string, unknown>, key: string): number {
   return value;
 }
 
+function requiredTimestamp(row: Record<string, unknown>, key: string): string {
+  const value = requiredString(row, key);
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) throw new Error("Invalid Supabase row.");
+  return timestamp.toISOString();
+}
+
+function optionalTimestamp(row: Record<string, unknown>, key: string): string | null {
+  const value = optionalString(row, key);
+  if (value === null) return null;
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) throw new Error("Invalid Supabase row.");
+  return timestamp.toISOString();
+}
+
 function toFamily(row: Record<string, unknown>): Family {
-  return { familyId: requiredString(row, "family_id"), familyName: requiredString(row, "family_name"), status: requiredString(row, "status") as Family["status"], createdAt: requiredString(row, "created_at"), createdBy: requiredString(row, "created_by"), plan: requiredString(row, "plan") };
+  return { familyId: requiredString(row, "family_id"), familyName: requiredString(row, "family_name"), status: requiredString(row, "status") as Family["status"], createdAt: requiredTimestamp(row, "created_at"), createdBy: requiredString(row, "created_by"), plan: requiredString(row, "plan") };
 }
 
 function toMember(row: Record<string, unknown>): FamilyMember {
-  return { memberId: requiredString(row, "member_id"), familyId: requiredString(row, "family_id"), telegramUserId: requiredString(row, "telegram_user_id"), name: requiredString(row, "name"), username: optionalString(row, "username"), role: requiredString(row, "role") as FamilyMember["role"], status: requiredString(row, "status") as FamilyMember["status"], joinedAt: requiredString(row, "joined_at") };
+  return { memberId: requiredString(row, "member_id"), familyId: requiredString(row, "family_id"), telegramUserId: requiredString(row, "telegram_user_id"), name: requiredString(row, "name"), username: optionalString(row, "username"), role: requiredString(row, "role") as FamilyMember["role"], status: requiredString(row, "status") as FamilyMember["status"], joinedAt: requiredTimestamp(row, "joined_at") };
 }
 
 function toInvitation(row: Record<string, unknown>): Invitation {
-  return { invitationId: requiredString(row, "invitation_id"), familyId: requiredString(row, "family_id"), code: requiredString(row, "code"), createdBy: requiredString(row, "created_by"), createdAt: requiredString(row, "created_at"), expiresAt: requiredString(row, "expires_at"), status: requiredString(row, "status") as Invitation["status"], usedBy: optionalString(row, "used_by"), usedAt: optionalString(row, "used_at") };
+  return { invitationId: requiredString(row, "invitation_id"), familyId: requiredString(row, "family_id"), code: requiredString(row, "code"), createdBy: requiredString(row, "created_by"), createdAt: requiredTimestamp(row, "created_at"), expiresAt: requiredTimestamp(row, "expires_at"), status: requiredString(row, "status") as Invitation["status"], usedBy: optionalString(row, "used_by"), usedAt: optionalTimestamp(row, "used_at") };
 }
 
 function toPendingConfirmation(row: Record<string, unknown>): PendingConfirmation {
-  return { confirmationId: requiredString(row, "confirmation_id"), telegramUserId: requiredString(row, "telegram_user_id"), familyId: requiredString(row, "family_id"), action: requiredString(row, "action") as PendingConfirmation["action"], target: requiredString(row, "target"), createdAt: requiredString(row, "created_at"), expiresAt: requiredString(row, "expires_at"), status: requiredString(row, "status") as PendingConfirmation["status"] };
+  return { confirmationId: requiredString(row, "confirmation_id"), telegramUserId: requiredString(row, "telegram_user_id"), familyId: requiredString(row, "family_id"), action: requiredString(row, "action") as PendingConfirmation["action"], target: requiredString(row, "target"), createdAt: requiredTimestamp(row, "created_at"), expiresAt: requiredTimestamp(row, "expires_at"), status: requiredString(row, "status") as PendingConfirmation["status"] };
 }
 
 function toPendingFamilyCreation(row: Record<string, unknown>): PendingFamilyCreation {
-  return { telegramUserId: requiredString(row, "telegram_user_id"), familyName: optionalString(row, "family_name"), createdAt: requiredString(row, "created_at"), expiresAt: requiredString(row, "expires_at") };
+  return { telegramUserId: requiredString(row, "telegram_user_id"), familyName: optionalString(row, "family_name"), createdAt: requiredTimestamp(row, "created_at"), expiresAt: requiredTimestamp(row, "expires_at") };
 }
 
 function toPendingTransactionDraft(row: Record<string, unknown>): PendingTransactionDraft {
-  return { draftId: requiredString(row, "draft_id"), telegramUserId: requiredString(row, "telegram_user_id"), familyId: requiredString(row, "family_id"), transactionType: requiredString(row, "transaction_type") as PendingTransactionDraft["transactionType"], amountMinor: requiredNumber(row, "amount_minor"), currency: requiredString(row, "currency"), transactionDate: requiredString(row, "transaction_date"), description: requiredString(row, "description"), confidence: requiredString(row, "confidence") as PendingTransactionDraft["confidence"], transactionDateInferred: row.transaction_date_inferred === true, categorySuggestion: optionalString(row, "category_suggestion") ?? undefined, descriptionSuggestion: optionalString(row, "description_suggestion") ?? undefined, createdAt: requiredString(row, "created_at"), expiresAt: requiredString(row, "expires_at"), status: requiredString(row, "status") as PendingTransactionDraft["status"] };
+  return { draftId: requiredString(row, "draft_id"), telegramUserId: requiredString(row, "telegram_user_id"), familyId: requiredString(row, "family_id"), transactionType: requiredString(row, "transaction_type") as PendingTransactionDraft["transactionType"], amountMinor: requiredNumber(row, "amount_minor"), currency: requiredString(row, "currency"), transactionDate: requiredString(row, "transaction_date"), description: requiredString(row, "description"), confidence: requiredString(row, "confidence") as PendingTransactionDraft["confidence"], transactionDateInferred: row.transaction_date_inferred === true, categorySuggestion: optionalString(row, "category_suggestion") ?? undefined, descriptionSuggestion: optionalString(row, "description_suggestion") ?? undefined, createdAt: requiredTimestamp(row, "created_at"), expiresAt: requiredTimestamp(row, "expires_at"), status: requiredString(row, "status") as PendingTransactionDraft["status"] };
 }
 
 function toDraftApprovalClaim(row: Record<string, unknown>): DraftApprovalClaim {
-  return { draftId: requiredString(row, "draft_id"), telegramUserId: requiredString(row, "telegram_user_id"), familyId: requiredString(row, "family_id"), transactionId: requiredString(row, "transaction_id"), claimedAt: requiredString(row, "claimed_at"), completedAt: optionalString(row, "completed_at"), leaseUntil: requiredString(row, "lease_until"), status: requiredString(row, "status") as DraftApprovalClaim["status"] };
+  return { draftId: requiredString(row, "draft_id"), telegramUserId: requiredString(row, "telegram_user_id"), familyId: requiredString(row, "family_id"), transactionId: requiredString(row, "transaction_id"), claimedAt: requiredTimestamp(row, "claimed_at"), completedAt: optionalTimestamp(row, "completed_at"), leaseUntil: requiredTimestamp(row, "lease_until"), status: requiredString(row, "status") as DraftApprovalClaim["status"] };
 }
 
 function toTransaction(row: Record<string, unknown>): Transaction {
-  return { transactionId: requiredString(row, "transaction_id"), familyId: requiredString(row, "family_id"), transactionType: requiredString(row, "transaction_type") as Transaction["transactionType"], amountMinor: requiredNumber(row, "amount_minor"), currency: requiredString(row, "currency"), transactionDate: requiredString(row, "transaction_date"), description: requiredString(row, "description"), createdByMemberId: requiredString(row, "created_by_member_id"), createdAt: requiredString(row, "created_at"), status: requiredString(row, "status") as Transaction["status"], category: optionalString(row, "category") ?? "UNCATEGORIZED" };
+  return { transactionId: requiredString(row, "transaction_id"), familyId: requiredString(row, "family_id"), transactionType: requiredString(row, "transaction_type") as Transaction["transactionType"], amountMinor: requiredNumber(row, "amount_minor"), currency: requiredString(row, "currency"), transactionDate: requiredString(row, "transaction_date"), description: requiredString(row, "description"), createdByMemberId: requiredString(row, "created_by_member_id"), createdAt: requiredTimestamp(row, "created_at"), status: requiredString(row, "status") as Transaction["status"], category: optionalString(row, "category") ?? "UNCATEGORIZED" };
 }

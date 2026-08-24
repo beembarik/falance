@@ -44,6 +44,17 @@ test("maps Supabase family and all family-scoped transactions to domain objects"
   ]);
 });
 
+test("normalizes Supabase timestamps and empty optional fields", async () => {
+  const repository = new SupabaseReadRepository(new FakeClient({
+    families: [{ family_id: "family-time", family_name: "Time Family", status: "ACTIVE", created_at: "2026-01-01T07:00:00+07:00", created_by: "user-test", plan: "FREE" }],
+    members: [{ member_id: "member-time", family_id: "family-time", telegram_user_id: "user-test", name: "Owner", username: "", role: "OWNER", status: "ACTIVE", joined_at: "2026-01-01T08:00:00+07:00" }],
+  }));
+
+  assert.equal((await repository.findFamilyById("family-time"))?.createdAt, "2026-01-01T00:00:00.000Z");
+  assert.equal((await repository.findMembersByFamilyId("family-time"))[0].joinedAt, "2026-01-01T01:00:00.000Z");
+  assert.equal((await repository.findMembersByFamilyId("family-time"))[0].username, null);
+});
+
 test("matches production read filters for active family, all family members, and editing drafts", async () => {
   const repository = new SupabaseReadRepository(new FakeClient({
     families: [
