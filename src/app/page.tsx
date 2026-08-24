@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CATEGORY_CODES, CATEGORY_LABELS } from "../lib/family/category-analytics";
 
@@ -75,6 +76,8 @@ declare global {
     Telegram?: { WebApp?: TelegramWebApp };
   }
 }
+
+const TELEGRAM_BOOTSTRAP_TIMEOUT_MS = 5_000;
 
 const navItems: Array<{ key: NavKey; label: string; icon: string }> = [
   { key: "home", label: "Beranda", icon: "⌂" },
@@ -341,15 +344,22 @@ export default function Home() {
   }, [data]);
 
   useEffect(() => {
-    const webApp = window.Telegram?.WebApp;
-    if (webApp) {
-      initDataRef.current = webApp.initData;
-      webApp.ready();
-      webApp.expand();
-      webApp.setHeaderColor?.("#267a5a");
-      webApp.setBackgroundColor?.("#fafbf8");
-    }
-    void loadReport("", "", "");
+    let cancelled = false;
+    void (async () => {
+      const webApp = await waitForTelegramWebApp();
+      if (cancelled) return;
+      if (webApp) {
+        initDataRef.current = webApp.initData;
+        webApp.ready();
+        webApp.expand();
+        webApp.setHeaderColor?.("#267a5a");
+        webApp.setBackgroundColor?.("#fafbf8");
+      }
+      await loadReport("", "", "");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [loadReport]);
 
   return (
@@ -442,7 +452,7 @@ function AppHeader({ data, activeNav, onSelectNav }: { data: ReportResponse | nu
       <div className="flex items-start justify-between gap-4">
         <button type="button" onClick={() => onSelectNav("home")} className="group text-left" aria-label="Buka Beranda Falancé">
           <div className="flex items-center gap-2">
-            <img className="brand-mark object-contain" src="/icon.png" alt="" aria-hidden="true" />
+            <Image className="brand-mark object-contain" src="/icon.png" alt="" aria-hidden="true" width={32} height={32} priority />
             <span className="text-base font-bold tracking-tight">Falancé</span>
           </div>
           <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Family finance, made simple</p>
@@ -610,6 +620,16 @@ function percentageOf(value: bigint, total: bigint): number {
 
 function formatPercentage(value: number): string {
   return `${value.toLocaleString("id-ID", { minimumFractionDigits: value % 1 === 0 ? 0 : 1, maximumFractionDigits: 1 })}%`;
+}
+
+async function waitForTelegramWebApp(): Promise<TelegramWebApp | null> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < TELEGRAM_BOOTSTRAP_TIMEOUT_MS) {
+    const webApp = window.Telegram?.WebApp;
+    if (webApp) return webApp;
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+  }
+  return window.Telegram?.WebApp ?? null;
 }
 
 function AddTransactionForm({ initData, transaction, onClose, onSaved }: { initData: string; transaction?: ReportResponse["report"]["transactions"][number]; onClose: () => void; onSaved: () => void }) {
@@ -787,7 +807,7 @@ function TransactionsView({ data, filter, onFilterChange, onSelectTransaction }:
       </div>
       <p className="mt-3 text-xs text-[var(--text-secondary)]">Menampilkan maksimal 50 transaksi aktif dari periode yang dipilih.</p>
       {transactions.length === 0 ? (
-        <div className="mt-5 rounded-xl bg-[var(--surface-soft)] p-5 text-center"><img className="mx-auto h-10 w-10 object-contain" src="/icon.png" alt="" aria-hidden="true" />
+        <div className="mt-5 rounded-xl bg-[var(--surface-soft)] p-5 text-center"><Image className="mx-auto h-10 w-10 object-contain" src="/icon.png" alt="" aria-hidden="true" width={40} height={40} />
 <p className="mt-3 text-sm font-semibold">Belum ada transaksi</p><p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Tidak ada transaksi yang cocok dengan filter ini.</p></div>
       ) : (
         <div className="mt-5 space-y-5">{Object.entries(grouped).map(([date, dateTransactions]) => <div key={date}><h3 className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{formatLongDate(date)}</h3><div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] px-3">{dateTransactions.map((transaction) => <button key={transaction.transactionId} type="button" onClick={() => onSelectTransaction(transaction)} className="flex w-full items-start justify-between gap-3 py-3 text-left transition first:pt-3 last:pb-3 hover:bg-[var(--brand-green-50)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--brand-green-500)]"><div className="flex min-w-0 items-start gap-3"><span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-bold ${transaction.transactionType === "INCOME" ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : "bg-[var(--brand-coral-100)] text-[#C85A4D]"}`} aria-hidden="true">{transaction.transactionType === "INCOME" ? "↑" : "↓"}</span><div className="min-w-0"><p className="truncate text-sm font-semibold">{transaction.description}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran"} · {transaction.currency} · {getCategoryLabel(transaction.category)}</p><p className="mt-1 text-xs text-[var(--text-muted)]">{formatDisplayDate(transaction.transactionDate)} · dicatat oleh {transaction.creatorName}</p></div></div><p className={`shrink-0 text-sm font-bold ${transaction.transactionType === "INCOME" ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{transaction.transactionType === "INCOME" ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p></button>)}</div></div>)}</div>
@@ -895,7 +915,7 @@ function TransactionRow({ transaction }: { transaction: ReportResponse["report"]
 }
 
 function PlaceholderView({ title, description, actionLabel, onAction }: { title: string; description: string; actionLabel: string; onAction: () => void }) {
-  return <section className="rounded-2xl border border-dashed border-[var(--brand-green-500)] bg-[var(--surface)] p-7 text-center shadow-[var(--card-shadow)]"><img className="mx-auto h-12 w-12 object-contain" src="/icon.png" alt="" aria-hidden="true" />
+  return <section className="rounded-2xl border border-dashed border-[var(--brand-green-500)] bg-[var(--surface)] p-7 text-center shadow-[var(--card-shadow)]"><Image className="mx-auto h-12 w-12 object-contain" src="/icon.png" alt="" aria-hidden="true" width={48} height={48} />
 <h2 className="mt-4 text-xl font-bold">{title}</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--text-secondary)]">{description}</p><button type="button" onClick={onAction} className="mt-5 min-h-11 rounded-xl bg-[var(--brand-green-700)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-600)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2">{actionLabel}</button></section>;
 }
 
