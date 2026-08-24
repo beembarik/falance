@@ -10,7 +10,12 @@ export interface SupabaseWriteClient extends SupabaseServerClient {
 
 /** Full repository implementation behind an explicit server-side client seam. */
 export class SupabaseFamilyRepository extends SupabaseAtomicRepository implements FamilyRepository {
-  constructor(private readonly writeClient: SupabaseWriteClient) { super(writeClient); }
+  private readonly writeClient: SupabaseWriteClient;
+
+  constructor(writeClient: SupabaseWriteClient) {
+    super(writeClient);
+    this.writeClient = writeClient;
+  }
 
   async createFamily(family: Family): Promise<void> { await this.insert("families", { family_id: family.familyId, family_name: family.familyName, status: family.status, created_at: family.createdAt, created_by: family.createdBy, plan: family.plan }); }
   async updateFamilyName(familyId: string, familyName: string): Promise<void> { await this.update("families", { family_id: familyId }, { family_name: familyName }); }
