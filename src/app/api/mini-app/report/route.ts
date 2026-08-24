@@ -3,6 +3,7 @@ import { FamilyService, FamilyServiceError } from "../../../../lib/family/servic
 import { ReportPeriodError } from "../../../../lib/family/report";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../lib/telegram/mini-app-auth";
 import { buildReportDownloadAction } from "../../../../lib/telegram/report-download-token";
+import { logMiniAppDiagnostic } from "../../../../lib/mini-app/diagnostics";
 
 export const runtime = "nodejs";
 
@@ -14,16 +15,20 @@ type MiniAppReportRequest = {
 };
 
 export async function POST(request: Request): Promise<Response> {
+  logMiniAppDiagnostic("report", "request_started");
   let payload: MiniAppReportRequest;
   try {
     payload = await request.json() as MiniAppReportRequest;
   } catch {
+    logMiniAppDiagnostic("report", "invalid_request", { status: 400 });
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
 
   if (typeof payload.initData !== "string" || !payload.initData.trim()) {
+    logMiniAppDiagnostic("report", "init_data_missing", { status: 400 });
     return Response.json({ error: "Mini App authorization is required." }, { status: 400 });
   }
+  logMiniAppDiagnostic("report", "init_data_present");
   if (
     (payload.month !== undefined && typeof payload.month !== "string") ||
     (payload.startDate !== undefined && typeof payload.startDate !== "string") ||
@@ -42,7 +47,10 @@ export async function POST(request: Request): Promise<Response> {
     const validated = validateMiniAppInitData(payload.initData, botToken);
     const service = new FamilyService(createFamilyRepository());
     const membership = await service.getActiveMembership(validated.telegramUser.telegramUserId);
-    if (!membership) return Response.json({ error: "Mini App access denied." }, { status: 403 });
+    if (!membership) {
+      logMiniAppDiagnostic("report", "access_denied", { status: 403 });
+      return Response.json({ error: "Mini App access denied." }, { status: 403 });
+    }
     const family = await service.getActiveFamily(validated.telegramUser.telegramUserId);
     const report = await service.getFinancialReport(
       validated.telegramUser.telegramUserId,
@@ -74,6 +82,7 @@ export async function POST(request: Request): Promise<Response> {
         }
       : undefined;
 
+    logMiniAppDiagnostic("report", "success", { status: 200 });
     return Response.json({
       familyName: family.familyName,
       actions,
@@ -123,14 +132,21 @@ export async function POST(request: Request): Promise<Response> {
     });
   } catch (error) {
     if (error instanceof MiniAppAuthError) {
+      logMiniAppDiagnostic("report", "auth_invalid", { status: 401 });
       return Response.json({ error: "Mini App authorization is invalid or expired." }, { status: 401 });
     }
     if (error instanceof ReportPeriodError) {
+      logMiniAppDiagnostic("report", "failure", { status: 400, errorClass: "ReportPeriodError" });
       return Response.json({ error: "Report period or date range is invalid." }, { status: 400 });
     }
     if (error instanceof FamilyServiceError) {
+      logMiniAppDiagnostic("report", "access_denied", { status: 403 });
       return Response.json({ error: "Mini App access denied." }, { status: 403 });
     }
+    logMiniAppDiagnostic("report", "failure", {
+      status: 500,
+      errorClass: error instanceof Error ? error.name : "unknown",
+    });
     console.error("[MiniApp] report request failed", {
       error: error instanceof Error ? error.name : "unknown",
     });
