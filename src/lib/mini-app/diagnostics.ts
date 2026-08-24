@@ -14,21 +14,34 @@ type SafeDiagnosticDetails = {
   status?: number;
   errorClass?: string;
   stage?: string;
+  persistenceConfig?: string;
 };
 
 type DiagnosticEnvironment = {
   FALANCE_MINI_APP_DIAGNOSTICS?: string;
   VERCEL_ENV?: string;
+  FALANCE_PERSISTENCE_BACKEND?: string;
+  FALANCE_SUPABASE_URL?: string;
+  FALANCE_SUPABASE_SERVICE_ROLE_KEY?: string;
 };
 
 export function isMiniAppDiagnosticsEnabled(env: DiagnosticEnvironment = process.env as DiagnosticEnvironment): boolean {
   return env.VERCEL_ENV === "preview" || (env.FALANCE_MINI_APP_DIAGNOSTICS === "true" && env.VERCEL_ENV !== "production");
 }
 
+export function classifyPersistenceConfig(env: DiagnosticEnvironment = process.env as DiagnosticEnvironment): string {
+  const backend = env.FALANCE_PERSISTENCE_BACKEND?.trim() || "google-sheets";
+  if (backend !== "supabase") return "backend_not_supabase";
+  if (env.VERCEL_ENV !== "preview") return "supabase_non_preview_context";
+  if (!env.FALANCE_SUPABASE_URL?.trim()) return "supabase_url_missing";
+  if (!env.FALANCE_SUPABASE_SERVICE_ROLE_KEY?.trim()) return "supabase_service_role_missing";
+  return "supabase_config_present";
+}
+
 export function classifyMiniAppError(error: unknown): string {
   if (!(error instanceof Error)) return "unknown_error";
-  if (error.name === "GoogleConfigurationError") return "persistence_configuration";
-  if (error.name === "GoogleApiError") return "google_api_error";
+  if (error.name === "GoogleConfigurationError" || error.message.includes("Supabase backend is restricted") || error.message.includes("Supabase backend is not configured") || error.message.includes("Supabase backend URL is invalid")) return "persistence_configuration";
+  if (error.name === "GoogleApiError" || error.message.includes("Google authentication failed") || error.message.includes("Google API request failed")) return "google_api_error";
   if (error.message === "Invalid Supabase row.") return "supabase_invalid_row";
   if (error.message === "Supabase write failed.") return "supabase_write_failed";
   if (error.message.startsWith("Supabase read failed for ")) {
@@ -36,6 +49,7 @@ export function classifyMiniAppError(error: unknown): string {
     const knownTables = new Set(["families", "members", "transactions", "invitations", "pending_confirmations", "pending_family_creations", "pending_transaction_drafts", "draft_approval_claims"]);
     return knownTables.has(table) ? `supabase_read_${table}` : "supabase_read_failed";
   }
+  if (error.message.includes("Unsupported persistence backend")) return "persistence_configuration";
   if (error.message === "Supabase read response was invalid.") return "supabase_invalid_response";
   return "unknown_error";
 }
@@ -56,6 +70,9 @@ export function logMiniAppDiagnostic(
   }
   if (details.stage && /^[a-z][a-z0-9_]{0,60}$/.test(details.stage)) {
     safeDetails.stage = details.stage;
+  }
+  if (details.persistenceConfig && /^[a-z][a-z0-9_]{0,60}$/.test(details.persistenceConfig)) {
+    safeDetails.persistenceConfig = details.persistenceConfig;
   }
   console.info("[MiniAppDiagnostic]", { operation, state, ...safeDetails });
 }
