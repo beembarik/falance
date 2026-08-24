@@ -19,8 +19,8 @@ export interface SupabaseReadQuery {
   in(column: string, values: readonly string[]): SupabaseReadQuery;
   order(column: string, options?: { ascending?: boolean }): SupabaseReadQuery;
   limit(count: number): SupabaseReadQuery;
-  maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: { message?: string } | null }>;
-  returns(): Promise<{ data: Record<string, unknown>[] | null; error: { message?: string } | null }>;
+  maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: { message?: string; code?: string } | null }>;
+  returns(): Promise<{ data: Record<string, unknown>[] | null; error: { message?: string; code?: string } | null }>;
 }
 
 export interface SupabaseReadClient {
@@ -102,15 +102,19 @@ export class SupabaseReadRepository implements FamilyRepository {
 
   private async single<T>(table: string, apply: (query: SupabaseReadQuery) => SupabaseReadQuery, map: (row: Record<string, unknown>) => T): Promise<T | null> {
     const result = await apply(this.client.from(table).select("*")) .maybeSingle();
-    if (result.error) throw new Error(`Supabase read failed for ${table}.`);
+    if (result.error) throw new Error(`Supabase read failed for ${table} [${safeReadErrorCode(result.error.code)}].`);
     return result.data ? map(result.data) : null;
   }
 
   private async many<T>(table: string, apply: (query: SupabaseReadQuery) => SupabaseReadQuery, map: (row: Record<string, unknown>) => T): Promise<T[]> {
     const result = await apply(this.client.from(table).select("*")).returns();
-    if (result.error) throw new Error(`Supabase read failed for ${table}.`);
+    if (result.error) throw new Error(`Supabase read failed for ${table} [${safeReadErrorCode(result.error.code)}].`);
     return (result.data ?? []).map(map);
   }
+}
+
+function safeReadErrorCode(code: string | undefined): string {
+  return code && /^[a-z][a-z0-9_]{0,40}$/.test(code) ? code : "unknown";
 }
 
 function unsupported(operation: string): never {

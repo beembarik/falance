@@ -24,7 +24,8 @@ describe("mini app diagnostics", () => {
   });
 
   it("classifies known persistence failures without returning raw messages", () => {
-    assert.equal(classifyMiniAppError(new Error("Supabase read failed for families.")), "supabase_read_families");
+    assert.equal(classifyMiniAppError(new Error("Supabase read failed for families [unknown].")), "supabase_read_families");
+    assert.equal(classifyMiniAppError(new Error("Supabase read failed for members [http_401].")), "supabase_read_members_http_401");
     assert.equal(classifyMiniAppError(new Error("a secret value must not appear")), "unknown_error");
   });
 

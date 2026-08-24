@@ -35,18 +35,18 @@ class SupabaseRestReadQuery implements SupabaseReadQuery {
   order(column: string, options?: { ascending?: boolean }): SupabaseReadQuery { this.ordering = `${column}.${options?.ascending === false ? "desc" : "asc"}`; return this; }
   limit(count: number): SupabaseReadQuery { this.rowLimit = count; return this; }
 
-  async maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: { message?: string } | null }> {
+  async maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: { message?: string; code?: string } | null }> {
     const result = await this.execute();
     if (result.error || result.data.length > 1) return { data: null, error: result.error ?? { message: "Unexpected multiple rows." } };
     return { data: result.data[0] ?? null, error: null };
   }
 
-  async returns(): Promise<{ data: Record<string, unknown>[] | null; error: { message?: string } | null }> {
+  async returns(): Promise<{ data: Record<string, unknown>[] | null; error: { message?: string; code?: string } | null }> {
     const result = await this.execute();
     return { data: result.error ? null : result.data, error: result.error };
   }
 
-  private async execute(): Promise<{ data: Record<string, unknown>[]; error: { message?: string } | null }> {
+  private async execute(): Promise<{ data: Record<string, unknown>[]; error: { message?: string; code?: string } | null }> {
     const query = new URLSearchParams({ select: this.selected });
     if (this.filters.length > 0) query.set("and", `(${this.filters.join(",")})`);
     if (this.ordering) query.set("order", this.ordering);
@@ -59,15 +59,15 @@ class SupabaseRestReadQuery implements SupabaseReadQuery {
       });
       if (!response.ok) {
         await response.body?.cancel();
-        return { data: [], error: { message: "Supabase read request failed." } };
+        return { data: [], error: { message: "Supabase read request failed.", code: `http_${response.status}` } };
       }
       const body: unknown = await response.json();
       if (!Array.isArray(body) || body.some((row) => row === null || typeof row !== "object" || Array.isArray(row))) {
-        return { data: [], error: { message: "Supabase read response was invalid." } };
+        return { data: [], error: { message: "Supabase read response was invalid.", code: "invalid_response" } };
       }
       return { data: body as Record<string, unknown>[], error: null };
     } catch {
-      return { data: [], error: { message: "Supabase read request failed." } };
+      return { data: [], error: { message: "Supabase read request failed.", code: "network" } };
     }
   }
 }

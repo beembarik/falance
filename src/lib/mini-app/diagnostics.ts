@@ -45,9 +45,13 @@ export function classifyMiniAppError(error: unknown): string {
   if (error.message === "Invalid Supabase row.") return "supabase_invalid_row";
   if (error.message === "Supabase write failed.") return "supabase_write_failed";
   if (error.message.startsWith("Supabase read failed for ")) {
-    const table = error.message.slice("Supabase read failed for ".length).replace(/\.$/, "");
+    const match = /^Supabase read failed for ([a-z_]+) \[([a-z0-9_]+)\]\.$/.exec(error.message);
+    if (!match) return "supabase_read_failed";
+    const [, table, code] = match;
     const knownTables = new Set(["families", "members", "transactions", "invitations", "pending_confirmations", "pending_family_creations", "pending_transaction_drafts", "draft_approval_claims"]);
-    return knownTables.has(table) ? `supabase_read_${table}` : "supabase_read_failed";
+    const knownCodes = new Set(["http_400", "http_401", "http_403", "http_404", "http_408", "http_429", "http_500", "http_502", "http_503", "http_504", "network", "invalid_response", "unknown"]);
+    if (!knownTables.has(table)) return "supabase_read_failed";
+    return knownCodes.has(code) && code !== "unknown" ? `supabase_read_${table}_${code}` : `supabase_read_${table}`;
   }
   if (error.message.includes("Unsupported persistence backend")) return "persistence_configuration";
   if (error.message === "Supabase read response was invalid.") return "supabase_invalid_response";
