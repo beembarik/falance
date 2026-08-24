@@ -27,7 +27,7 @@ class FakeClient implements SupabaseReadClient {
   from(table: string): SupabaseReadQuery { return new FakeQuery((this.tables[table] ?? []).map((row) => ({ ...row }))); }
 }
 
-test("maps Supabase family and family-scoped active transactions to domain objects", async () => {
+test("maps Supabase family and all family-scoped transactions to domain objects", async () => {
   const repository = new SupabaseReadRepository(new FakeClient({
     families: [{ family_id: "family-test", family_name: "Test Family", status: "ACTIVE", created_at: "2026-01-01T00:00:00.000Z", created_by: "user-test", plan: "FREE" }],
     transactions: [
@@ -38,7 +38,10 @@ test("maps Supabase family and family-scoped active transactions to domain objec
   }));
 
   assert.deepEqual(await repository.findFamilyById("family-test"), { familyId: "family-test", familyName: "Test Family", status: "ACTIVE", createdAt: "2026-01-01T00:00:00.000Z", createdBy: "user-test", plan: "FREE" });
-  assert.deepEqual(await repository.findTransactionsByFamilyId("family-test"), [{ transactionId: "txn-active", familyId: "family-test", transactionType: "EXPENSE", amountMinor: 1000, currency: "IDR", transactionDate: "2026-01-02", description: "Active", createdByMemberId: "member-test", createdAt: "2026-01-02T00:00:00.000Z", status: "ACTIVE", category: "FOOD" }]);
+  assert.deepEqual(await repository.findTransactionsByFamilyId("family-test"), [
+    { transactionId: "txn-active", familyId: "family-test", transactionType: "EXPENSE", amountMinor: 1000, currency: "IDR", transactionDate: "2026-01-02", description: "Active", createdByMemberId: "member-test", createdAt: "2026-01-02T00:00:00.000Z", status: "ACTIVE", category: "FOOD" },
+    { transactionId: "txn-void", familyId: "family-test", transactionType: "EXPENSE", amountMinor: 2000, currency: "IDR", transactionDate: "2026-01-03", description: "Void", createdByMemberId: "member-test", createdAt: "2026-01-03T00:00:00.000Z", status: "VOID", category: "UNCATEGORIZED" },
+  ]);
 });
 
 test("matches production read filters for active family, all family members, and editing drafts", async () => {
@@ -48,13 +51,14 @@ test("matches production read filters for active family, all family members, and
       { family_id: "family-suspended", family_name: "Suspended", status: "SUSPENDED", created_at: "2026-01-01T00:00:00.000Z", created_by: "user-test", plan: "FREE" },
     ],
     members: [
-      { member_id: "member-owner", family_id: "family-active", telegram_user_id: "user-test", name: "Owner", role: "OWNER", status: "ACTIVE", joined_at: "2026-01-01T00:00:00.000Z" },
+      { member_id: "member-owner", family_id: "family-active", telegram_user_id: "user-test", name: "Owner", username: "", role: "OWNER", status: "ACTIVE", joined_at: "2026-01-01T00:00:00.000Z" },
       { member_id: "member-left", family_id: "family-active", telegram_user_id: "left-user", name: "Left", role: "MEMBER", status: "LEFT", joined_at: "2026-01-02T00:00:00.000Z" },
     ],
     pending_transaction_drafts: [{ draft_id: "draft-editing", telegram_user_id: "user-test", family_id: "family-active", transaction_type: "EXPENSE", amount_minor: 1000, currency: "IDR", transaction_date: "2026-01-01", description: "Draft", confidence: "HIGH", created_at: "2026-01-01T00:00:00.000Z", expires_at: "2026-01-01T01:00:00.000Z", status: "EDITING" }],
   }));
 
   assert.equal((await repository.findFamilyByCreatedBy("user-test"))?.familyId, "family-active");
+  assert.deepEqual((await repository.findMembersByFamilyId("family-active"))[0].username, null);
   assert.equal((await repository.findMembersByFamilyId("family-active")).length, 2);
   assert.equal((await repository.findPendingTransactionDraft("user-test"))?.draftId, "draft-editing");
 });

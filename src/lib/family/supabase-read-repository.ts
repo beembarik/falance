@@ -44,7 +44,7 @@ export class SupabaseReadRepository implements FamilyRepository {
   }
 
   async findMembersByFamilyId(familyId: string): Promise<FamilyMember[]> {
-    return this.many("members", (query) => query.eq("family_id", familyId).order("joined_at", { ascending: true }), toMember);
+    return this.many("members", (query) => query.eq("family_id", familyId), toMember);
   }
 
   async findInvitationByCode(code: string): Promise<Invitation | null> {
@@ -68,7 +68,7 @@ export class SupabaseReadRepository implements FamilyRepository {
   }
 
   async findTransactionsByFamilyId(familyId: string): Promise<Transaction[]> {
-    return this.many("transactions", (query) => query.eq("family_id", familyId).eq("status", "ACTIVE").order("transaction_date", { ascending: false }), toTransaction);
+    return this.many("transactions", (query) => query.eq("family_id", familyId), toTransaction);
   }
 
   /* eslint-disable @typescript-eslint/no-unused-vars */
@@ -129,7 +129,7 @@ function requiredString(row: Record<string, unknown>, key: string): string {
 
 function optionalString(row: Record<string, unknown>, key: string): string | null {
   const value = row[key];
-  return value === null || value === undefined ? null : requiredString(row, key);
+  return value === null || value === undefined || value === "" ? null : requiredString(row, key);
 }
 
 function requiredNumber(row: Record<string, unknown>, key: string): number {
@@ -167,5 +167,5 @@ function toDraftApprovalClaim(row: Record<string, unknown>): DraftApprovalClaim 
 }
 
 function toTransaction(row: Record<string, unknown>): Transaction {
-  return { transactionId: requiredString(row, "transaction_id"), familyId: requiredString(row, "family_id"), transactionType: requiredString(row, "transaction_type") as Transaction["transactionType"], amountMinor: requiredNumber(row, "amount_minor"), currency: requiredString(row, "currency"), transactionDate: requiredString(row, "transaction_date"), description: requiredString(row, "description"), createdByMemberId: requiredString(row, "created_by_member_id"), createdAt: requiredString(row, "created_at"), status: requiredString(row, "status") as Transaction["status"], category: optionalString(row, "category") ?? undefined };
+  return { transactionId: requiredString(row, "transaction_id"), familyId: requiredString(row, "family_id"), transactionType: requiredString(row, "transaction_type") as Transaction["transactionType"], amountMinor: requiredNumber(row, "amount_minor"), currency: requiredString(row, "currency"), transactionDate: requiredString(row, "transaction_date"), description: requiredString(row, "description"), createdByMemberId: requiredString(row, "created_by_member_id"), createdAt: requiredString(row, "created_at"), status: requiredString(row, "status") as Transaction["status"], category: optionalString(row, "category") ?? "UNCATEGORIZED" };
 }

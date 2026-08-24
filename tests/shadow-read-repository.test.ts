@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { ShadowReadRepository } from "../src/lib/family/shadow-read-repository";
 import type { FamilyRepository } from "../src/lib/family/repository";
-import type { Family } from "../src/lib/family/types";
+import type { Family, FamilyMember } from "../src/lib/family/types";
 
 const primaryFamily: Family = {
   familyId: "primary-family-id",
@@ -35,6 +35,24 @@ test("returns the primary read result without waiting for the shadow read", asyn
   assert.equal(shadowReadStarted, true);
   releaseShadowRead();
   await new Promise((resolve) => setTimeout(resolve, 0));
+});
+
+test("does not report a mismatch when secondary rows have the same set in a different order", async () => {
+  const memberOne: FamilyMember = { memberId: "member-one", familyId: "family-test", telegramUserId: "user-one", name: "One", username: null, role: "OWNER", status: "ACTIVE", joinedAt: "2026-01-01T00:00:00.000Z" };
+  const memberTwo: FamilyMember = { memberId: "member-two", familyId: "family-test", telegramUserId: "user-two", name: "Two", username: null, role: "MEMBER", status: "ACTIVE", joinedAt: "2026-01-02T00:00:00.000Z" };
+  const primary = { findMembersByFamilyId: async () => [memberOne, memberTwo] } as unknown as FamilyRepository;
+  const secondary = { findMembersByFamilyId: async () => [memberTwo, memberOne] } as unknown as FamilyRepository;
+  const warnings: unknown[] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => { warnings.push(args); };
+  try {
+    const shadow = new ShadowReadRepository(primary, secondary);
+    assert.deepEqual(await shadow.findMembersByFamilyId("family-test"), [memberOne, memberTwo]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(warnings.length, 0);
+  } finally {
+    console.warn = originalWarn;
+  }
 });
 
 test("does not fail the primary read when the secondary read fails", async () => {
