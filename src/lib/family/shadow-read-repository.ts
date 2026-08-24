@@ -67,14 +67,21 @@ export class ShadowReadRepository implements FamilyRepository {
       if (primaryDigest !== secondaryDigest) {
         console.warn("[ShadowRead] result mismatch", { operation, primaryDigest, secondaryDigest });
       }
-    } catch {
-      console.warn("[ShadowRead] secondary read failed", { operation });
+    } catch (error) {
+      console.warn("[ShadowRead] secondary read failed", { operation, errorCode: shadowReadErrorCode(error) });
     }
   }
 }
 
 function digest(value: unknown): string {
   return createHash("sha256").update(stableSerialize(value)).digest("hex").slice(0, 16);
+}
+
+function shadowReadErrorCode(error: unknown): string {
+  if (!(error instanceof Error)) return "unknown";
+  const code = /\[([a-z][a-z0-9_]{0,40})\]/.exec(error.message)?.[1];
+  if (code && (code === "network" || code === "invalid_response" || /^http_[0-9]{3}$/.test(code))) return code;
+  return "unknown";
 }
 
 function stableSerialize(value: unknown): string {
