@@ -3,7 +3,7 @@ import { FamilyService, FamilyServiceError } from "../../../../lib/family/servic
 import { ReportPeriodError } from "../../../../lib/family/report";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../lib/telegram/mini-app-auth";
 import { buildReportDownloadAction } from "../../../../lib/telegram/report-download-token";
-import { logMiniAppDiagnostic } from "../../../../lib/mini-app/diagnostics";
+import { classifyMiniAppError, logMiniAppDiagnostic } from "../../../../lib/mini-app/diagnostics";
 
 export const runtime = "nodejs";
 
@@ -145,7 +145,7 @@ export async function POST(request: Request): Promise<Response> {
     }
     logMiniAppDiagnostic("report", "failure", {
       status: 500,
-      errorClass: error instanceof Error ? error.name : "unknown",
+      errorClass: classifyMiniAppError(error),
     });
     console.error("[MiniApp] report request failed", {
       error: error instanceof Error ? error.name : "unknown",

@@ -21,7 +21,22 @@ type DiagnosticEnvironment = {
 };
 
 export function isMiniAppDiagnosticsEnabled(env: DiagnosticEnvironment = process.env as DiagnosticEnvironment): boolean {
-  return env.FALANCE_MINI_APP_DIAGNOSTICS === "true" && env.VERCEL_ENV !== "production";
+  return env.VERCEL_ENV === "preview" || (env.FALANCE_MINI_APP_DIAGNOSTICS === "true" && env.VERCEL_ENV !== "production");
+}
+
+export function classifyMiniAppError(error: unknown): string {
+  if (!(error instanceof Error)) return "unknown_error";
+  if (error.name === "GoogleConfigurationError") return "persistence_configuration";
+  if (error.name === "GoogleApiError") return "google_api_error";
+  if (error.message === "Invalid Supabase row.") return "supabase_invalid_row";
+  if (error.message === "Supabase write failed.") return "supabase_write_failed";
+  if (error.message.startsWith("Supabase read failed for ")) {
+    const table = error.message.slice("Supabase read failed for ".length).replace(/\.$/, "");
+    const knownTables = new Set(["families", "members", "transactions", "invitations", "pending_confirmations", "pending_family_creations", "pending_transaction_drafts", "draft_approval_claims"]);
+    return knownTables.has(table) ? `supabase_read_${table}` : "supabase_read_failed";
+  }
+  if (error.message === "Supabase read response was invalid.") return "supabase_invalid_response";
+  return "unknown_error";
 }
 
 export function logMiniAppDiagnostic(

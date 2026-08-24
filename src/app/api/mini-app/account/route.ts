@@ -2,7 +2,7 @@ import { FamilyService, FamilyServiceError } from "../../../../lib/family/servic
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../lib/telegram/mini-app-auth";
 import { createFamilyRepository } from "../../../../lib/family/repository-factory";
 import { buildMiniAppAvatarUrl } from "../../../../lib/telegram/mini-app-avatar-token";
-import { logMiniAppDiagnostic } from "../../../../lib/mini-app/diagnostics";
+import { classifyMiniAppError, logMiniAppDiagnostic } from "../../../../lib/mini-app/diagnostics";
 
 export const runtime = "nodejs";
 
@@ -78,7 +78,7 @@ export async function POST(request: Request): Promise<Response> {
     }
     logMiniAppDiagnostic("account", "failure", {
       status: 500,
-      errorClass: error instanceof Error ? error.name : "unknown",
+      errorClass: classifyMiniAppError(error),
     });
     console.error("[MiniApp] account request failed", {
       error: error instanceof Error ? error.name : "unknown",

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-import { isMiniAppDiagnosticsEnabled, logMiniAppDiagnostic } from "../src/lib/mini-app/diagnostics.ts";
+import { classifyMiniAppError, isMiniAppDiagnosticsEnabled, logMiniAppDiagnostic } from "../src/lib/mini-app/diagnostics.ts";
 
 const originalDiagnosticsFlag = process.env.FALANCE_MINI_APP_DIAGNOSTICS;
 const originalVercelEnv = process.env.VERCEL_ENV;
@@ -18,8 +18,14 @@ describe("mini app diagnostics", () => {
     assert.equal(isMiniAppDiagnosticsEnabled({ FALANCE_MINI_APP_DIAGNOSTICS: "true" }), true);
   });
 
-  it("is disabled on Vercel Production even when enabled", () => {
+  it("is enabled on Vercel Preview and disabled on Production", () => {
+    assert.equal(isMiniAppDiagnosticsEnabled({ VERCEL_ENV: "preview" }), true);
     assert.equal(isMiniAppDiagnosticsEnabled({ FALANCE_MINI_APP_DIAGNOSTICS: "true", VERCEL_ENV: "production" }), false);
+  });
+
+  it("classifies known persistence failures without returning raw messages", () => {
+    assert.equal(classifyMiniAppError(new Error("Supabase read failed for families.")), "supabase_read_families");
+    assert.equal(classifyMiniAppError(new Error("a secret value must not appear")), "unknown_error");
   });
 
   it("logs only allowlisted diagnostic fields", () => {
