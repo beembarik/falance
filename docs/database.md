@@ -231,6 +231,8 @@ The Mini App transaction POST/PATCH endpoints use the same transaction contract 
 
 Backup dan restoration dilakukan secara manual dan terkontrol oleh operator melalui Google Sheets atau prosedur administrasi yang disetujui. Aplikasi tidak membuat spreadsheet baru melalui Drive API. Snapshot harus mencakup seluruh worksheet pada satu titik waktu dan tidak boleh menggabungkan worksheet dari snapshot berbeda tanpa reconciliation. Lihat [`docs/backup-recovery.md`](backup-recovery.md) untuk runbook, partial-write retry matrix, dan recovery decision tree.
 
+M12 non-production acceptance telah lulus pada guarded Preview dengan Supabase-primary: account/report read mengembalikan HTTP 200, transaksi test berhasil dibuat, diubah, dan di-void, kemudian fixture dibersihkan. Data test diimpor manual melalui CSV sanitized karena service-role import access tidak tersedia pada sandbox. Hasil ini hanya memvalidasi adapter dan alur Mini App pada Preview; Google Sheets tetap menjadi Production source of truth dan tidak ada cutover yang tersirat.
+
 `/createfamily` memiliki recovery terhadap family row yang sudah tertulis tetapi membership belum selesai. `/join` menandai invitation `USED` lebih dahulu, lalu membuat membership; retry oleh Telegram identity yang sama menyelesaikan membership yang hilang tanpa menggunakan invitation kedua. Durable draft approval menggunakan lease dan deterministic transaction ID. Untuk operasi yang tidak memiliki idempotency key domain, operator harus melakukan read-only inspection sebelum retry manual.
 
 ## Isolation rule

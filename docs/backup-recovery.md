@@ -91,6 +91,12 @@ The command performs no network access and never reads production credentials. I
 
 A successful rehearsal must report `healthy: true`, `productionSwitchApplied: false`, `networkWriteAttempted: false`, `final_delta_detected_after_freeze: true`, `import_plan_is_idempotent: true`, and `rollback_plan_matches_backup: true`. The fixture is synthetic and proves orchestration and safety properties only; it does not prove live Supabase connectivity, Google Sheets restoration, Telegram compatibility, or production cutover readiness. Live cutover requires a separately approved maintenance window, a point-in-time backup, a reconciled sanitized import, final delta handling, post-switch smoke tests, and an explicit rollback decision.
 
+## M12 Preview acceptance dan CSV test import
+
+The guarded Preview deployment has completed authenticated non-production acceptance with the Supabase-primary adapter. Account and report reads returned HTTP 200; a clearly labeled test transaction was created with HTTP 201, updated with HTTP 200, voided with HTTP 200, and removed from the active report after reload. The test fixture was then cleaned up. This acceptance validates the server-side repository path and family authorization boundary only for Preview; it does not authorize a Production backend switch.
+
+When service-role import automation is unavailable, a sanitized CSV copy may be imported manually into the dedicated Supabase test project. Import parent rows before child rows: `families`, then `members`, then `transactions`. Validate `family_id`, member foreign keys, active membership, status values, currency format, and row counts before testing. Do not upload raw Production exports to public storage, do not disable RLS, and do not use manual CSV import as a substitute for the final idempotent cutover procedure. Remove test fixtures after acceptance and retain only the operator-controlled migration evidence.
+
 ## Slice 18 security hardening dan pre-public-beta checks
 
 M10 Slice 18 menambahkan baseline security headers pada seluruh response Next.js, termasuk `Content-Security-Policy`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Permissions-Policy` tanpa camera/microphone/geolocation, dan HSTS untuk deployment HTTPS. Seluruh response API diberi `Cache-Control: no-store, max-age=0` agar raw `initData`, signed action URL, report content, dan error response tidak disimpan oleh cache.
