@@ -30,8 +30,8 @@ class SupabaseRestReadQuery implements SupabaseReadQuery {
   }
 
   select(columns: string): SupabaseReadQuery { this.selected = columns; return this; }
-  eq(column: string, value: string | number): SupabaseReadQuery { this.filters.push(`${column}=eq.${encodeURIComponent(String(value))}`); return this; }
-  in(column: string, values: readonly string[]): SupabaseReadQuery { this.filters.push(`${column}=in.(${values.map((value) => encodeURIComponent(value)).join(",")})`); return this; }
+  eq(column: string, value: string | number): SupabaseReadQuery { this.filters.push(`${column}.eq.${encodeURIComponent(String(value))}`); return this; }
+  in(column: string, values: readonly string[]): SupabaseReadQuery { this.filters.push(`${column}.in.(${values.map((value) => encodeURIComponent(value)).join(",")})`); return this; }
   order(column: string, options?: { ascending?: boolean }): SupabaseReadQuery { this.ordering = `${column}.${options?.ascending === false ? "desc" : "asc"}`; return this; }
   limit(count: number): SupabaseReadQuery { this.rowLimit = count; return this; }
 
