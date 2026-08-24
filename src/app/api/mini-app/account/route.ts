@@ -32,16 +32,22 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: "Service unavailable." }, { status: 503 });
   }
 
+  let stage = "authentication";
   try {
     const validated = validateMiniAppInitData(payload.initData, botToken);
+    stage = "repository_create";
     const service = new FamilyService(createFamilyRepository());
+    stage = "membership_lookup";
     const membership = await service.getActiveMembership(validated.telegramUser.telegramUserId);
     if (!membership) {
       logMiniAppDiagnostic("account", "access_denied", { status: 403 });
       return Response.json({ error: "Mini App access denied." }, { status: 403 });
     }
+    stage = "family_lookup";
     const family = await service.getActiveFamily(validated.telegramUser.telegramUserId);
+    stage = "members_lookup";
     const members = await service.listFamilyMembers(validated.telegramUser.telegramUserId);
+    stage = "avatar_url";
     const avatarFallbackUrl = buildMiniAppAvatarUrl(request, validated.telegramUser.telegramUserId);
 
     logMiniAppDiagnostic("account", "success", { status: 200 });
@@ -79,6 +85,7 @@ export async function POST(request: Request): Promise<Response> {
     logMiniAppDiagnostic("account", "failure", {
       status: 500,
       errorClass: classifyMiniAppError(error),
+      stage,
     });
     console.error("[MiniApp] account request failed", {
       error: error instanceof Error ? error.name : "unknown",

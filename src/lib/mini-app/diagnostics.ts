@@ -13,6 +13,7 @@ export type MiniAppDiagnosticOperation = "account" | "report" | "family" | "tran
 type SafeDiagnosticDetails = {
   status?: number;
   errorClass?: string;
+  stage?: string;
 };
 
 type DiagnosticEnvironment = {
@@ -52,6 +53,9 @@ export function logMiniAppDiagnostic(
   }
   if (details.errorClass && /^[A-Za-z][A-Za-z0-9_]{0,80}$/.test(details.errorClass)) {
     safeDetails.errorClass = details.errorClass;
+  }
+  if (details.stage && /^[a-z][a-z0-9_]{0,60}$/.test(details.stage)) {
+    safeDetails.stage = details.stage;
   }
   console.info("[MiniAppDiagnostic]", { operation, state, ...safeDetails });
 }
