@@ -284,11 +284,11 @@ The following work remains explicitly post-launch and must not be compressed int
 - [x] Supabase schema preserving mandatory `family_id` tenant boundaries and soft-state semantics
 - [x] Supabase repository implementing the existing business-facing repository contract behind a server-side client seam; live write contract execution passed on the dedicated Supabase test project
 - [x] Non-production Supabase activation seam with server-only REST writes/RPC and a Production fail-closed guard
-- [x] Migration tooling, sanitized data validation, and reconciliation rehearsal from the central registry
+- [x] Migration tooling, sanitized data validation, reconciliation rehearsal, and protected idempotent import executor from the central registry
 - [x] Staged dual-read/shadow-read wrapper implemented with Google Sheets as authoritative primary; shadow-read is guarded to Preview/local only
 - [ ] Observation-window validation on an authenticated Preview deployment — post-launch migration gate; the latest low-volume smoke test was stable but not a complete quantitative parity proof
 - [x] Local-only cutover/rollback rehearsal with synthetic fixture, simulated final delta, deterministic import plan, and non-destructive rollback checks
-- [ ] Live cutover, rollback, backup, and recovery procedure on approved environments
+- [ ] Live cutover, rollback, backup, and recovery procedure on approved environments — remains a maintenance-window gate; the import executor is ready but does not switch the application backend
 - [x] Non-production end-to-end adapter acceptance with authenticated Mini App/Telegram flows: account/report read, transaction create/update/void, and fixture cleanup passed on guarded Preview
 - [ ] Production verification that Telegram commands, drafts, receipts, reports, and audit behavior remain compatible
 - [ ] Explicit deprecation plan for Google Sheets only after migration acceptance

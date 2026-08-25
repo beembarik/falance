@@ -97,6 +97,18 @@ The guarded Preview deployment has completed authenticated non-production accept
 
 When service-role import automation is unavailable, a sanitized CSV copy may be imported manually into the dedicated Supabase test project. Import parent rows before child rows: `families`, then `members`, then `transactions`. Validate `family_id`, member foreign keys, active membership, status values, currency format, and row counts before testing. Do not upload raw Production exports to public storage, do not disable RLS, and do not use manual CSV import as a substitute for the final idempotent cutover procedure. Remove test fixtures after acceptance and retain only the operator-controlled migration evidence.
 
+## M12 idempotent import executor
+
+The repository now includes a networked import executor for the already validated import plan. It is intentionally separate from the application runtime and is never called by Telegram or the Mini App. First generate the plan locally with `npm run prepare:supabase-import -- --input <sanitized-or-protected-snapshot.json> --output <local-import-plan.json> --local-only`. Then, inside a protected operator environment with the server-only Supabase URL and service-role key, execute:
+
+```bash
+npm run apply:supabase-import -- --input <local-import-plan.json> --target preview --allow-network
+```
+
+The executor sends one idempotent PostgREST upsert batch per validated table using the plan's conflict key, includes operational worksheets, preserves the foreign-key-safe plan order, and prints only target, worksheet metadata, batch count, and row count. It never prints row values, credentials, response bodies, Telegram IDs, family IDs, or transaction descriptions. A failed batch stops the process; rerunning the same plan is safe at the database upsert layer but still requires post-run count/digest reconciliation.
+
+Production execution has an additional explicit confirmation guard and must only occur inside an approved maintenance window after backup, write freeze, final delta capture, and reconciliation. It requires `--target production`, `--allow-network`, and `FALANCE_SUPABASE_IMPORT_PRODUCTION_CONFIRM=I_CONFIRM_MAINTENANCE_WINDOW`. This guard does not switch the application backend. The operator must separately configure and deploy the approved backend change, run smoke tests, and retain Google Sheets for rollback until acceptance is complete.
+
 ## Slice 18 security hardening dan pre-public-beta checks
 
 M10 Slice 18 menambahkan baseline security headers pada seluruh response Next.js, termasuk `Content-Security-Policy`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Permissions-Policy` tanpa camera/microphone/geolocation, dan HSTS untuk deployment HTTPS. Seluruh response API diberi `Cache-Control: no-store, max-age=0` agar raw `initData`, signed action URL, report content, dan error response tidak disimpan oleh cache.
