@@ -9,10 +9,15 @@ import type { AuditLogEntry, DraftApprovalClaim, Family, FamilyMember, Invitatio
 export class ShadowReadRepository implements FamilyRepository {
   private readonly primary: FamilyRepository;
   private readonly secondary: FamilyRepository;
+  private readonly sampleRate: number;
+  private readonly maxConcurrent: number;
+  private inFlight = 0;
 
-  constructor(primary: FamilyRepository, secondary: FamilyRepository) {
+  constructor(primary: FamilyRepository, secondary: FamilyRepository, options: ShadowReadOptions = {}) {
     this.primary = primary;
     this.secondary = secondary;
+    this.sampleRate = options.sampleRate ?? parseShadowSampleRate(process.env.FALANCE_SHADOW_READ_SAMPLE_RATE);
+    this.maxConcurrent = options.maxConcurrent ?? parseShadowConcurrency(process.env.FALANCE_SHADOW_READ_MAX_CONCURRENCY);
   }
 
   async findFamilyById(familyId: string): Promise<Family | null> { return this.read("findFamilyById", () => this.primary.findFamilyById(familyId), () => this.secondary.findFamilyById(familyId)); }
@@ -55,8 +60,17 @@ export class ShadowReadRepository implements FamilyRepository {
 
   private async read<T>(operation: string, primaryRead: () => Promise<T>, secondaryRead: () => Promise<T>): Promise<T> {
     const result = await primaryRead();
-    void this.compare(operation, result, secondaryRead);
+    if (this.shouldCompare()) {
+      this.inFlight += 1;
+      void this.compare(operation, result, secondaryRead).finally(() => {
+        this.inFlight -= 1;
+      });
+    }
     return result;
+  }
+
+  private shouldCompare(): boolean {
+    return this.inFlight < this.maxConcurrent && Math.random() < this.sampleRate;
   }
 
   private async compare<T>(operation: string, primaryResult: T, secondaryRead: () => Promise<T>): Promise<void> {
@@ -71,6 +85,23 @@ export class ShadowReadRepository implements FamilyRepository {
       console.warn("[ShadowRead] secondary read failed", { operation, errorCode: shadowReadErrorCode(error) });
     }
   }
+}
+
+export type ShadowReadOptions = {
+  sampleRate?: number;
+  maxConcurrent?: number;
+};
+
+function parseShadowSampleRate(value: string | undefined): number {
+  if (value === undefined || value.trim() === "") return 1;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : 1;
+}
+
+function parseShadowConcurrency(value: string | undefined): number {
+  if (value === undefined || value.trim() === "") return 4;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? Math.min(32, parsed) : 4;
 }
 
 function digest(value: unknown): string {

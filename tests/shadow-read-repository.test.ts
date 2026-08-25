@@ -55,6 +55,44 @@ test("does not report a mismatch when secondary rows have the same set in a diff
   }
 });
 
+test("can sample out shadow reads without affecting the primary result", async () => {
+  let secondaryReads = 0;
+  const primary = repository(async () => primaryFamily);
+  const secondary = repository(async () => {
+    secondaryReads += 1;
+    return secondaryFamily;
+  });
+  const shadow = new ShadowReadRepository(primary, secondary, { sampleRate: 0 });
+
+  assert.deepEqual(await shadow.findFamilyById(primaryFamily.familyId), primaryFamily);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(secondaryReads, 0);
+});
+
+test("limits concurrent shadow reads while preserving primary results", async () => {
+  let secondaryReads = 0;
+  let releaseFirst!: () => void;
+  const firstShadowRead = new Promise<Family | null>((resolve) => { releaseFirst = () => resolve(primaryFamily); });
+  const primary = repository(async () => primaryFamily);
+  const secondary = repository(async () => {
+    secondaryReads += 1;
+    if (secondaryReads === 1) return firstShadowRead;
+    return primaryFamily;
+  });
+  const shadow = new ShadowReadRepository(primary, secondary, { sampleRate: 1, maxConcurrent: 1 });
+
+  const [first, second] = await Promise.all([
+    shadow.findFamilyById(primaryFamily.familyId),
+    shadow.findFamilyById(primaryFamily.familyId),
+  ]);
+  assert.deepEqual(first, primaryFamily);
+  assert.deepEqual(second, primaryFamily);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(secondaryReads, 1);
+  releaseFirst();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+});
+
 test("does not fail the primary read when the secondary read fails", async () => {
   const warnings: unknown[] = [];
   const originalWarn = console.warn;
