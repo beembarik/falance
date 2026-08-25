@@ -116,6 +116,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
   const [csvDownloading, setCsvDownloading] = useState(false);
+  const [csvDownloadSupported, setCsvDownloadSupported] = useState<boolean | null>(null);
   const [formInitData, setFormInitData] = useState("");
   const initDataRef = useRef("");
 
@@ -347,21 +348,23 @@ export default function Home() {
 
   const downloadCsv = useCallback(() => {
     const action = data?.actions?.csv;
+    const webApp = window.Telegram?.WebApp;
     if (!initDataRef.current || !action || data.viewer.role === "MEMBER") return;
+    if (!webApp?.downloadFile) {
+      setCsvDownloadSupported(false);
+      setPrintError("Unduh CSV belum didukung oleh versi Telegram ini.");
+      return;
+    }
     setCsvDownloading(true);
     setPrintError("");
     try {
-      // The signed endpoint returns Content-Disposition: attachment. A hidden
-      // same-origin iframe lets Telegram/browser handle the download natively
-      // without navigating the Mini App or opening a new window.
-      const frame = document.createElement("iframe");
-      frame.hidden = true;
-      frame.src = action.url;
-      document.body.appendChild(frame);
-      window.setTimeout(() => {
-        frame.remove();
+      webApp.downloadFile({
+        url: action.url,
+        file_name: `falance-report-${data.report.period.startDate}-${data.report.period.endDate}.csv`,
+      }, (accepted) => {
         setCsvDownloading(false);
-      }, 10_000);
+        if (!accepted) setPrintError("Unduhan CSV dibatalkan atau tidak didukung oleh Telegram.");
+      });
     } catch (downloadError) {
       setCsvDownloading(false);
       setPrintError(downloadError instanceof Error ? downloadError.message : "CSV tidak dapat diunduh.");
@@ -375,6 +378,7 @@ export default function Home() {
       if (cancelled) return;
       if (webApp) {
         initDataRef.current = webApp.initData;
+        setCsvDownloadSupported(typeof webApp.downloadFile === "function");
         webApp.ready();
         webApp.expand();
         webApp.setHeaderColor?.("#267a5a");
@@ -441,6 +445,7 @@ export default function Home() {
             onPrint={printReport}
             onCsv={() => void downloadCsv()}
             csvDownloading={csvDownloading}
+            csvDownloadSupported={csvDownloadSupported}
             categoryFilter={categoryFilter}
             onCategoryFilterChange={setCategoryFilter}
           />
@@ -881,7 +886,7 @@ function ComparisonMetric({ label, current, previous, currency, positiveIsGood }
   return <div className={`rounded-lg border p-3 ${metricTone}`}><p className={`text-xs font-semibold ${labelTone}`}>{label}</p><p className="mt-1 text-sm font-bold">{formatAmount(current, currency)}</p><p className={`mt-1 text-xs font-semibold ${tone}`}>{direction} {formatSignedAmount(delta, currency)} dari periode lalu</p></div>;
 }
 
-function ReportsView({ data, comparison, comparisonLoading, month, startDate, endDate, loading, onMonthChange, onStartDateChange, onEndDateChange, onLoad, printing, printError, onPrint, onCsv, csvDownloading, categoryFilter, onCategoryFilterChange }: {
+function ReportsView({ data, comparison, comparisonLoading, month, startDate, endDate, loading, onMonthChange, onStartDateChange, onEndDateChange, onLoad, printing, printError, onPrint, onCsv, csvDownloading, csvDownloadSupported, categoryFilter, onCategoryFilterChange }: {
   data: ReportResponse;
   comparison: ReportResponse | null;
   comparisonLoading: boolean;
@@ -898,6 +903,7 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
   onPrint: () => void;
   onCsv: () => void;
   csvDownloading: boolean;
+  csvDownloadSupported: boolean | null;
   categoryFilter: { category: string; currency: string } | null;
   onCategoryFilterChange: (value: { category: string; currency: string } | null) => void;
 }) {
@@ -915,7 +921,7 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
       </section>
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
-        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Ringkasan {data.report.period.label}</p><p className="mt-1 text-sm text-[var(--text-secondary)]">Snapshot arus keuangan pada periode yang dipilih.</p></div>{(data.actions?.csv || data.actions?.print) && (data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") && <div className="flex shrink-0 flex-wrap justify-end gap-2"><button type="button" onClick={onCsv} className="min-h-10 rounded-xl border border-[var(--brand-green-500)] bg-white px-3 text-xs font-bold text-[var(--brand-green-700)] transition hover:bg-[var(--brand-green-100)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] disabled:cursor-wait disabled:opacity-60" disabled={!data.actions?.csv || csvDownloading}>{csvDownloading ? "Mengunduh…" : "Unduh CSV"}</button>{data.actions?.print && <button type="button" onClick={onPrint} disabled={printing} className="min-h-10 rounded-xl bg-[var(--brand-green-700)] px-3 text-xs font-bold text-white transition hover:bg-[var(--brand-green-800)] disabled:cursor-wait disabled:opacity-60">{printing ? "Membuka…" : "Buka tampilan cetak"}</button>}</div>}</div>
+        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Ringkasan {data.report.period.label}</p><p className="mt-1 text-sm text-[var(--text-secondary)]">Snapshot arus keuangan pada periode yang dipilih.</p></div>{((data.actions?.csv && csvDownloadSupported !== false) || data.actions?.print) && (data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") && <div className="flex shrink-0 flex-wrap justify-end gap-2"><button type="button" onClick={onCsv} className="min-h-10 rounded-xl border border-[var(--brand-green-500)] bg-white px-3 text-xs font-bold text-[var(--brand-green-700)] transition hover:bg-[var(--brand-green-100)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] disabled:cursor-wait disabled:opacity-60" disabled={!data.actions?.csv || csvDownloadSupported === false || csvDownloading}>{csvDownloading ? "Mengunduh…" : "Unduh CSV"}</button>{data.actions?.print && <button type="button" onClick={onPrint} disabled={printing} className="min-h-10 rounded-xl bg-[var(--brand-green-700)] px-3 text-xs font-bold text-white transition hover:bg-[var(--brand-green-800)] disabled:cursor-wait disabled:opacity-60">{printing ? "Membuka…" : "Buka tampilan cetak"}</button>}</div>}</div>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">{data.report.currencies.map((summary) => <MetricCard key={summary.currency} summary={summary} />)}</div>
         {data.report.currencies.length === 0 && <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm text-[var(--text-secondary)]">Belum ada transaksi aktif pada periode ini.</p>}
         {printError && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{printError}</p>}

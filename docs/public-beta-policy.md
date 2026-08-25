@@ -11,6 +11,8 @@ Public Beta digunakan untuk memvalidasi core value Falancé pada keluarga Indone
 
 ## Scope fitur beta
 
+Selama Public Beta, fitur Vision/receipt scanning dinonaktifkan. Pengujian Vision ditunda sampai beta berjalan pada deployment Production yang telah disetujui. Karena webhook Telegram bersifat global per bot, pengujian Mini App Preview tidak dapat membuktikan guard Vision pada webhook Production tanpa bot atau webhook terpisah; webhook Production tidak diubah selama beta preparation.
+
 | Fitur | Status beta | Catatan |
 |---|---|---|
 | `/start`, `/help`, onboarding, invitation, dan join | Aktif | Mengikuti authorization dan role yang sudah ada |
