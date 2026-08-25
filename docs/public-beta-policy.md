@@ -50,6 +50,12 @@ Service-role Supabase, jika digunakan untuk migration readiness atau observation
 FALANCE_PERSISTENCE_BACKEND=google-sheets
 ```
 
+## Status beta tester dan benefit
+
+Badge `Public Beta` menunjukkan deployment sedang berada pada mode beta. Badge `Founder Beta Tester` menunjukkan bahwa family dibuat melalui onboarding saat Public Beta aktif dan memiliki plan registry `BETA`. Semua active member pada family tersebut mewarisi status tester melalui server-side family membership. Family yang sudah ada sebelum beta tidak otomatis berubah menjadi beta tester; operator dapat menambahkannya melalui proses enrollment yang terdokumentasi, bukan melalui manipulasi request dari client.
+
+Status `BETA` dipertahankan setelah beta berakhir agar dapat menjadi input entitlement dan benefit masa depan. Benefit final—misalnya founder pricing, credit terbatas, atau priority support—belum dijanjikan sampai pricing dan unit economics diputuskan. Tidak ada lifetime-free promise pada tahap ini.
+
 ## Feedback dan support
 
 Halaman Akun dapat menampilkan badge `Public Beta`, versi runtime, dan CTA menuju akun support Telegram public melalui `FALANCE_SUPPORT_TELEGRAM_URL`. URL tersebut harus berupa HTTPS pada host `t.me` atau `telegram.me`. Feedback tidak boleh meminta pengguna mengirim Telegram ID, family ID, raw transaction rows, receipt, credential, atau data rahasia.

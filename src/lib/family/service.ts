@@ -202,7 +202,7 @@ export class FamilyService {
       status: "ACTIVE",
       createdAt: new Date().toISOString(),
       createdBy: user.telegramUserId,
-      plan: "MVP",
+      plan: isPublicBetaEnabled() ? "BETA" : "MVP",
     };
     const owner = createMember(family.familyId, user, "OWNER", family.createdAt);
 

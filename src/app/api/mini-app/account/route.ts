@@ -58,6 +58,7 @@ export async function POST(request: Request): Promise<Response> {
         label: "Public Beta",
         version: FALANCE_RELEASE_VERSION,
         supportUrl: getPublicSupportUrl(),
+        tester: family.plan === "BETA",
       } : undefined,
       viewer: {
         name: membership.name,

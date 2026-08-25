@@ -1252,3 +1252,22 @@ test("does not create AI text usage for an unregistered user", async () => {
   await assert.rejects(service.claimAiTextUsage(owner), UnauthorizedError);
   assert.equal(repository.textUsage.length, 0);
 });
+
+test("marks a newly created family as a beta tester family during Public Beta", async () => {
+  const previousBeta = process.env.FALANCE_PUBLIC_BETA;
+  process.env.FALANCE_PUBLIC_BETA = "true";
+  try {
+    const repository = new FakeFamilyRepository();
+    const service = new FamilyService(repository);
+    const tester: TelegramUser = { telegramUserId: "beta-owner", name: "Beta Owner", username: "beta_owner" };
+
+    await service.beginFamilyCreation(tester);
+    const family = await service.createFamilyFromPending(tester, "Beta Family");
+
+    assert.equal(family.plan, "BETA");
+    assert.equal(repository.families[0]?.plan, "BETA");
+  } finally {
+    if (previousBeta === undefined) delete process.env.FALANCE_PUBLIC_BETA;
+    else process.env.FALANCE_PUBLIC_BETA = previousBeta;
+  }
+});

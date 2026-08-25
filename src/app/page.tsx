@@ -56,7 +56,7 @@ type ReportResponse = {
 };
 
 type AccountResponse = {
-  beta?: { label: string; version: string; supportUrl: string | null };
+  beta?: { label: string; version: string; supportUrl: string | null; tester: boolean };
   viewer: { name: string; username: string | null; role: string; avatarUrl: string | null; avatarFallbackUrl: string | null };
   family: { familyName: string; status: string; plan: string; activeMemberCount: number };
   members: Array<{ memberId: string; name: string; username: string | null; role: string; joinedAt: string }>;
@@ -344,6 +344,17 @@ export default function Home() {
     }
   }, [data]);
 
+  const downloadCsv = useCallback(() => {
+    const action = data?.actions?.csv;
+    if (!initDataRef.current || !action || data.viewer.role === "MEMBER") return;
+    setPrintError("");
+    try {
+      requestTelegramPrint(action.url);
+    } catch (downloadError) {
+      setPrintError(downloadError instanceof Error ? downloadError.message : "CSV tidak dapat diunduh.");
+    }
+  }, [data]);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -415,6 +426,7 @@ export default function Home() {
             printing={printing}
             printError={printError}
             onPrint={printReport}
+            onCsv={downloadCsv}
             categoryFilter={categoryFilter}
             onCategoryFilterChange={setCategoryFilter}
           />
@@ -753,7 +765,7 @@ function AccountView({ data, onRetry, onFamilyAction, familyAction, familyAction
 
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Keluarga aktif</p><h2 className="mt-1 text-xl font-bold">{data.family.familyName}</h2></div><span className="rounded-full bg-[var(--brand-green-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-green-700)]">{data.family.status}</span></div><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-[var(--surface-soft)] p-3"><p className="text-xs text-[var(--text-secondary)]">Anggota aktif</p><p className="mt-1 text-2xl font-bold text-[var(--brand-green-700)]">{data.family.activeMemberCount}</p></div><div className="rounded-xl bg-[var(--surface-soft)] p-3"><p className="text-xs text-[var(--text-secondary)]">Plan</p><p className="mt-1 text-lg font-bold">{data.family.plan}</p></div></div></section>
 
-        {data.beta && <section className="rounded-2xl border border-[var(--brand-purple-100)] bg-[var(--brand-purple-100)]/55 p-5 shadow-[var(--card-shadow)]"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Status produk</p><h2 className="mt-1 text-lg font-bold">{data.beta.label}</h2><p className="mt-1 text-sm leading-6 text-[var(--brand-purple-800)]">Akses beta gratis dan terbatas. Kirim masukan agar Falancé makin bermanfaat untuk keluarga.</p></div><span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-bold text-[var(--brand-purple-800)]">v{data.beta.version}</span></div>{data.beta.supportUrl && <a href={data.beta.supportUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex min-h-10 items-center rounded-xl bg-[var(--brand-purple-600)] px-3 text-xs font-bold text-white transition hover:bg-[var(--brand-purple-800)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-purple-600)] focus:ring-offset-2">Beri masukan atau laporkan masalah</a>}</section>}
+        {data.beta && <section className="rounded-2xl border border-[var(--brand-purple-100)] bg-[var(--brand-purple-100)]/55 p-5 shadow-[var(--card-shadow)]"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Status produk</p><h2 className="mt-1 text-lg font-bold">{data.beta.label}</h2><p className="mt-1 text-sm leading-6 text-[var(--brand-purple-800)]">Akses beta gratis dan terbatas. Kirim masukan agar Falancé makin bermanfaat untuk keluarga.</p></div><span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-bold text-[var(--brand-purple-800)]">v{data.beta.version}</span></div><div className="mt-4 flex flex-wrap gap-2"><span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[var(--brand-purple-800)]">{data.beta.tester ? "Founder Beta Tester" : "Akses Beta"}</span>{data.beta.supportUrl && <a href={data.beta.supportUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center rounded-xl bg-[var(--brand-purple-600)] px-3 text-xs font-bold text-white transition hover:bg-[var(--brand-purple-800)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-purple-600)] focus:ring-offset-2">Beri masukan atau laporkan masalah</a>}</div></section>}
 
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Family workspace</p><h2 className="mt-1 text-lg font-bold">Anggota keluarga</h2></div><span className="text-xs text-[var(--text-secondary)]">{data.members.length} aktif</span></div>
 <div className="mt-4 divide-y divide-[var(--border)]">{data.members.map((member) => { const confirming = deactivateConfirmation?.memberId === member.memberId; const nextRole = member.role === "ADMIN" ? "MEMBER" : "ADMIN"; return <div key={member.memberId} className="py-3 first:pt-0 last:pb-0"><div className="flex items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><UserAvatar name={member.name} size="small" /><div className="min-w-0"><p className="truncate text-sm font-semibold">{member.name}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{member.username ? `@${member.username}` : "Tanpa username"}</p><code className="mt-1 block truncate text-[10px] text-[var(--text-secondary)]">{member.memberId}</code></div></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${member.role === "OWNER" ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : member.role === "ADMIN" ? "bg-[var(--brand-purple-100)] text-[var(--brand-purple-800)]" : "bg-[var(--surface-soft)] text-[var(--text-secondary)]"}`}>{member.role}</span></div>{data.viewer.role === "OWNER" && member.role !== "OWNER" && <>{confirming ? <div className="mt-3 rounded-xl border border-[var(--brand-coral-500)] bg-[var(--brand-coral-100)] p-3"><p className="text-xs font-semibold text-[#9F3D34]">Nonaktifkan {member.name}? Konfirmasi berlaku selama 5 menit.</p><div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={() => onFamilyAction("CANCEL_DEACTIVATE_MEMBER")} disabled={isBusy} className="min-h-10 rounded-lg border border-[#C85A4D] bg-white px-2 text-xs font-semibold text-[#9F3D34] disabled:opacity-60">Batal</button><button type="button" onClick={() => onFamilyAction("CONFIRM_DEACTIVATE_MEMBER")} disabled={isBusy} className="min-h-10 rounded-lg bg-[#B94B40] px-2 text-xs font-bold text-white disabled:opacity-60">{familyAction === "CONFIRM_DEACTIVATE_MEMBER" ? "Memproses..." : "Ya, nonaktifkan"}</button></div></div> : <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => onFamilyAction("CHANGE_MEMBER_ROLE", { memberId: member.memberId, role: nextRole })} disabled={isBusy} className="min-h-9 rounded-lg border border-[var(--brand-purple-600)] bg-[var(--brand-purple-100)] px-2.5 text-xs font-semibold text-[var(--brand-purple-800)] disabled:opacity-60">Jadikan {nextRole === "ADMIN" ? "admin" : "member"}</button><button type="button" onClick={() => onFamilyAction("REQUEST_DEACTIVATE_MEMBER", { memberId: member.memberId })} disabled={isBusy} className="min-h-9 rounded-lg border border-[#C85A4D] bg-[var(--brand-coral-100)] px-2.5 text-xs font-semibold text-[#9F3D34] disabled:opacity-60">Nonaktifkan</button></div>}</>}</div>; })}</div></section>
@@ -855,7 +867,7 @@ function ComparisonMetric({ label, current, previous, currency, positiveIsGood }
   return <div className={`rounded-lg border p-3 ${metricTone}`}><p className={`text-xs font-semibold ${labelTone}`}>{label}</p><p className="mt-1 text-sm font-bold">{formatAmount(current, currency)}</p><p className={`mt-1 text-xs font-semibold ${tone}`}>{direction} {formatSignedAmount(delta, currency)} dari periode lalu</p></div>;
 }
 
-function ReportsView({ data, comparison, comparisonLoading, month, startDate, endDate, loading, onMonthChange, onStartDateChange, onEndDateChange, onLoad, printing, printError, onPrint, categoryFilter, onCategoryFilterChange }: {
+function ReportsView({ data, comparison, comparisonLoading, month, startDate, endDate, loading, onMonthChange, onStartDateChange, onEndDateChange, onLoad, printing, printError, onPrint, onCsv, categoryFilter, onCategoryFilterChange }: {
   data: ReportResponse;
   comparison: ReportResponse | null;
   comparisonLoading: boolean;
@@ -870,6 +882,7 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
   printing: boolean;
   printError: string;
   onPrint: () => void;
+  onCsv: () => void;
   categoryFilter: { category: string; currency: string } | null;
   onCategoryFilterChange: (value: { category: string; currency: string } | null) => void;
 }) {
@@ -887,7 +900,7 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
       </section>
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
-        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Ringkasan {data.report.period.label}</p><p className="mt-1 text-sm text-[var(--text-secondary)]">Snapshot arus keuangan pada periode yang dipilih.</p></div>{data.actions?.print && (data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") && <button type="button" onClick={onPrint} disabled={printing} className="min-h-10 shrink-0 rounded-xl bg-[var(--brand-green-700)] px-3 text-xs font-bold text-white transition hover:bg-[var(--brand-green-800)] disabled:cursor-wait disabled:opacity-60">{printing ? "Membuka…" : "Buka tampilan cetak"}</button>}</div>
+        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Ringkasan {data.report.period.label}</p><p className="mt-1 text-sm text-[var(--text-secondary)]">Snapshot arus keuangan pada periode yang dipilih.</p></div>{(data.actions?.csv || data.actions?.print) && (data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") && <div className="flex shrink-0 flex-wrap justify-end gap-2"><button type="button" onClick={onCsv} className="min-h-10 rounded-xl border border-[var(--brand-green-500)] bg-white px-3 text-xs font-bold text-[var(--brand-green-700)] transition hover:bg-[var(--brand-green-100)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]" disabled={!data.actions?.csv}>Unduh CSV</button>{data.actions?.print && <button type="button" onClick={onPrint} disabled={printing} className="min-h-10 rounded-xl bg-[var(--brand-green-700)] px-3 text-xs font-bold text-white transition hover:bg-[var(--brand-green-800)] disabled:cursor-wait disabled:opacity-60">{printing ? "Membuka…" : "Buka tampilan cetak"}</button>}</div>}</div>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">{data.report.currencies.map((summary) => <MetricCard key={summary.currency} summary={summary} />)}</div>
         {data.report.currencies.length === 0 && <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm text-[var(--text-secondary)]">Belum ada transaksi aktif pada periode ini.</p>}
         {printError && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{printError}</p>}
