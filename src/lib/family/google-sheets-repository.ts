@@ -166,6 +166,12 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     return row ? familyFromRow(row) : null;
   }
 
+  async countActiveFamilies(): Promise<number> {
+    return (await this.rows("Families", "countActiveFamilies"))
+      .filter((row) => row[2] === "ACTIVE")
+      .length;
+  }
+
   async createMember(member: FamilyMember): Promise<void> {
     const existingRows = await this.rows("Members", "readMembers");
     if (existingRows.some((row) => row[0] === member.memberId)) return;

@@ -16,6 +16,7 @@ import {
   UnauthorizedError,
 } from "../src/lib/family/service";
 import type { AuditLogEntry, DraftApprovalClaim, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, ProcessedTelegramUpdate, TelegramUser, Transaction } from "../src/lib/family/types";
+import { BetaCapacityError } from "../src/lib/beta/policy";
 
 const owner: TelegramUser = { telegramUserId: "100", name: "Owner", username: "owner" };
 const member: TelegramUser = { telegramUserId: "200", name: "Member", username: null };
@@ -778,6 +779,50 @@ test("expires an AI draft and refuses a foreign user approval", async () => {
   );
 });
 
+test("enforces the beta family cap before creating a new family", async () => {
+  const previousBeta = process.env.FALANCE_PUBLIC_BETA;
+  const previousMax = process.env.FALANCE_BETA_MAX_FAMILIES;
+  process.env.FALANCE_PUBLIC_BETA = "true";
+  process.env.FALANCE_BETA_MAX_FAMILIES = "2";
+  try {
+    const repository = new FakeFamilyRepository();
+    repository.families.push(family("fam_1"), family("fam_2"));
+    const service = new FamilyService(repository);
+    const newOwner: TelegramUser = { telegramUserId: "new-owner", name: "New Owner", username: "new_owner" };
+    await service.beginFamilyCreation(newOwner);
+    await assert.rejects(() => service.createFamilyFromPending(newOwner, "Beta Family"), BetaCapacityError);
+    assert.equal(repository.families.length, 2);
+  } finally {
+    if (previousBeta === undefined) delete process.env.FALANCE_PUBLIC_BETA;
+    else process.env.FALANCE_PUBLIC_BETA = previousBeta;
+    if (previousMax === undefined) delete process.env.FALANCE_BETA_MAX_FAMILIES;
+    else process.env.FALANCE_BETA_MAX_FAMILIES = previousMax;
+  }
+});
+
+test("enforces the beta active-member cap before consuming an invitation", async () => {
+  const previousBeta = process.env.FALANCE_PUBLIC_BETA;
+  const previousMax = process.env.FALANCE_BETA_MAX_ACTIVE_MEMBERS_PER_FAMILY;
+  process.env.FALANCE_PUBLIC_BETA = "true";
+  process.env.FALANCE_BETA_MAX_ACTIVE_MEMBERS_PER_FAMILY = "3";
+  try {
+    const repository = setupMember("OWNER");
+    repository.members.push(activeMember("fam_1", member, "MEMBER"));
+    repository.members.push(activeMember("fam_1", { telegramUserId: "301", name: "Third Member", username: "third" }, "MEMBER"));
+    const service = new FamilyService(repository);
+    const invitation = await service.createInvitation(owner);
+    const joiningUser: TelegramUser = { telegramUserId: "302", name: "Fourth Member", username: "fourth" };
+    await assert.rejects(() => service.joinFamily(joiningUser, invitation.code), BetaCapacityError);
+    assert.equal(repository.invitations[0].status, "PENDING");
+    assert.equal(repository.members.length, 3);
+  } finally {
+    if (previousBeta === undefined) delete process.env.FALANCE_PUBLIC_BETA;
+    else process.env.FALANCE_PUBLIC_BETA = previousBeta;
+    if (previousMax === undefined) delete process.env.FALANCE_BETA_MAX_ACTIVE_MEMBERS_PER_FAMILY;
+    else process.env.FALANCE_BETA_MAX_ACTIVE_MEMBERS_PER_FAMILY = previousMax;
+  }
+});
+
 test("joins a valid invitation once and marks it used", async () => {
   const repository = setupMember("OWNER");
   const service = new FamilyService(repository);
@@ -1050,6 +1095,7 @@ class FakeFamilyRepository implements FamilyRepository {
     return this.families.find((value) => value.familyId === id) ?? null;
   }
   async findFamilyByCreatedBy(id: string) { return this.families.find((value) => value.createdBy === id && value.status === "ACTIVE") ?? null; }
+  async countActiveFamilies() { return this.families.filter((value) => value.status === "ACTIVE").length; }
   async createMember(value: FamilyMember) {
     if (this.failMemberCreation) throw new Error("Google Sheets write failed");
     if (!this.members.some((memberValue) => memberValue.memberId === value.memberId)) this.members.push(value);

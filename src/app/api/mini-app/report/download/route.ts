@@ -3,6 +3,7 @@ import { FamilyService, FamilyServiceError, UnauthorizedError } from "../../../.
 import { ReportPeriodError, buildFinancialCsv, buildFinancialPrintHtml, formatReportGeneratedAt } from "../../../../../lib/family/report";
 import { buildFinancialPdf, validatePdfPassword } from "../../../../../lib/family/pdf";
 import { buildReportDownloadAction, getReportDownloadSecret, verifyReportDownloadToken } from "../../../../../lib/telegram/report-download-token";
+import { isBetaFeatureEnabled } from "../../../../../lib/beta/policy";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,12 @@ export async function GET(request: Request): Promise<Response> {
   if (!payload) return Response.json({ error: "Download link tidak valid atau sudah kedaluwarsa." }, { status: 401 });
 
   try {
+    if (payload.format === "print" && !isBetaFeatureEnabled("print")) {
+      return Response.json({ error: "Tampilan cetak belum tersedia selama Public Beta." }, { status: 403 });
+    }
+    if (payload.format === "pdf" && !isBetaFeatureEnabled("pdf")) {
+      return Response.json({ error: "PDF belum tersedia selama Public Beta." }, { status: 403 });
+    }
     const service = new FamilyService(createFamilyRepository());
     const exported = await service.getFinancialExportReport(
       payload.uid,

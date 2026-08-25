@@ -1,5 +1,7 @@
 # Falancé Milestones
 
+> Public Beta scope, feature lock, capacity policy, and beta release flow are documented in [`public-beta-policy.md`](public-beta-policy.md).
+
 ## Milestone 0 — Project Setup
 
 Status: COMPLETE
@@ -295,7 +297,9 @@ The following work remains explicitly post-launch and must not be compressed int
 
 ## Milestone 13 — Monetization and Expansion
 
-Status: PLANNED — PRIORITAS P3 setelah Milestone 8–12 yang relevan selesai
+Status: IN PROGRESS — Public Beta foundation on `beta-release`; paid monetization remains planned
+
+Public Beta is a free, limited validation phase. Its current policy is documented in [`public-beta-policy.md`](public-beta-policy.md). Paid plans, subscription billing, and beta tester benefits remain intentionally undecided until usage and cost data are available.
 
 Monetization and public expansion must not precede security hardening, usage controls, and a storage path suitable for growth.
 

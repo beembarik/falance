@@ -5,12 +5,16 @@ import { validatePdfPassword } from "../../../../../../lib/family/pdf";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../../../lib/telegram/mini-app-auth";
 import { readMiniAppReportRequest, type MiniAppReportRequestPayload } from "../../../../../../lib/telegram/mini-app-request";
 import { buildReportDownloadAction, getReportDownloadSecret, verifyReportDownloadToken } from "../../../../../../lib/telegram/report-download-token";
+import { isBetaFeatureEnabled } from "../../../../../../lib/beta/policy";
 
 export const runtime = "nodejs";
 
 type MiniAppPdfPrepareRequest = MiniAppReportRequestPayload;
 
 export async function POST(request: Request): Promise<Response> {
+  if (!isBetaFeatureEnabled("pdf")) {
+    return Response.json({ error: "PDF belum tersedia selama Public Beta." }, { status: 403 });
+  }
   let payload: MiniAppPdfPrepareRequest;
   try {
     payload = await readMiniAppReportRequest(request);

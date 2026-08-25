@@ -25,6 +25,7 @@ export interface FamilyRepository {
   findTransactionsByFamilyId(familyId: string): Promise<Transaction[]>;
   findFamilyById(familyId: string): Promise<Family | null>;
   findFamilyByCreatedBy(telegramUserId: string): Promise<Family | null>;
+  countActiveFamilies(): Promise<number>;
   createMember(member: FamilyMember): Promise<void>;
   findActiveMemberByTelegramUserId(
     telegramUserId: string,

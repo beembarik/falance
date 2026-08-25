@@ -290,6 +290,7 @@ function cloneValues(values: string[][]): string[][] {
 export type GoogleOperation =
   | "ensureRegistry"
   | "readFamilies"
+  | "countActiveFamilies"
   | "readMembers"
   | "readInvitations"
   | "readPendingFamilyCreations"

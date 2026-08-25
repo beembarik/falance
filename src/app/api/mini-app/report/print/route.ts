@@ -4,12 +4,16 @@ import { ReportPeriodError, buildFinancialPrintHtml, formatReportGeneratedAt } f
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../../lib/telegram/mini-app-auth";
 import { readMiniAppReportRequest, type MiniAppReportRequestPayload } from "../../../../../lib/telegram/mini-app-request";
 import { buildReportDownloadAction } from "../../../../../lib/telegram/report-download-token";
+import { isBetaFeatureEnabled } from "../../../../../lib/beta/policy";
 
 export const runtime = "nodejs";
 
 type MiniAppPrintRequest = MiniAppReportRequestPayload;
 
 export async function POST(request: Request): Promise<Response> {
+  if (!isBetaFeatureEnabled("print")) {
+    return Response.json({ error: "Tampilan cetak belum tersedia selama Public Beta." }, { status: 403 });
+  }
   let payload: MiniAppPrintRequest;
   try {
     payload = await readMiniAppReportRequest(request) as MiniAppPrintRequest;

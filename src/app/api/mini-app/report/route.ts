@@ -4,6 +4,7 @@ import { ReportPeriodError } from "../../../../lib/family/report";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../lib/telegram/mini-app-auth";
 import { buildReportDownloadAction } from "../../../../lib/telegram/report-download-token";
 import { classifyMiniAppError, classifyPersistenceConfig, logMiniAppDiagnostic } from "../../../../lib/mini-app/diagnostics";
+import { isBetaFeatureEnabled } from "../../../../lib/beta/policy";
 
 export const runtime = "nodejs";
 
@@ -72,18 +73,22 @@ export async function POST(request: Request): Promise<Response> {
             period: report.period,
             fileName: `falance-report-${report.period.startDate}-${report.period.endDate}.csv`,
           }),
-          pdf: buildReportDownloadAction(request, {
-            telegramUserId: validated.telegramUser.telegramUserId,
-            format: "pdf",
-            period: report.period,
-            fileName: `falance-report-${report.period.startDate}-${report.period.endDate}.pdf`,
-          }),
-          print: buildReportDownloadAction(request, {
-            telegramUserId: validated.telegramUser.telegramUserId,
-            format: "print",
-            period: report.period,
-            fileName: `falance-report-${report.period.startDate}-${report.period.endDate}.html`,
-          }),
+          ...(isBetaFeatureEnabled("pdf") ? {
+            pdf: buildReportDownloadAction(request, {
+              telegramUserId: validated.telegramUser.telegramUserId,
+              format: "pdf",
+              period: report.period,
+              fileName: `falance-report-${report.period.startDate}-${report.period.endDate}.pdf`,
+            }),
+          } : {}),
+          ...(isBetaFeatureEnabled("print") ? {
+            print: buildReportDownloadAction(request, {
+              telegramUserId: validated.telegramUser.telegramUserId,
+              format: "print",
+              period: report.period,
+              fileName: `falance-report-${report.period.startDate}-${report.period.endDate}.html`,
+            }),
+          } : {}),
         }
       : undefined;
 

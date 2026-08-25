@@ -5,6 +5,7 @@ import { DEFAULT_CURRENCY_CODE, isSupportedCurrencyCode } from "./currency";
 import { buildFinancialReport, getFinancialReportPeriod, type FinancialReport } from "./report";
 import { isTransactionCategory } from "./category-analytics";
 import { withKeyLocks } from "../concurrency/keyed-mutex";
+import { BetaCapacityError, getBetaMaxActiveMembersPerFamily, getBetaMaxFamilies, isPublicBetaEnabled } from "../beta/policy";
 import type { FamilyRepository } from "./repository";
 import type {
   AuditAction,
@@ -189,6 +190,10 @@ export class FamilyService {
       );
       await this.repository.clearPendingFamilyCreation(user.telegramUserId);
       return existingFamily;
+    }
+
+    if (isPublicBetaEnabled() && (await this.repository.countActiveFamilies()) >= getBetaMaxFamilies()) {
+      throw new BetaCapacityError("families");
     }
 
     const family: Family = {
@@ -512,6 +517,7 @@ export class FamilyService {
         throw new MemberManagementError("Member already has an active membership.");
       }
 
+      await this.assertBetaMemberCapacity(actorMember.familyId);
       await this.repository.updateMemberStatus(target.memberId, "ACTIVE");
       await this.recordAudit(actorMember, "REACTIVATE_MEMBER", "MEMBER", target.memberId, "SUSPENDED", "ACTIVE");
       return { ...target, status: "ACTIVE" };
@@ -833,6 +839,7 @@ export class FamilyService {
       // fails after this point, a retry can recognize the same-user USED claim and
       // finish the missing membership without issuing another invitation claim.
       if (invitation.status === "USED" && invitation.usedBy === user.telegramUserId) {
+        await this.assertBetaMemberCapacity(family.familyId);
         await this.repository.createMember(
           createMember(family.familyId, user, "MEMBER", invitation.usedAt ?? new Date().toISOString()),
         );
@@ -845,6 +852,7 @@ export class FamilyService {
         throw new InvitationError("Invitation has expired.");
       }
 
+      await this.assertBetaMemberCapacity(family.familyId);
       const usedAt = new Date().toISOString();
       await this.repository.markInvitationUsed(
         invitation.invitationId,
@@ -855,6 +863,15 @@ export class FamilyService {
 
       return family;
     });
+  }
+
+  private async assertBetaMemberCapacity(familyId: string): Promise<void> {
+    if (!isPublicBetaEnabled()) return;
+    const activeMembers = (await this.repository.findMembersByFamilyId(familyId))
+      .filter((member) => member.status === "ACTIVE").length;
+    if (activeMembers >= getBetaMaxActiveMembersPerFamily()) {
+      throw new BetaCapacityError("members");
+    }
   }
 
   private async createPendingConfirmation(

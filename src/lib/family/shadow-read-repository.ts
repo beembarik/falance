@@ -22,6 +22,7 @@ export class ShadowReadRepository implements FamilyRepository {
 
   async findFamilyById(familyId: string): Promise<Family | null> { return this.read("findFamilyById", () => this.primary.findFamilyById(familyId), () => this.secondary.findFamilyById(familyId)); }
   async findFamilyByCreatedBy(telegramUserId: string): Promise<Family | null> { return this.read("findFamilyByCreatedBy", () => this.primary.findFamilyByCreatedBy(telegramUserId), () => this.secondary.findFamilyByCreatedBy(telegramUserId)); }
+  countActiveFamilies(): Promise<number> { return this.primary.countActiveFamilies(); }
   async findActiveMemberByTelegramUserId(telegramUserId: string): Promise<FamilyMember | null> { return this.read("findActiveMemberByTelegramUserId", () => this.primary.findActiveMemberByTelegramUserId(telegramUserId), () => this.secondary.findActiveMemberByTelegramUserId(telegramUserId)); }
   async findMembersByFamilyId(familyId: string): Promise<FamilyMember[]> { return this.read("findMembersByFamilyId", () => this.primary.findMembersByFamilyId(familyId), () => this.secondary.findMembersByFamilyId(familyId)); }
   async findInvitationByCode(code: string): Promise<Invitation | null> { return this.read("findInvitationByCode", () => this.primary.findInvitationByCode(code), () => this.secondary.findInvitationByCode(code)); }

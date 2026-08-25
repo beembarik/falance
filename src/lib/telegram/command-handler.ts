@@ -13,6 +13,7 @@ import {
   UnauthorizedError,
 } from "../family/service";
 import { getBusinessDate } from "../time/business-date";
+import { BetaCapacityError, isBetaFeatureEnabled } from "../beta/policy";
 import type { FamilyMember, MemberRole, TelegramUser } from "../family/types";
 import { ReportPeriodError } from "../family/report";
 import {
@@ -77,6 +78,9 @@ export async function handleTelegramPhotoMessageResponse(
   try {
     const membership = await service.getActiveMembership(user.telegramUserId);
     if (!membership) return startMessage(null);
+    if (!isBetaFeatureEnabled("vision")) {
+      return "📷 Fitur pembacaan struk sedang disiapkan dan belum tersedia selama Public Beta. Gunakan /addincome atau /addexpense untuk mencatat transaksi secara manual.";
+    }
     const visionClaim = await service.claimReceiptVision(user);
     if (!visionClaim) return { text: "⏳ Receipt sedang diproses atau batas penggunaan receipt sementara tercapai. Coba lagi nanti." };
 
@@ -362,6 +366,9 @@ function messageForError(error: unknown): string {
   if (error instanceof ReceiptParserUnavailableError) return messageForAiFailure("receipt", error.details);
   if (error instanceof TransactionTextParserUnavailableError) return messageForAiFailure("text", error.details);
   if (error instanceof AlreadyRegisteredError) return "Kamu sudah terdaftar dalam keluarga aktif.";
+  if (error instanceof BetaCapacityError) return error.resource === "families"
+    ? "Pendaftaran family Public Beta sedang penuh. Pantau pengumuman berikutnya untuk cohort baru."
+    : "Family ini sudah mencapai batas 3 anggota aktif selama Public Beta.";
   if (error instanceof UnauthorizedError) return "Kamu tidak memiliki izin untuk menjalankan perintah ini.";
   if (error instanceof InvitationError) return "Invitation tidak valid, sudah digunakan, dicabut, atau kedaluwarsa.";
   if (error instanceof FamilyNameError) return "Nama keluarga tidak valid. Gunakan nama 1–80 karakter.";

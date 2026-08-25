@@ -39,6 +39,12 @@ export class SupabaseReadRepository implements FamilyRepository {
     return this.single("families", (query) => query.eq("created_by", telegramUserId).eq("status", "ACTIVE"), toFamily);
   }
 
+  async countActiveFamilies(): Promise<number> {
+    const result = await this.client.from("families").select("family_id").eq("status", "ACTIVE").limit(10_000).returns();
+    if (result.error) throw new Error(`Supabase read failed for families [${safeReadErrorCode(result.error.code)}].`);
+    return result.data?.length ?? 0;
+  }
+
   async findActiveMemberByTelegramUserId(telegramUserId: string): Promise<FamilyMember | null> {
     return this.single("members", (query) => query.eq("telegram_user_id", telegramUserId).eq("status", "ACTIVE"), toMember);
   }

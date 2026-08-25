@@ -3,6 +3,8 @@ import { MiniAppAuthError, validateMiniAppInitData } from "../../../../lib/teleg
 import { createFamilyRepository } from "../../../../lib/family/repository-factory";
 import { buildMiniAppAvatarUrl } from "../../../../lib/telegram/mini-app-avatar-token";
 import { classifyMiniAppError, classifyPersistenceConfig, logMiniAppDiagnostic } from "../../../../lib/mini-app/diagnostics";
+import { isPublicBetaEnabled } from "../../../../lib/beta/policy";
+import { FALANCE_RELEASE_VERSION } from "../../../../lib/release";
 
 export const runtime = "nodejs";
 
@@ -52,6 +54,11 @@ export async function POST(request: Request): Promise<Response> {
 
     logMiniAppDiagnostic("account", "success", { status: 200 });
     return Response.json({
+      beta: isPublicBetaEnabled() ? {
+        label: "Public Beta",
+        version: FALANCE_RELEASE_VERSION,
+        supportUrl: getPublicSupportUrl(),
+      } : undefined,
       viewer: {
         name: membership.name,
         username: membership.username,
@@ -92,5 +99,18 @@ export async function POST(request: Request): Promise<Response> {
       error: error instanceof Error ? error.name : "unknown",
     });
     return Response.json({ error: "Unable to load account." }, { status: 500 });
+  }
+}
+
+function getPublicSupportUrl(): string | null {
+  const configuredUrl = process.env.FALANCE_SUPPORT_TELEGRAM_URL?.trim();
+  if (!configuredUrl) return null;
+  try {
+    const url = new URL(configuredUrl);
+    return url.protocol === "https:" && (url.hostname === "t.me" || url.hostname === "telegram.me")
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
   }
 }

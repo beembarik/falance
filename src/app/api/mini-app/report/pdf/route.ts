@@ -4,12 +4,16 @@ import { ReportPeriodError } from "../../../../../lib/family/report";
 import { MiniAppAuthError, validateMiniAppInitData } from "../../../../../lib/telegram/mini-app-auth";
 import { readMiniAppReportRequest, type MiniAppReportRequestPayload } from "../../../../../lib/telegram/mini-app-request";
 import { buildFinancialPdf } from "../../../../../lib/family/pdf";
+import { isBetaFeatureEnabled } from "../../../../../lib/beta/policy";
 
 export const runtime = "nodejs";
 
 type MiniAppPdfRequest = MiniAppReportRequestPayload;
 
 export async function POST(request: Request): Promise<Response> {
+  if (!isBetaFeatureEnabled("pdf")) {
+    return Response.json({ error: "PDF belum tersedia selama Public Beta." }, { status: 403 });
+  }
   let payload: MiniAppPdfRequest;
   try {
     payload = await readMiniAppReportRequest(request) as MiniAppPdfRequest;
