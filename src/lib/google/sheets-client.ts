@@ -1,6 +1,7 @@
 import { logDuration } from "../observability/timing.ts";
 
 const GOOGLE_SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
+const GOOGLE_VALUES_CACHE_MS = 3_000;
 
 export class GoogleConfigurationError extends Error {}
 export class GoogleApiError extends Error {}
@@ -9,6 +10,7 @@ export class GoogleSheetsClient {
   private accessToken: string | null = null;
   private accessTokenExpiresAt = 0;
   private readonly registryInitialization = new Map<string, Promise<void>>();
+  private readonly valuesCache = new Map<string, CachedValues>();
 
   async ensureRegistry(
     spreadsheetId: string,
@@ -120,12 +122,25 @@ export class GoogleSheetsClient {
     range: string,
     operation?: GoogleOperation,
   ): Promise<string[][]> {
-    const data = await this.request<{ values?: string[][] }>(
+    const cacheKey = `${spreadsheetId}:${range}`;
+    const cached = this.valuesCache.get(cacheKey);
+    if (cached?.pending) return cloneValues(await cached.pending);
+    if (cached && cached.expiresAt > Date.now()) return cloneValues(cached.values);
+
+    const pending = this.request<{ values?: string[][] }>(
       `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}`,
       {},
       operation,
-    );
-    return data.values ?? [];
+    ).then((data) => data.values ?? []);
+    this.valuesCache.set(cacheKey, { values: [], expiresAt: 0, pending });
+    try {
+      const values = await pending;
+      this.valuesCache.set(cacheKey, { values, expiresAt: Date.now() + GOOGLE_VALUES_CACHE_MS });
+      return cloneValues(values);
+    } catch (error) {
+      if (this.valuesCache.get(cacheKey)?.pending === pending) this.valuesCache.delete(cacheKey);
+      throw error;
+    }
   }
 
   async appendRows(
@@ -139,6 +154,7 @@ export class GoogleSheetsClient {
       { method: "POST", body: JSON.stringify({ values }) },
       operation,
     );
+    this.invalidateValuesCache(spreadsheetId);
   }
 
   async updateValues(
@@ -152,6 +168,13 @@ export class GoogleSheetsClient {
       { method: "PUT", body: JSON.stringify({ values }) },
       operation,
     );
+    this.invalidateValuesCache(spreadsheetId);
+  }
+
+  private invalidateValuesCache(spreadsheetId: string): void {
+    for (const key of this.valuesCache.keys()) {
+      if (key.startsWith(`${spreadsheetId}:`)) this.valuesCache.delete(key);
+    }
   }
 
   private async request<T = Record<string, never>>(
@@ -252,6 +275,16 @@ export class GoogleSheetsClient {
     this.accessTokenExpiresAt = Date.now() + (data.expires_in - 60) * 1000;
     return this.accessToken;
   }
+}
+
+type CachedValues = {
+  values: string[][];
+  expiresAt: number;
+  pending?: Promise<string[][]>;
+};
+
+function cloneValues(values: string[][]): string[][] {
+  return values.map((row) => [...row]);
 }
 
 export type GoogleOperation =

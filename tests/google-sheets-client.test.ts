@@ -162,6 +162,50 @@ test("marks Google Sheets 429 responses as quota telemetry with a safe operation
   }
 });
 
+test("coalesces identical reads and invalidates the short-lived cache after writes", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalEnvironment = {
+    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    privateKey: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+  };
+  let valueRequests = 0;
+  process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL = "service-account@example.iam.gserviceaccount.com";
+  process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY = await createPrivateKeyPem();
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url === "https://oauth2.googleapis.com/token") {
+      return jsonResponse({ access_token: "test-access-token", expires_in: 3600 });
+    }
+    if (init?.method === undefined && url.includes("/values/Members")) {
+      valueRequests += 1;
+      return jsonResponse({ values: [["member_id"], ["member-1"]] });
+    }
+    return jsonResponse({});
+  };
+
+  try {
+    const client = new GoogleSheetsClient();
+    const [first, second] = await Promise.all([
+      client.getValues("central-registry-id", "Members", "readMembers"),
+      client.getValues("central-registry-id", "Members", "readMembers"),
+    ]);
+    assert.deepEqual(first, [["member_id"], ["member-1"]]);
+    assert.deepEqual(second, first);
+    assert.equal(valueRequests, 1);
+
+    await client.getValues("central-registry-id", "Members", "readMembers");
+    assert.equal(valueRequests, 1);
+
+    await client.updateValues("central-registry-id", "Members!A2", [["member-2"]], "updateMemberStatus");
+    await client.getValues("central-registry-id", "Members", "readMembers");
+    assert.equal(valueRequests, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_EMAIL", originalEnvironment.email);
+    restoreEnvironment("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY", originalEnvironment.privateKey);
+  }
+});
+
 test("reports registry foreign references without exposing row values", async () => {
   const originalRegistryId = process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID;
   process.env.GOOGLE_FAMILY_REGISTRY_SPREADSHEET_ID = "central-registry-id";
