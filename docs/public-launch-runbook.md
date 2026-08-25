@@ -40,7 +40,7 @@ Setelah itu operator memeriksa log Production pada jendela waktu smoke test. Kri
 
 Google Sheets tetap menjadi jalur tulis dan baca Production sampai ada keputusan cutover tertulis. Perubahan schema, import, environment backend, atau penghapusan row tidak dilakukan sebagai workaround saat public launch. Jika terjadi partial write, operator mengikuti `docs/backup-recovery.md`, menjalankan inspection read-only terlebih dahulu, dan tidak melakukan retry buta pada operasi tanpa idempotency key.
 
-Supabase migration dilanjutkan setelah launch sebagai pekerjaan M12 pasca-launch. Urutannya adalah measurable Preview shadow-read observation, Production compatibility validation pada approved environment, backup and write-freeze plan, full-state idempotent import termasuk worksheet operasional, final delta reconciliation, rollback simulation termasuk post-switch writes, explicit maintenance-window approval, lalu deprecation plan untuk Google Sheets. Tidak ada satu pun tahap ini yang digantikan oleh manual CSV import.
+Supabase migration dilanjutkan setelah launch sebagai pekerjaan M12 pasca-launch. Prosedur detail tersedia di [`docs/supabase-migration-runbook.md`](supabase-migration-runbook.md). Urutannya adalah measurable Preview shadow-read observation, Production compatibility validation pada approved environment, backup and write-freeze plan, full-state idempotent import termasuk worksheet operasional, final delta reconciliation, rollback simulation termasuk post-switch writes, explicit maintenance-window approval, lalu deprecation plan untuk Google Sheets. Tidak ada satu pun tahap ini yang digantikan oleh manual CSV import.
 
 ## Rollback and incident triggers
 
