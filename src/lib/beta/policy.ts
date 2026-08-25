@@ -6,6 +6,10 @@ const FEATURE_ENV_NAMES: Record<BetaFeature, string> = {
   pdf: "FALANCE_BETA_PDF_ENABLED",
 };
 
+const LEGACY_FEATURE_ENV_NAMES: Partial<Record<BetaFeature, string>> = {
+  vision: "PUBLIC_BETA_VISION_ENABLED",
+};
+
 export class BetaFeatureDisabledError extends Error {
   readonly feature: BetaFeature;
 
@@ -38,6 +42,10 @@ export function isPublicBetaEnabled(): boolean {
 export function isBetaFeatureEnabled(feature: BetaFeature): boolean {
   const explicitValue = readBooleanEnv(FEATURE_ENV_NAMES[feature]);
   if (explicitValue !== undefined) return explicitValue;
+  const legacyValue = LEGACY_FEATURE_ENV_NAMES[feature]
+    ? readBooleanEnv(LEGACY_FEATURE_ENV_NAMES[feature] as string)
+    : undefined;
+  if (legacyValue !== undefined) return legacyValue;
   return !isPublicBetaEnabled();
 }
 

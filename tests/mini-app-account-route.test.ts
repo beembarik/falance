@@ -15,7 +15,11 @@ test("Mini App account rejects a request without initData", async () => {
 
 test("Mini App account returns only the authorized family view", async () => {
   const originalToken = process.env.TELEGRAM_BOT_TOKEN;
+  const originalBeta = process.env.FALANCE_PUBLIC_BETA;
+  const originalSupport = process.env.FALANCE_SUPPORT_TELEGRAM_URL;
   process.env.TELEGRAM_BOT_TOKEN = "test-token";
+  process.env.FALANCE_PUBLIC_BETA = "true";
+  process.env.FALANCE_SUPPORT_TELEGRAM_URL = "https://t.me/falance_support";
   const prototype = (await import("../src/lib/family/google-sheets-repository")).GoogleSheetsFamilyRepository.prototype;
   const repository = prototype as typeof prototype & {
     findActiveMemberByTelegramUserId: typeof prototype.findActiveMemberByTelegramUserId;
@@ -96,9 +100,12 @@ test("Mini App account returns only the authorized family view", async () => {
     }));
 
     assert.equal(response.status, 200);
-    const accountPayload = await response.json() as { viewer: { avatarUrl: string | null; avatarFallbackUrl: string }; family: unknown; members: unknown };
+    const accountPayload = await response.json() as { viewer: { avatarUrl: string | null; avatarFallbackUrl: string }; beta: { tester: boolean; supportUrl: string | null }; family: unknown; members: unknown };
     assert.equal(accountPayload.viewer.avatarUrl, null);
     assert.match(accountPayload.viewer.avatarFallbackUrl, /^https:\/\/falance\.example\.com\/api\/mini-app\/avatar\?token=/);
+    assert.equal(accountPayload.beta.tester, false);
+    assert.match(accountPayload.beta.supportUrl ?? "", /^https:\/\/t\.me\/falance_support\?text=/);
+    assert.match(decodeURIComponent(new URL(accountPayload.beta.supportUrl ?? "").searchParams.get("text") ?? ""), /Halo, saya beta tester Falancé/);
     assert.deepEqual({ family: accountPayload.family, members: accountPayload.members }, {
       family: {
         familyName: "Keluarga Aman",
@@ -124,5 +131,9 @@ test("Mini App account returns only the authorized family view", async () => {
     repository.findMembersByFamilyId = originalFindMembers;
     if (originalToken === undefined) delete process.env.TELEGRAM_BOT_TOKEN;
     else process.env.TELEGRAM_BOT_TOKEN = originalToken;
+    if (originalBeta === undefined) delete process.env.FALANCE_PUBLIC_BETA;
+    else process.env.FALANCE_PUBLIC_BETA = originalBeta;
+    if (originalSupport === undefined) delete process.env.FALANCE_SUPPORT_TELEGRAM_URL;
+    else process.env.FALANCE_SUPPORT_TELEGRAM_URL = originalSupport;
   }
 });

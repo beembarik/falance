@@ -54,6 +54,16 @@ test("beta defaults Vision, Print, and PDF to disabled", () => {
   });
 });
 
+test("the legacy Vision beta flag remains supported", () => {
+  withEnvironment({
+    FALANCE_PUBLIC_BETA: "true",
+    FALANCE_BETA_VISION_ENABLED: undefined,
+    PUBLIC_BETA_VISION_ENABLED: "false",
+  }, () => {
+    assert.equal(isBetaFeatureEnabled("vision"), false);
+  });
+});
+
 test("explicit feature flags override the beta default", () => {
   withEnvironment({
     FALANCE_PUBLIC_BETA: "true",

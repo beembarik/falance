@@ -203,6 +203,38 @@ test("previews an authorized receipt through the shared interactive draft flow",
   assert.match(typeof response === "string" ? response : response.text, /Kategori   : Makanan & Minuman \(saran\)/);
 });
 
+test("blocks receipt Vision during Public Beta before download or parsing", async () => {
+  const previousBeta = process.env.FALANCE_PUBLIC_BETA;
+  const previousVision = process.env.FALANCE_BETA_VISION_ENABLED;
+  process.env.FALANCE_PUBLIC_BETA = "true";
+  delete process.env.FALANCE_BETA_VISION_ENABLED;
+  try {
+    let downloaded = false;
+    let parsed = false;
+    const service = fakeService({ claimReceiptVision: async () => { throw new Error("vision claim must not run"); } });
+    const response = await handleTelegramPhotoMessageResponse(
+      service,
+      owner,
+      [{ fileId: "photo_beta_disabled", width: 1200, height: 1600 }],
+      null,
+      { parse: async () => { parsed = true; throw new Error("parser must not run"); } },
+      async () => {
+        downloaded = true;
+        throw new Error("download must not run");
+      },
+    );
+
+    assert.equal(downloaded, false);
+    assert.equal(parsed, false);
+    assert.match(typeof response === "string" ? response : response.text, /belum tersedia selama Public Beta/);
+  } finally {
+    if (previousBeta === undefined) delete process.env.FALANCE_PUBLIC_BETA;
+    else process.env.FALANCE_PUBLIC_BETA = previousBeta;
+    if (previousVision === undefined) delete process.env.FALANCE_BETA_VISION_ENABLED;
+    else process.env.FALANCE_BETA_VISION_ENABLED = previousVision;
+  }
+});
+
 test("blocks a receipt when the vision guard denies the claim before download or parsing", async () => {
   let downloaded = false;
   let parsed = false;

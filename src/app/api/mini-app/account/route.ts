@@ -108,9 +108,16 @@ function getPublicSupportUrl(): string | null {
   if (!configuredUrl) return null;
   try {
     const url = new URL(configuredUrl);
-    return url.protocol === "https:" && (url.hostname === "t.me" || url.hostname === "telegram.me")
-      ? url.toString()
-      : null;
+    if (url.protocol !== "https:" || (url.hostname !== "t.me" && url.hostname !== "telegram.me")) return null;
+    url.searchParams.set("text", [
+      "Halo, saya beta tester Falancé.",
+      "",
+      "Kategori feedback: Bug / Usability / Ide fitur",
+      "Versi aplikasi:",
+      "Ringkasan:",
+      "Langkah atau konteks:",
+    ].join("\n"));
+    return url.toString();
   } catch {
     return null;
   }
