@@ -301,6 +301,8 @@ Status: IN PROGRESS — Public Beta foundation on `beta-release`; paid monetizat
 
 Public Beta is a free, limited validation phase. Its current policy is documented in [`public-beta-policy.md`](public-beta-policy.md). Paid plans, subscription billing, and beta tester benefits remain intentionally undecided until usage and cost data are available.
 
+The beta export acceptance is complete for the current scope: CSV was downloaded successfully through the native Telegram Mini App dialog from the beta Preview using an authorized OWNER/ADMIN account, without an external browser window, and the resulting transaction report was verified as valid CSV. Print Preview, PDF, and Vision remain intentionally locked for beta; Production and its webhook remain unchanged.
+
 Monetization and public expansion must not precede security hardening, usage controls, and a storage path suitable for growth.
 
 - [ ] Family plans and entitlement model

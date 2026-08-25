@@ -21,11 +21,15 @@ Selama Public Beta, fitur Vision/receipt scanning dinonaktifkan. Pengujian Visio
 | Receipt Vision | Dikunci | Disiapkan untuk update beta berikutnya |
 | Mini App dashboard | Aktif untuk family beta | Beranda, Transaksi, Laporan, dan Akun |
 | Category summary dan analytics | Aktif | Membaca transaksi aktual; bukan budget planner |
-| CSV export | Aktif terbatas | OWNER/ADMIN dan tetap mengikuti authorization |
+| CSV export | Aktif terbatas | OWNER/ADMIN, tetap mengikuti authorization, dan menggunakan dialog native `Telegram.WebApp.downloadFile()` |
 | Print Preview | Dikunci | Tombol UI dihilangkan dan endpoint menolak akses |
 | PDF export | Dikunci | Tombol UI dihilangkan dan endpoint menolak akses |
 | Budget planner | Deferred | Bukan bagian beta awal |
 | Recurring liability | Deferred | Planned obligation, bukan actual transaction atau budget |
+
+## Acceptance beta
+
+CSV export telah divalidasi pada deployment Preview beta melalui Telegram Mini App menggunakan akun OWNER/ADMIN. Dialog download native muncul, file tersimpan tanpa membuka window browser atau safe-browsing tab, dan isi CSV laporan transaksi tervalidasi. Implementasi memiliki fallback fail-closed: tombol disembunyikan pada client yang tidak menyediakan API native tersebut. Print Preview dan PDF tetap dikunci, sedangkan Vision tetap disabled selama beta.
 
 ## Capacity policy
 
