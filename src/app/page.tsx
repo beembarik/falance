@@ -345,37 +345,28 @@ export default function Home() {
     }
   }, [data]);
 
-  const downloadCsv = useCallback(async () => {
-    if (!initDataRef.current || !data?.actions?.csv || data.viewer.role === "MEMBER") return;
+  const downloadCsv = useCallback(() => {
+    const action = data?.actions?.csv;
+    if (!initDataRef.current || !action || data.viewer.role === "MEMBER") return;
     setCsvDownloading(true);
     setPrintError("");
     try {
-      const response = await fetch("/api/mini-app/report/export", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          initData: initDataRef.current,
-          month: month || undefined,
-          startDate: startDate || undefined,
-          endDate: endDate || undefined,
-        }),
-      });
-      if (!response.ok) throw new Error("CSV tidak dapat diunduh. Silakan coba lagi.");
-      const blob = await response.blob();
-      const downloadUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = downloadUrl;
-      anchor.download = `falance-report-${data.report.period.startDate}-${data.report.period.endDate}.csv`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1_000);
+      // The signed endpoint returns Content-Disposition: attachment. A hidden
+      // same-origin iframe lets Telegram/browser handle the download natively
+      // without navigating the Mini App or opening a new window.
+      const frame = document.createElement("iframe");
+      frame.hidden = true;
+      frame.src = action.url;
+      document.body.appendChild(frame);
+      window.setTimeout(() => {
+        frame.remove();
+        setCsvDownloading(false);
+      }, 10_000);
     } catch (downloadError) {
-      setPrintError(downloadError instanceof Error ? downloadError.message : "CSV tidak dapat diunduh.");
-    } finally {
       setCsvDownloading(false);
+      setPrintError(downloadError instanceof Error ? downloadError.message : "CSV tidak dapat diunduh.");
     }
-  }, [data, endDate, month, startDate]);
+  }, [data]);
 
   useEffect(() => {
     let cancelled = false;
