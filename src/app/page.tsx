@@ -81,9 +81,9 @@ declare global {
 const TELEGRAM_BOOTSTRAP_TIMEOUT_MS = 5_000;
 
 const navItems: Array<{ key: NavKey; label: string; color: "green" | "purple" | "coral" }> = [
-  { key: "home", label: "Beranda", color: "green" },
-  { key: "transactions", label: "Transaksi", color: "purple" },
-  { key: "reports", label: "Laporan", color: "purple" },
+  { key: "home", label: "Beranda", color: "coral" },
+  { key: "transactions", label: "Transaksi", color: "coral" },
+  { key: "reports", label: "Laporan", color: "coral" },
   { key: "account", label: "Akun", color: "coral" },
 ];
 
@@ -564,6 +564,107 @@ function HomeView({ data, onAddTransaction, onSelectReports, onSelectTransaction
   );
 }
 
+function BottomNavigation({ activeNav, onSelect, onAddTransaction }: { activeNav: NavKey; onSelect: (key: NavKey) => void; onAddTransaction: () => void }) {
+  return (
+    <nav className="bottom-nav" aria-label="Navigasi Utama">
+      <div className="bottom-nav-inner">
+        {/* Home */}
+        <button
+          type="button"
+          onClick={() => onSelect("home")}
+          className={`nav-item ${activeNav === "home" ? "nav-item-active" : ""}`}
+          aria-label="Beranda"
+          aria-current={activeNav === "home" ? "page" : undefined}
+        >
+          <div className="nav-icon-wrapper">
+            <div className="nav-indicator" />
+            <div className="nav-icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h3a1 1 0 001-1V10" />
+              </svg>
+            </div>
+          </div>
+          <span className="nav-label">Beranda</span>
+        </button>
+
+        {/* Transactions */}
+        <button
+          type="button"
+          onClick={() => onSelect("transactions")}
+          className={`nav-item ${activeNav === "transactions" ? "nav-item-active" : ""}`}
+          aria-label="Transaksi"
+          aria-current={activeNav === "transactions" ? "page" : undefined}
+        >
+          <div className="nav-icon-wrapper">
+            <div className="nav-indicator" />
+            <div className="nav-icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h4m-4 4h4m-6-4h.01M9 16h.01" />
+              </svg>
+            </div>
+          </div>
+          <span className="nav-label">Transaksi</span>
+        </button>
+
+        {/* Center '+' FAB (Purple Accent) */}
+        <div className="primary-fab-item">
+          <button
+            type="button"
+            onClick={onAddTransaction}
+            className="primary-fab"
+            aria-label="Tambah Transaksi"
+          >
+            <div className="primary-fab-icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </div>
+            <span className="primary-fab-label">Tambah</span>
+          </button>
+        </div>
+
+        {/* Reports */}
+        <button
+          type="button"
+          onClick={() => onSelect("reports")}
+          className={`nav-item ${activeNav === "reports" ? "nav-item-active" : ""}`}
+          aria-label="Laporan"
+          aria-current={activeNav === "reports" ? "page" : undefined}
+        >
+          <div className="nav-icon-wrapper">
+            <div className="nav-indicator" />
+            <div className="nav-icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+          </div>
+          <span className="nav-label">Laporan</span>
+        </button>
+
+        {/* Account */}
+        <button
+          type="button"
+          onClick={() => onSelect("account")}
+          className={`nav-item ${activeNav === "account" ? "nav-item-active" : ""}`}
+          aria-label="Akun"
+          aria-current={activeNav === "account" ? "page" : undefined}
+        >
+          <div className="nav-icon-wrapper">
+            <div className="nav-indicator" />
+            <div className="nav-icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+          </div>
+          <span className="nav-label">Akun</span>
+        </button>
+      </div>
+    </nav>
+  );
+}
+
 function CashFlowSection({ points }: { points: ReportResponse["report"]["cashFlow"] }) {
   const currencies = [...new Set(points.map((point) => point.currency))].sort();
   return <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]" aria-labelledby="cash-flow-title">
@@ -629,7 +730,6 @@ function CategoryExpenseChart({ currency, summaries, selected, onSelect }: { cur
     .sort((left, right) => BigInt(right.expenseMinor) > BigInt(left.expenseMinor) ? 1 : -1);
   const totalExpense = expenseSummaries.reduce((total, summary) => total + BigInt(summary.expenseMinor), BigInt(0));
   if (totalExpense === BigInt(0)) return <div className="rounded-xl bg-[var(--surface-soft)] p-4"><p className="text-sm font-semibold">{currency}</p><p className="mt-1 text-sm text-[var(--text-secondary)]">Belum ada pengeluaran pada periode ini.</p></div>;
-
   const topSummaries = expenseSummaries.slice(0, 4);
   const remainder = expenseSummaries.slice(4);
   const rows: CategoryExpenseRow[] = topSummaries.map((summary) => {
@@ -638,255 +738,37 @@ function CategoryExpenseChart({ currency, summaries, selected, onSelect }: { cur
   });
   const remainderMinor = remainder.reduce((total, summary) => total + BigInt(summary.expenseMinor), BigInt(0));
   if (remainderMinor > BigInt(0)) rows.push({ label: "Lainnya", category: "", expenseMinor: remainderMinor, percentage: percentageOf(remainderMinor, totalExpense), transactionCount: remainder.reduce((total, summary) => total + summary.transactionCount, 0) });
-
   return <div>
     <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-bold">{currency}</h3><span className="text-xs text-[var(--text-secondary)]">Total {formatAmount(totalExpense.toString(), currency)}</span></div>
-    <div className="mt-3 space-y-3">{rows.map((row) => { const isSelected = selected?.category === row.category && selected?.currency === currency; const content = <><div className="flex items-center justify-between gap-3 text-sm"><span className="min-w-0 truncate font-semibold">{row.label}</span><span className="shrink-0 text-right text-xs text-[var(--text-secondary)]">{formatAmount(row.expenseMinor.toString(), currency)} · {formatPercentage(row.percentage)}</span></div><div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-[var(--surface-soft)]" role="img" aria-label={`${row.label}: ${formatAmount(row.expenseMinor.toString(), currency)}, ${formatPercentage(row.percentage)}`}><div className="h-full rounded-full bg-[var(--brand-coral-500)] transition-[width] duration-200" style={{ width: `${Math.max(row.percentage, row.expenseMinor > BigInt(0) ? 1 : 0)}%` }} />
-</div></>; return row.category ? <button key={row.label} type="button" onClick={() => onSelect(isSelected ? null : { category: row.category, currency })} aria-pressed={isSelected} className={`block w-full rounded-xl p-2 text-left transition focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] ${isSelected ? "bg-[var(--brand-green-100)]" : "hover:bg-[var(--brand-green-50)]"}`}>{content}</button> : <div key={row.label} className="rounded-xl p-2">{content}</div>; })}</div>
+    <div className="mt-3 space-y-3">{rows.map((row) => {
+      const isSelected = selected?.category === row.category && selected?.currency === currency;
+      const content = <><div className="flex items-center justify-between gap-3 text-sm"><span className="min-w-0 truncate font-semibold">{row.label}</span><span className="shrink-0 text-right text-xs text-[var(--text-secondary)]">{formatAmount(row.expenseMinor.toString(), currency)} · {formatPercentage(row.percentage)}</span></div><div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-[var(--surface-soft)]" role="img" aria-label={`${row.label}: ${formatAmount(row.expenseMinor.toString(), currency)}, ${formatPercentage(row.percentage)}`}><div className="h-full rounded-full bg-[var(--brand-coral-500)] transition-[width] duration-200" style={{ width: `${Math.max(row.percentage, row.expenseMinor > BigInt(0) ? 1 : 0)}%` }} /> </div></>;
+      return row.category ? <button key={row.label} type="button" onClick={() => onSelect(isSelected ? null : { category: row.category, currency })} aria-pressed={isSelected} className={`block w-full rounded-xl p-2 text-left transition focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] ${isSelected ? "bg-[var(--brand-green-100)]" : "hover:bg-[var(--brand-green-50)]"}`}>{content}</button> : <div key={row.label} className="rounded-xl p-2">{content}</div>;
+    })}</div>
   </div>;
 }
 
-function percentageOf(value: bigint, total: bigint): number {
-  return total === BigInt(0) ? 0 : Number((value * BigInt(10000)) / total) / 100;
-}
-
-function formatPercentage(value: number): string {
-  return `${value.toLocaleString("id-ID", { minimumFractionDigits: value % 1 === 0 ? 0 : 1, maximumFractionDigits: 1 })}%`;
-}
-
-async function waitForTelegramWebApp(): Promise<TelegramWebApp | null> {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < TELEGRAM_BOOTSTRAP_TIMEOUT_MS) {
-    const webApp = window.Telegram?.WebApp;
-    if (webApp) return webApp;
-    await new Promise((resolve) => window.setTimeout(resolve, 50));
-  }
-  return window.Telegram?.WebApp ?? null;
-}
-
-function AddTransactionForm({ initData, transaction, onClose, onSaved }: { initData: string; transaction?: ReportResponse["report"]["transactions"][number]; onClose: () => void; onSaved: () => void }) {
-  const isEditing = Boolean(transaction);
-  const [transactionType, setTransactionType] = useState<TransactionFilter>(transaction?.transactionType ?? "EXPENSE");
-  const [amountMinor, setAmountMinor] = useState(transaction?.amountMinor ?? "");
-  const [currency, setCurrency] = useState(transaction?.currency ?? "IDR");
-  const [transactionDate, setTransactionDate] = useState(transaction?.transactionDate ?? "");
-  const [description, setDescription] = useState(transaction?.description ?? "");
-  const [category, setCategory] = useState(transaction?.category ?? "UNCATEGORIZED");
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-
-  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setSubmitting(true);
-    setSubmitError("");
-    try {
-      const response = await fetch("/api/mini-app/transaction", {
-        method: isEditing ? "PATCH" : "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ initData, ...(transaction ? { transactionId: transaction.transactionId } : {}), transactionType, amountMinor, currency, transactionDate, description, category }),
-      });
-      const payload = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(payload.error || (isEditing ? "Transaksi tidak dapat diperbarui." : "Transaksi tidak dapat dicatat."));
-      onSaved();
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Transaksi tidak dapat dicatat.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-[rgba(19,35,27,0.46)] p-0 sm:items-center sm:p-4" role="presentation">
-      <section className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[28px] bg-[var(--surface)] p-5 shadow-2xl sm:rounded-[28px]" role="dialog" aria-modal="true" aria-labelledby="add-transaction-title">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">{isEditing ? "Edit transaksi" : "Input transaksi"}</p>
-            <h2 id="add-transaction-title" className="mt-1 text-2xl font-bold">{isEditing ? "Perbarui transaksi" : "Tambah transaksi"}</h2>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Catat transaksi aktual keluarga dan pilih kategori untuk membantu pengelompokan laporan.</p>
-          </div>
-          <button type="button" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--surface-soft)] text-xl text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]" aria-label="Tutup form">×</button>
-        </div>
-
-        <form className="mt-5 space-y-4" onSubmit={submit}>
-          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-[var(--surface-soft)] p-1">
-            <button type="button" onClick={() => setTransactionType("EXPENSE")} className={`min-h-11 rounded-xl text-sm font-bold transition ${transactionType === "EXPENSE" ? "bg-[var(--brand-coral-500)] text-white shadow-sm" : "text-[var(--text-secondary)]"}`}>Pengeluaran</button>
-            <button type="button" onClick={() => setTransactionType("INCOME")} className={`min-h-11 rounded-xl text-sm font-bold transition ${transactionType === "INCOME" ? "bg-[var(--brand-green-600)] text-white shadow-sm" : "text-[var(--text-secondary)]"}`}>Pemasukan</button>
-          </div>
-
-          <label className="block text-sm font-semibold">Jumlah
-            <input required value={amountMinor} onChange={(event) => setAmountMinor(event.target.value)} inputMode="numeric" pattern="[0-9.,]+" placeholder="Contoh: 150000" className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-white px-4 text-lg font-semibold outline-none transition focus:border-[var(--brand-green-500)] focus:ring-2 focus:ring-[var(--brand-green-100)]" />
-            <span className="mt-1 block text-xs font-normal text-[var(--text-secondary)]">Masukkan angka bulat dalam unit terkecil currency.</span>
-          </label>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block text-sm font-semibold">Currency
-              <input required maxLength={3} value={currency} onChange={(event) => setCurrency(event.target.value.toUpperCase())} placeholder="IDR" className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-white px-4 font-semibold uppercase outline-none transition focus:border-[var(--brand-green-500)] focus:ring-2 focus:ring-[var(--brand-green-100)]" />
-            </label>
-            <label className="block text-sm font-semibold">Tanggal
-              <input required type="date" value={transactionDate} onChange={(event) => setTransactionDate(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-white px-3 font-semibold outline-none transition focus:border-[var(--brand-green-500)] focus:ring-2 focus:ring-[var(--brand-green-100)]" />
-            </label>
-          </div>
-
-          <label className="block text-sm font-semibold">Kategori
-            <select required value={category} onChange={(event) => setCategory(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-white px-4 font-semibold outline-none transition focus:border-[var(--brand-green-500)] focus:ring-2 focus:ring-[var(--brand-green-100)]">
-              {CATEGORY_CODES.map((code) => <option key={code} value={code}>{CATEGORY_LABELS[code]}</option>)}
-            </select>
-            <span className="mt-1 block text-xs font-normal text-[var(--text-secondary)]">Kategori dipilih secara manual; saran AI tidak menjadi pilihan otomatis.</span>
-          </label>
-
-          <label className="block text-sm font-semibold">Deskripsi
-            <textarea required maxLength={200} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Contoh: Belanja kebutuhan rumah" rows={3} className="mt-2 w-full resize-none rounded-xl border border-[var(--border)] bg-white px-4 py-3 outline-none transition focus:border-[var(--brand-green-500)] focus:ring-2 focus:ring-[var(--brand-green-100)]" />
-          </label>
-
-          {submitError && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{submitError}</p>}
-            <button type="submit" disabled={submitting} className="primary-action min-h-12 w-full rounded-xl border-2 border-[var(--brand-green-700)] bg-[var(--brand-green-700)] px-4 text-sm font-bold text-white shadow-[0_8px_20px_rgba(38,122,90,0.28)] transition hover:bg-[var(--brand-green-800)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2 disabled:cursor-wait disabled:opacity-60">{submitting ? "Menyimpan..." : isEditing ? "Simpan perubahan" : "Simpan transaksi"}</button>
-        </form>
-      </section>
-    </div>
-  );
-}
-
-function AccountView({ data, onRetry, onFamilyAction, familyAction, familyActionError, invitation, deactivateConfirmation }: {
-  data: AccountResponse;
-  onRetry: () => void;
-  onFamilyAction: (action: FamilyAction, fields?: FamilyActionFields) => void;
-  familyAction: FamilyAction | null;
-  familyActionError: string;
-  invitation: { code: string; expiresAt: string; shareMessage: string } | null;
-  deactivateConfirmation: { memberId: string; expiresAt: string } | null;
-}) {
-  const roleLabel = data.viewer.role === "OWNER" ? "Owner keluarga" : data.viewer.role === "ADMIN" ? "Admin keluarga" : "Member keluarga";
-  const permissionText = data.viewer.role === "OWNER"
-    ? "Kamu dapat mengelola anggota, undangan, role, dan pengaturan keluarga melalui alur yang tervalidasi."
-    : data.viewer.role === "ADMIN"
-      ? "Kamu dapat membantu mengelola undangan dan melihat kondisi keluarga sesuai role yang diberikan."
-      : "Kamu dapat melihat data keluarga dan membuat transaksi melalui fitur yang tersedia.";
-  const [familyName, setFamilyName] = useState(data.family.familyName);
-  const [invitationCopied, setInvitationCopied] = useState(false);
-  const [joinCopied, setJoinCopied] = useState(false);
-  const isBusy = familyAction !== null;
-  const copyText = async (text: string, setCopied: (copied: boolean) => void) => {
-    try {
-      if (!navigator.clipboard) throw new Error("Clipboard API unavailable");
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  };
-  const copyInvitation = async () => {
-    if (!invitation) return;
-    await copyText(invitation.shareMessage, setInvitationCopied);
-  };
-
-  return <>
-    <section className="overflow-hidden rounded-2xl bg-[var(--brand-green-700)] text-white shadow-[0_8px_24px_rgba(38,122,90,0.16)]"><div className="p-5"><div className="flex items-center gap-4"><UserAvatar key={`${data.viewer.avatarUrl ?? ""}:${data.viewer.avatarFallbackUrl ?? ""}`} name={data.viewer.name} avatarUrl={data.viewer.avatarUrl} avatarFallbackUrl={data.viewer.avatarFallbackUrl} size="large" /><div className="min-w-0"><p className="truncate text-xl font-bold">{data.viewer.name}</p><p className="mt-1 text-sm text-emerald-100">{roleLabel}{data.viewer.username ? ` · @${data.viewer.username}` : ""}</p></div></div></div><div className="border-t border-white/15 bg-white/10 px-5 py-4"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100">Konteks akses</p><p className="mt-1 text-sm leading-6 text-white/90">{permissionText}</p></div></section>
-
-    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Keluarga aktif</p><h2 className="mt-1 text-xl font-bold">{data.family.familyName}</h2></div><span className="rounded-full bg-[var(--brand-green-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-green-700)]">{data.family.status}</span></div><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-xl bg-[var(--surface-soft)] p-3"><p className="text-xs text-[var(--text-secondary)]">Anggota aktif</p><p className="mt-1 text-2xl font-bold text-[var(--brand-green-700)]">{data.family.activeMemberCount}</p></div><div className="rounded-xl bg-[var(--surface-soft)] p-3"><p className="text-xs text-[var(--text-secondary)]">Plan</p><p className="mt-1 text-lg font-bold">{data.family.plan}</p></div></div></section>
-
-        {data.beta && <section className="rounded-2xl border border-[var(--brand-purple-100)] bg-[var(--brand-purple-100)]/55 p-5 shadow-[var(--card-shadow)]"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Status produk</p><h2 className="mt-1 text-lg font-bold">{data.beta.label}</h2><p className="mt-1 text-sm leading-6 text-[var(--brand-purple-800)]">Akses beta gratis dan terbatas. Kirim masukan agar Falancé makin bermanfaat untuk keluarga.</p></div><span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-bold text-[var(--brand-purple-800)]">v{data.beta.version}</span></div><div className="mt-4 flex flex-wrap gap-2"><span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[var(--brand-purple-800)]">{data.beta.tester ? "Beta Tester" : "Akses Beta"}</span>{data.beta.supportUrl && <a href={data.beta.supportUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center rounded-xl bg-[var(--brand-purple-600)] px-3 text-xs font-bold text-white transition hover:bg-[var(--brand-purple-800)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-purple-600)] focus:ring-offset-2">Beri masukan atau laporkan masalah</a>}</div></section>}
-
-    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Family workspace</p><h2 className="mt-1 text-lg font-bold">Anggota keluarga</h2></div><span className="text-xs text-[var(--text-secondary)]">{data.members.length} aktif</span></div>
-<div className="mt-4 divide-y divide-[var(--border)]">{data.members.map((member) => { const confirming = deactivateConfirmation?.memberId === member.memberId; const nextRole = member.role === "ADMIN" ? "MEMBER" : "ADMIN"; return <div key={member.memberId} className="py-3 first:pt-0 last:pb-0"><div className="flex items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><UserAvatar name={member.name} size="small" /><div className="min-w-0"><p className="truncate text-sm font-semibold">{member.name}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{member.username ? `@${member.username}` : "Tanpa username"}</p><code className="mt-1 block truncate text-[10px] text-[var(--text-secondary)]">{member.memberId}</code></div></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${member.role === "OWNER" ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : member.role === "ADMIN" ? "bg-[var(--brand-purple-100)] text-[var(--brand-purple-800)]" : "bg-[var(--surface-soft)] text-[var(--text-secondary)]"}`}>{member.role}</span></div>{data.viewer.role === "OWNER" && member.role !== "OWNER" && <>{confirming ? <div className="mt-3 rounded-xl border border-[var(--brand-coral-500)] bg-[var(--brand-coral-100)] p-3"><p className="text-xs font-semibold text-[#9F3D34]">Nonaktifkan {member.name}? Konfirmasi berlaku selama 5 menit.</p><div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={() => onFamilyAction("CANCEL_DEACTIVATE_MEMBER")} disabled={isBusy} className="min-h-10 rounded-lg border border-[#C85A4D] bg-white px-2 text-xs font-semibold text-[#9F3D34] disabled:opacity-60">Batal</button><button type="button" onClick={() => onFamilyAction("CONFIRM_DEACTIVATE_MEMBER")} disabled={isBusy} className="min-h-10 rounded-lg bg-[#B94B40] px-2 text-xs font-bold text-white disabled:opacity-60">{familyAction === "CONFIRM_DEACTIVATE_MEMBER" ? "Memproses..." : "Ya, nonaktifkan"}</button></div></div> : <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => onFamilyAction("CHANGE_MEMBER_ROLE", { memberId: member.memberId, role: nextRole })} disabled={isBusy} className="min-h-9 rounded-lg border border-[var(--brand-purple-600)] bg-[var(--brand-purple-100)] px-2.5 text-xs font-semibold text-[var(--brand-purple-800)] disabled:opacity-60">Jadikan {nextRole === "ADMIN" ? "admin" : "member"}</button><button type="button" onClick={() => onFamilyAction("REQUEST_DEACTIVATE_MEMBER", { memberId: member.memberId })} disabled={isBusy} className="min-h-9 rounded-lg border border-[#C85A4D] bg-[var(--brand-coral-100)] px-2.5 text-xs font-semibold text-[#9F3D34] disabled:opacity-60">Nonaktifkan</button></div>}</>}</div>; })}</div></section>
-
-    {(data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">Administrasi</p><h2 className="mt-1 text-lg font-bold">Undangan keluarga</h2><p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Buat kode satu kali untuk dibagikan kepada calon anggota melalui Telegram.</p></div><button type="button" onClick={() => onFamilyAction("CREATE_INVITATION")} disabled={isBusy} className="min-h-10 shrink-0 rounded-xl bg-[var(--brand-green-700)] px-3 text-xs font-bold text-white disabled:cursor-wait disabled:opacity-60">{familyAction === "CREATE_INVITATION" ? "Membuat..." : "Buat kode"}</button></div>{invitation && <div className="mt-4 rounded-xl bg-[var(--brand-green-100)] p-4"><p className="text-xs text-[var(--brand-green-700)]">Kode undangan</p><code className="mt-1 block text-xl font-bold tracking-[0.12em] text-[var(--brand-green-700)]">{invitation.code}</code><p className="mt-1 text-xs text-[var(--text-secondary)]">Berlaku sampai {new Date(invitation.expiresAt).toLocaleString("id-ID")}</p><div className="mt-4 rounded-xl border border-[var(--brand-green-500)] bg-white p-3"><p className="text-xs font-semibold text-[var(--brand-green-700)]">Perintah join</p><div className="mt-2 flex items-center gap-2"><code className="min-w-0 flex-1 break-all rounded-lg bg-[var(--surface-soft)] px-3 py-2 text-base font-bold text-[var(--text-primary)]">/join {invitation.code}</code><button type="button" onClick={() => void copyText(`/join ${invitation.code}`, setJoinCopied)} className="min-h-10 shrink-0 rounded-xl border border-[var(--brand-green-700)] bg-white px-3 text-xs font-bold text-[var(--brand-green-700)]">{joinCopied ? "Tersalin" : "Salin"}</button></div></div><label className="mt-4 block text-xs font-semibold text-[var(--brand-green-700)]">Pesan siap dibagikan<textarea readOnly rows={8} value={invitation.shareMessage} onFocus={(event) => event.currentTarget.select()} className="mt-2 w-full resize-none rounded-xl border border-[var(--brand-green-500)] bg-white px-3 py-3 text-sm font-normal leading-6 text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]" /></label><div className="mt-2 flex items-center justify-between gap-3"><p className="text-xs text-[var(--text-secondary)]">Salin pesan ini lalu kirim kepada calon member.</p><button type="button" onClick={() => void copyInvitation()} className="min-h-10 shrink-0 rounded-xl border border-[var(--brand-green-700)] bg-white px-3 text-xs font-bold text-[var(--brand-green-700)]">{invitationCopied ? "Tersalin" : "Salin pesan"}</button></div></div>}</section>}
-
-    {data.viewer.role === "OWNER" && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Pengaturan keluarga</p><h2 className="mt-1 text-lg font-bold">Nama keluarga</h2><form className="mt-3 flex gap-2" onSubmit={(event) => { event.preventDefault(); onFamilyAction("RENAME_FAMILY", { familyName }); }}><input required maxLength={80} value={familyName} onChange={(event) => setFamilyName(event.target.value)} className="min-h-11 min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-3 text-sm font-semibold outline-none focus:border-[var(--brand-green-500)] focus:ring-2 focus:ring-[var(--brand-green-100)]" /><button type="submit" disabled={isBusy} className="min-h-11 rounded-xl border border-[var(--brand-green-700)] bg-[var(--brand-green-100)] px-3 text-xs font-bold text-[var(--brand-green-700)] disabled:opacity-60">{familyAction === "RENAME_FAMILY" ? "Menyimpan..." : "Simpan"}</button></form></section>}
-
-    {familyActionError && <section role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">{familyActionError}</section>}
-    <button type="button" onClick={onRetry} className="min-h-10 rounded-xl border border-[var(--brand-green-500)] bg-white px-3 text-xs font-semibold text-[var(--brand-green-700)] transition hover:bg-[var(--brand-green-100)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">Muat ulang data</button>
-  </>;
-}
-
-function getInitials(name: string): string {
-  const initials = name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
-  return initials || "F";
-}
-
-function UserAvatar({ name, avatarUrl, avatarFallbackUrl, size = "small" }: { name: string; avatarUrl?: string | null; avatarFallbackUrl?: string | null; size?: "small" | "large" }) {
-  const [primaryFailed, setPrimaryFailed] = useState(false);
-  const [fallbackFailed, setFallbackFailed] = useState(false);
-  const sizeClass = size === "large" ? "h-14 w-14 text-xl" : "h-9 w-9 text-xs";
-  const fallbackClass = size === "large" ? "bg-white/90 text-[var(--brand-green-700)]" : "bg-[var(--brand-purple-100)] text-[var(--brand-purple-800)]";
-  const imageSource = avatarUrl && !primaryFailed ? avatarUrl : avatarFallbackUrl && !fallbackFailed ? avatarFallbackUrl : null;
-  if (imageSource) {
-    // Telegram profile URLs are dynamic and may be direct CDN URLs or our signed proxy.
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={imageSource} alt={`Avatar ${name}`} referrerPolicy="no-referrer" onError={() => {
-      if (imageSource === avatarUrl) setPrimaryFailed(true);
-      else setFallbackFailed(true);
-    }} className={`${sizeClass} shrink-0 rounded-full object-cover`} />;
-  }
-  return <div aria-hidden="true" className={`grid ${sizeClass} shrink-0 place-items-center rounded-full font-bold ${fallbackClass}`}>{getInitials(name)}</div>;
-}
-
-function TransactionsView({ data, filter, onFilterChange, onSelectTransaction }: { data: ReportResponse; filter: TransactionFilter; onFilterChange: (value: TransactionFilter) => void; onSelectTransaction: (transaction: ReportResponse["report"]["transactions"][number]) => void }) {
-  const transactions = filter === "ALL" ? data.report.transactions : data.report.transactions.filter((transaction) => transaction.transactionType === filter);
-  const grouped = transactions.reduce<Record<string, ReportResponse["report"]["transactions"]>>((groups, transaction) => {
-    groups[transaction.transactionDate] ??= [];
-    groups[transaction.transactionDate].push(transaction);
-    return groups;
-  }, {});
-
-  return (
-    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
-      <div className="flex items-start justify-between gap-3">
-        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Workspace</p><h2 className="mt-1 text-xl font-bold">Transaksi</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">{data.report.period.label}</p></div>
-        <span className="rounded-full bg-[var(--brand-green-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-green-700)]">Read-only</span>
-      </div>
-      <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-[var(--surface-soft)] p-1" role="group" aria-label="Filter tipe transaksi">
-        {(["ALL", "INCOME", "EXPENSE"] as const).map((value) => {
-          const label = value === "ALL" ? "Semua" : value === "INCOME" ? "Pemasukan" : "Pengeluaran";
-          return <button key={value} type="button" onClick={() => onFilterChange(value)} aria-pressed={filter === value} className={`min-h-10 rounded-lg px-2 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] ${filter === value ? "bg-[var(--brand-green-700)] text-white shadow-sm" : "text-[var(--text-secondary)] hover:bg-[var(--surface)]"}`}>{label}</button>;
-        })}
-      </div>
-      <p className="mt-3 text-xs text-[var(--text-secondary)]">Menampilkan maksimal 50 transaksi aktif dari periode yang dipilih.</p>
-      {transactions.length === 0 ? (
-        <div className="mt-5 rounded-xl bg-[var(--surface-soft)] p-5 text-center"><Image className="mx-auto h-10 w-10 object-contain" src="/icon.png" alt="" aria-hidden="true" width={40} height={40} />
-<p className="mt-3 text-sm font-semibold">Belum ada transaksi</p><p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Tidak ada transaksi yang cocok dengan filter ini.</p></div>
-      ) : (
-        <div className="mt-5 space-y-5">{Object.entries(grouped).map(([date, dateTransactions]) => <div key={date}><h3 className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{formatLongDate(date)}</h3><div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] px-3">{dateTransactions.map((transaction) => <button key={transaction.transactionId} type="button" onClick={() => onSelectTransaction(transaction)} className="flex w-full items-start justify-between gap-3 py-3 text-left transition first:pt-3 last:pb-3 hover:bg-[var(--brand-green-50)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--brand-green-500)]"><div className="flex min-w-0 items-start gap-3"><span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-bold ${transaction.transactionType === "INCOME" ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : "bg-[var(--brand-coral-100)] text-[#C85A4D]"}`} aria-hidden="true">{transaction.transactionType === "INCOME" ? "↑" : "↓"}</span><div className="min-w-0"><p className="truncate text-sm font-semibold">{transaction.description}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran"} · {transaction.currency} · {getCategoryLabel(transaction.category)}</p><p className="mt-1 text-xs text-[var(--text-muted)]">{formatDisplayDate(transaction.transactionDate)} · dicatat oleh {transaction.creatorName}</p></div></div><p className={`shrink-0 text-sm font-bold ${transaction.transactionType === "INCOME" ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{transaction.transactionType === "INCOME" ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p></button>)}</div></div>)}</div>
-      )}
-      {data.report.transactions.length === 50 && <p className="mt-4 rounded-xl bg-[var(--brand-purple-100)] p-3 text-xs leading-5 text-[var(--brand-purple-800)]">Daftar ini dibatasi 50 transaksi. Pagination untuk histori yang lebih besar akan ditambahkan pada slice lanjutan.</p>}
-    </section>
-  );
-}
-
-function TransactionDetail({ transaction, onClose, onEdit, onRequestVoid, voidConfirmation, transactionAction, transactionActionError, onConfirmVoid, onCancelVoid }: {
-  transaction: ReportResponse["report"]["transactions"][number];
-  onClose: () => void;
-  onEdit: () => void;
-  onRequestVoid: () => void;
-  voidConfirmation: { transactionId: string; expiresAt: string } | null;
-  transactionAction: "request-void" | "confirm-void" | "cancel-void" | null;
-  transactionActionError: string;
-  onConfirmVoid: () => void;
-  onCancelVoid: () => void;
-}) {
-  const confirmingThisTransaction = voidConfirmation?.transactionId === transaction.transactionId;
-  const actionInProgress = transactionAction !== null;
-  return <div className="fixed inset-0 z-30 flex items-end justify-center bg-[rgba(34,48,41,0.38)] p-0 sm:items-center sm:p-4" role="presentation" onClick={onClose}><section role="dialog" aria-modal="true" aria-labelledby="transaction-detail-title" className="max-h-[92vh] w-full max-w-[480px] overflow-y-auto rounded-t-3xl bg-[var(--surface)] p-5 shadow-[0_12px_40px_rgba(20,40,25,0.18)] sm:rounded-3xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Detail transaksi</p><h2 id="transaction-detail-title" className="mt-1 text-xl font-bold">{transaction.description}</h2></div><button type="button" onClick={onClose} aria-label="Tutup detail transaksi" className="grid h-11 w-11 place-items-center rounded-full bg-[var(--surface-soft)] text-xl text-[var(--text-secondary)] transition hover:bg-[var(--brand-green-100)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">×</button></div><div className="mt-5 rounded-2xl bg-[var(--surface-soft)] p-4"><p className={`text-2xl font-bold ${transaction.transactionType === "INCOME" ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{transaction.transactionType === "INCOME" ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Jenis</dt><dd className="font-semibold">{transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran"}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Tanggal</dt><dd className="font-semibold">{formatLongDate(transaction.transactionDate)}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Kategori</dt><dd className="font-semibold">{getCategoryLabel(transaction.category)}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Dicatat oleh</dt><dd className="font-semibold">{transaction.creatorName}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--text-secondary)]">Transaction ID</dt><dd className="max-w-[55%] break-all text-right font-mono text-xs font-semibold">{transaction.transactionId}</dd></div></dl></div><p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Edit memperbarui transaksi aktif. Void mengubah status menjadi VOID dan memerlukan konfirmasi eksplisit yang tersimpan di server.</p>{transactionActionError && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{transactionActionError}</p>}{confirmingThisTransaction ? <div className="mt-4 rounded-2xl border border-[var(--brand-coral-500)] bg-[var(--brand-coral-100)] p-4"><p className="text-sm font-bold text-[#9F3D34]">Void transaksi ini?</p><p className="mt-1 text-xs leading-5 text-[#9F3D34]">Status transaksi akan berubah menjadi VOID dan tidak lagi dihitung dalam saldo. Konfirmasi berlaku selama 5 menit.</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={onCancelVoid} disabled={actionInProgress} className="min-h-11 rounded-xl border border-[#C85A4D] bg-white px-3 text-sm font-semibold text-[#9F3D34] disabled:opacity-60">Batal</button><button type="button" onClick={onConfirmVoid} disabled={actionInProgress} className="min-h-11 rounded-xl bg-[#B94B40] px-3 text-sm font-bold text-white shadow-sm disabled:cursor-wait disabled:opacity-60">{transactionAction === "confirm-void" ? "Memproses..." : "Ya, void"}</button></div></div> : <div className="mt-5 grid grid-cols-2 gap-2"><button type="button" onClick={onEdit} className="min-h-11 rounded-xl border border-[var(--brand-green-700)] bg-[var(--brand-green-100)] px-3 text-sm font-bold text-[var(--brand-green-700)] transition hover:bg-[var(--brand-green-500)]/30 focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">Edit transaksi</button><button type="button" onClick={onRequestVoid} disabled={actionInProgress} className="min-h-11 rounded-xl border border-[#B94B40] bg-[var(--brand-coral-100)] px-3 text-sm font-bold text-[#9F3D34] transition hover:bg-[#F9D6D1] focus:outline-none focus:ring-2 focus:ring-[var(--brand-coral-500)] disabled:cursor-wait disabled:opacity-60">{transactionAction === "request-void" ? "Menyiapkan..." : "Void transaksi"}</button></div>}<button type="button" onClick={onClose} className="mt-3 min-h-11 w-full rounded-xl bg-[var(--brand-green-700)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-800)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2">Tutup</button></section></div>;
-}
-
-function ComparisonSummary({ current, previous }: { current: ReportResponse; previous: ReportResponse }) {
-  const previousByCurrency = new Map(previous.report.currencies.map((summary) => [summary.currency, summary]));
-  const currencies = current.report.currencies.filter((summary) => previousByCurrency.has(summary.currency));
-  if (currencies.length === 0) return <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Belum ada mata uang yang dapat dibandingkan dengan periode sebelumnya.</p>;
-  return <div className="mt-4 space-y-3"><p className="text-xs text-[var(--text-secondary)]">Perubahan dihitung per mata uang dari laporan server-side. Tidak ada konversi antar mata uang.</p>{currencies.map((summary) => { const prior = previousByCurrency.get(summary.currency); if (!prior) return null; return <article key={summary.currency} className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-4"><div className="flex items-center justify-between gap-3"><h3 className="text-sm font-bold">{summary.currency}</h3><span className="rounded-full bg-[var(--brand-purple-100)] px-2.5 py-1 text-xs font-semibold text-[var(--brand-purple-800)]">{previous.report.period.label}</span></div><div className="mt-3 grid grid-cols-2 gap-3"><ComparisonMetric label="Pemasukan" current={summary.incomeMinor} previous={prior.incomeMinor} currency={summary.currency} positiveIsGood /><ComparisonMetric label="Pengeluaran" current={summary.expenseMinor} previous={prior.expenseMinor} currency={summary.currency} positiveIsGood={false} /></div></article>; })}</div>;
-}
-
-function ComparisonMetric({ label, current, previous, currency, positiveIsGood }: { label: string; current: string; previous: string; currency: string; positiveIsGood: boolean }) {
-  const currentValue = BigInt(current);
-  const previousValue = BigInt(previous);
-  const delta = currentValue - previousValue;
-  const direction = delta === BigInt(0) ? "Sama" : delta > BigInt(0) ? "Naik" : "Turun";
-  const tone = delta === BigInt(0) ? "text-[var(--text-secondary)]" : (delta > BigInt(0)) === positiveIsGood ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]";
-  const metricTone = label === "Pemasukan" ? "border-[var(--brand-green-500)]/40 bg-[var(--brand-green-100)]/45" : "border-[var(--brand-coral-500)]/45 bg-[var(--brand-coral-100)]/45";
-  const labelTone = label === "Pemasukan" ? "text-[var(--brand-green-700)]" : "text-[#9F3D34]";
-  return <div className={`rounded-lg border p-3 ${metricTone}`}><p className={`text-xs font-semibold ${labelTone}`}>{label}</p><p className="mt-1 text-sm font-bold">{formatAmount(current, currency)}</p><p className={`mt-1 text-xs font-semibold ${tone}`}>{direction} {formatSignedAmount(delta, currency)} dari periode lalu</p></div>;
-}
-
-function ReportsView({ data, comparison, comparisonLoading, month, startDate, endDate, loading, onMonthChange, onStartDateChange, onEndDateChange, onLoad, printing, printError, onPrint, onCsv, csvDownloading, csvDownloadSupported, categoryFilter, onCategoryFilterChange }: {
+function ReportsView({
+  data,
+  comparison,
+  comparisonLoading,
+  month,
+  startDate,
+  endDate,
+  loading,
+  onMonthChange,
+  onStartDateChange,
+  onEndDateChange,
+  onLoad,
+  printing,
+  printError,
+  onPrint,
+  onCsv,
+  csvDownloading,
+  csvDownloadSupported,
+  categoryFilter,
+  onCategoryFilterChange,
+}: {
   data: ReportResponse;
   comparison: ReportResponse | null;
   comparisonLoading: boolean;
@@ -907,164 +789,545 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
   categoryFilter: { category: string; currency: string } | null;
   onCategoryFilterChange: (value: { category: string; currency: string } | null) => void;
 }) {
+  const filteredCategoryLabel = categoryFilter ? (CATEGORY_LABELS[categoryFilter.category as keyof typeof CATEGORY_LABELS] || categoryFilter.category) : "";
   const filteredTransactions = categoryFilter
-    ? data.report.transactions.filter((transaction) => transaction.category === categoryFilter.category && transaction.currency === categoryFilter.currency)
+    ? data.report.transactions.filter((tx) => tx.category === categoryFilter.category && tx.currency === categoryFilter.currency && tx.transactionType === "EXPENSE")
     : data.report.transactions;
+
   return (
     <>
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--card-shadow)]">
-        <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">Laporan</p><h2 className="mt-1 text-xl font-bold">Pilih periode</h2></div><span className="rounded-full bg-[var(--brand-green-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-green-700)]">Read-only</span></div>
-        <div className="mt-4 flex gap-2"><input aria-label="Pilih bulan laporan" type="month" value={month} onChange={(event) => onMonthChange(event.target.value)} className="min-h-11 min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 text-sm outline-none transition focus:border-[var(--brand-green-600)] focus:ring-2 focus:ring-[var(--brand-green-100)]" /><button type="button" onClick={onLoad} disabled={loading} className="min-h-11 rounded-xl bg-[var(--text-primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-700)] disabled:cursor-wait disabled:opacity-60">{loading ? "Memuat…" : "Tampilkan"}</button></div>
-        <p className="mt-2 text-xs text-[var(--text-secondary)]">Kosongkan bulan untuk menggunakan bulan berjalan.</p>
-        <div className="mt-4 grid grid-cols-2 gap-2"><label className="text-xs font-semibold text-[var(--text-secondary)]">Dari tanggal<input aria-label="Tanggal awal laporan" type="date" value={startDate} onChange={(event) => onStartDateChange(event.target.value)} className="mt-1 min-h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 text-sm font-normal outline-none transition focus:border-[var(--brand-green-600)] focus:ring-2 focus:ring-[var(--brand-green-100)]" /></label><label className="text-xs font-semibold text-[var(--text-secondary)]">Sampai tanggal<input aria-label="Tanggal akhir laporan" type="date" value={endDate} onChange={(event) => onEndDateChange(event.target.value)} className="mt-1 min-h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 text-sm font-normal outline-none transition focus:border-[var(--brand-green-600)] focus:ring-2 focus:ring-[var(--brand-green-100)]" /></label></div>
-        <p className="mt-2 text-xs text-[var(--text-secondary)]">Pilih bulan atau rentang tanggal maksimal satu tahun.</p>
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">Filter laporan</p>
+            <h2 className="mt-1 text-lg font-bold">Pilih periode</h2>
+          </div>
+          <span className="rounded-full bg-[var(--brand-green-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-green-700)]">{data.report.period.label}</span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor="report-month-select" className="block text-xs font-semibold text-[var(--text-secondary)]">Bulan</label>
+            <input id="report-month-select" type="month" value={month} onChange={(event) => onMonthChange(event.target.value)} className="mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]" />
+          </div>
+          <div>
+            <span className="block text-xs font-semibold text-[var(--text-secondary)]">Rentang tanggal kustom</span>
+            <div className="mt-1 grid grid-cols-2 gap-2">
+              <input type="date" aria-label="Tanggal mulai" value={startDate} onChange={(event) => onStartDateChange(event.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]" />
+              <input type="date" aria-label="Tanggal selesai" value={endDate} onChange={(event) => onEndDateChange(event.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]" />
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button type="button" onClick={onLoad} disabled={loading} className="rounded-xl bg-[var(--brand-green-700)] px-4 py-2 text-sm font-bold text-white transition hover:bg-[var(--brand-green-800)] disabled:opacity-60">{loading ? "Memuat..." : "Terapkan filter"}</button>
+          {data.viewer.role !== "MEMBER" && data.actions?.print && (
+            <button type="button" onClick={onPrint} disabled={printing} className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3.5 py-2 text-sm font-semibold transition hover:bg-emerald-50 disabled:opacity-60">{printing ? "Membuka..." : "Cetak laporan"}</button>
+          )}
+          {data.viewer.role !== "MEMBER" && data.actions?.csv && csvDownloadSupported !== false && (
+            <button type="button" onClick={onCsv} disabled={csvDownloading} className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3.5 py-2 text-sm font-semibold transition hover:bg-emerald-50 disabled:opacity-60">{csvDownloading ? "Mengunduh..." : "Unduh CSV"}</button>
+          )}
+        </div>
+        {printError && <p className="mt-3 text-xs text-rose-600">{printError}</p>}
       </section>
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
-        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Ringkasan {data.report.period.label}</p><p className="mt-1 text-sm text-[var(--text-secondary)]">Snapshot arus keuangan pada periode yang dipilih.</p></div>{((data.actions?.csv && csvDownloadSupported !== false) || data.actions?.print) && (data.viewer.role === "OWNER" || data.viewer.role === "ADMIN") && <div className="flex shrink-0 flex-wrap justify-end gap-2"><button type="button" onClick={onCsv} className="min-h-10 rounded-xl border border-[var(--brand-green-500)] bg-white px-3 text-xs font-bold text-[var(--brand-green-700)] transition hover:bg-[var(--brand-green-100)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] disabled:cursor-wait disabled:opacity-60" disabled={!data.actions?.csv || csvDownloadSupported === false || csvDownloading}>{csvDownloading ? "Mengunduh…" : "Unduh CSV"}</button>{data.actions?.print && <button type="button" onClick={onPrint} disabled={printing} className="min-h-10 rounded-xl bg-[var(--brand-green-700)] px-3 text-xs font-bold text-white transition hover:bg-[var(--brand-green-800)] disabled:cursor-wait disabled:opacity-60">{printing ? "Membuka…" : "Buka tampilan cetak"}</button>}</div>}</div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">{data.report.currencies.map((summary) => <MetricCard key={summary.currency} summary={summary} />)}</div>
-        {data.report.currencies.length === 0 && <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm text-[var(--text-secondary)]">Belum ada transaksi aktif pada periode ini.</p>}
-        {printError && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{printError}</p>}
+        <h2 className="text-lg font-bold">Ringkasan keuangan</h2>
+        {data.report.currencies.length === 0 ? (
+          <p className="mt-3 text-sm text-[var(--text-secondary)]">Belum ada transaksi aktif pada periode ini.</p>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {data.report.currencies.map((summary) => (
+              <div key={summary.currency} className="rounded-xl bg-[var(--surface-soft)] p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold">{summary.currency}</span>
+                  <span className="text-xs text-[var(--text-secondary)]">{summary.transactionCount} transaksi</span>
+                </div>
+                <p className="mt-2 text-2xl font-bold tracking-tight">{formatAmount(summary.netMinor, summary.currency)}</p>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-lg bg-emerald-50 p-2 text-emerald-900"><span className="block text-[var(--text-secondary)]">Masuk</span><strong>{formatAmount(summary.incomeMinor, summary.currency)}</strong></div>
+                  <div className="rounded-lg bg-rose-50 p-2 text-rose-900"><span className="block text-[var(--text-secondary)]">Keluar</span><strong>{formatAmount(summary.expenseMinor, summary.currency)}</strong></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
-      <CashFlowSection points={data.report.cashFlow} />
+      {comparisonLoading && <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs text-[var(--text-secondary)]">Memuat perbandingan dengan periode sebelumnya...</div>}
+      {comparison && <ComparisonSection current={data} previous={comparison} />}
 
+      <CashFlowSection points={data.report.cashFlow} />
       <CategoryExpenseSection summaries={data.report.categorySummaries} selected={categoryFilter} onSelect={onCategoryFilterChange} />
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
-        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Perbandingan</p><h2 className="mt-1 text-lg font-bold">Dibanding periode sebelumnya</h2></div><span className="rounded-full bg-[var(--brand-purple-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-purple-800)]">Insight dasar</span></div>
-        {comparisonLoading ? <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="skeleton h-20 rounded-xl" /><div className="skeleton h-20 rounded-xl" /></div> : comparison ? <ComparisonSummary current={data} previous={comparison} /> : <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Perbandingan belum tersedia untuk periode ini.</p>}
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold">{categoryFilter ? `Transaksi ${filteredCategoryLabel}` : "Daftar transaksi"}</h2>
+            <p className="text-xs text-[var(--text-secondary)]">{categoryFilter ? `Menampilkan ${filteredTransactions.length} pengeluaran` : `${data.report.transactionCount} transaksi aktif`}</p>
+          </div>
+          {categoryFilter && <button type="button" onClick={() => onCategoryFilterChange(null)} className="rounded-lg bg-[var(--surface-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--border)]">Hapus filter</button>}
+        </div>
+        {filteredTransactions.length === 0 ? (
+          <p className="mt-4 text-sm text-[var(--text-secondary)]">Tidak ada transaksi yang cocok.</p>
+        ) : (
+          <div className="mt-3 divide-y divide-[var(--border)]">
+            {filteredTransactions.map((tx) => <TransactionRow key={tx.transactionId} transaction={tx} />)}
+          </div>
+        )}
       </section>
-
-      {(categoryFilter || filteredTransactions.length > 0) && <section id="category-drilldown" className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Detail transaksi</h2>{categoryFilter && <p className="mt-1 text-xs text-[var(--text-secondary)]">{getCategoryLabel(categoryFilter.category)} · {categoryFilter.currency}</p>}</div><div className="flex items-center gap-2"><span className="text-xs text-[var(--text-secondary)]">{filteredTransactions.length} dimuat</span>{categoryFilter && <button type="button" onClick={() => onCategoryFilterChange(null)} className="min-h-9 rounded-lg px-2 text-xs font-semibold text-[var(--brand-green-700)] hover:bg-[var(--brand-green-50)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">Hapus filter</button>}</div></div>{filteredTransactions.length > 0 ? <div className="mt-3 divide-y divide-[var(--border)]">{filteredTransactions.map((transaction) => <TransactionRow key={transaction.transactionId} transaction={transaction} />)}</div> : <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Belum ada transaksi yang cocok pada daftar report yang dimuat.</p>}{categoryFilter && data.report.transactions.length === 50 && <p className="mt-4 rounded-xl bg-[var(--brand-purple-100)] p-3 text-xs leading-5 text-[var(--brand-purple-800)]">Drill-down menampilkan transaksi yang tersedia pada daftar report (maksimal 50 transaksi terbaru).</p>}</section>}
     </>
   );
 }
 
-function MetricCard({ summary }: { summary: ReportResponse["report"]["currencies"][number] }) {
-  const isSurplus = BigInt(summary.netMinor) >= BigInt(0);
-  return <article className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-3"><div className="flex items-center justify-between gap-2"><span className="rounded-full bg-[var(--brand-purple-100)] px-2.5 py-1 text-xs font-bold text-[var(--brand-purple-800)]">{summary.currency}</span><span className="text-xs text-[var(--text-muted)]">{summary.transactionCount} transaksi</span></div><dl className="mt-3 space-y-2 text-sm"><div className="flex items-center justify-between gap-2 rounded-lg bg-[var(--brand-green-100)]/55 px-2 py-1.5"><dt className="text-[var(--brand-green-700)]">Pemasukan</dt><dd className="font-semibold text-[var(--brand-green-700)]">{formatAmount(summary.incomeMinor, summary.currency)}</dd></div><div className="flex items-center justify-between gap-2 rounded-lg bg-[var(--brand-coral-100)]/65 px-2 py-1.5"><dt className="text-[#9F3D34]">Pengeluaran</dt><dd className="font-semibold text-[#9F3D34]">{formatAmount(summary.expenseMinor, summary.currency)}</dd></div><div className={`flex items-center justify-between gap-2 rounded-lg border-t-2 px-2 py-2 ${isSurplus ? "border-[var(--brand-purple-600)] bg-[var(--brand-purple-100)]" : "border-[var(--brand-coral-500)] bg-[var(--brand-coral-100)]/55"}`}><dt className="font-bold">{isSurplus ? "Surplus" : "Defisit"}</dt><dd className="font-bold">{formatAmount(summary.netMinor, summary.currency)}</dd></div></dl></article>;
+function ComparisonSection({ current, previous }: { current: ReportResponse; previous: ReportResponse }) {
+  return (
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Perbandingan</p>
+          <h2 className="mt-1 text-lg font-bold">vs. {previous.report.period.label}</h2>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {current.report.currencies.map((curr) => {
+          const prev = previous.report.currencies.find((c) => c.currency === curr.currency);
+          const prevExpense = prev ? BigInt(prev.expenseMinor) : BigInt(0);
+          const currExpense = BigInt(curr.expenseMinor);
+          const diffExpense = currExpense - prevExpense;
+          return (
+            <div key={curr.currency} className="rounded-xl bg-[var(--surface-soft)] p-4 text-xs">
+              <span className="font-bold text-sm">{curr.currency}</span>
+              <div className="mt-2 space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-secondary)]">Pengeluaran Lalu:</span>
+                  <span>{formatAmount(prevExpense.toString(), curr.currency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-secondary)]">Pengeluaran Sekarang:</span>
+                  <span>{formatAmount(currExpense.toString(), curr.currency)}</span>
+                </div>
+                <div className="flex justify-between pt-1 border-t border-[var(--border)] font-semibold">
+                  <span>Selisih:</span>
+                  <span className={diffExpense > BigInt(0) ? "text-rose-600" : "text-emerald-600"}>
+                    {diffExpense > BigInt(0) ? "+" : ""}{formatAmount(diffExpense.toString(), curr.currency)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function TransactionsView({
+  data,
+  filter,
+  onFilterChange,
+  onSelectTransaction,
+}: {
+  data: ReportResponse;
+  filter: TransactionFilter;
+  onFilterChange: (filter: TransactionFilter) => void;
+  onSelectTransaction: (tx: ReportResponse["report"]["transactions"][number]) => void;
+}) {
+  const transactions = data.report.transactions.filter((tx) => {
+    if (filter === "INCOME") return tx.transactionType === "INCOME";
+    if (filter === "EXPENSE") return tx.transactionType === "EXPENSE";
+    return true;
+  });
+
+  return (
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Transaksi</p>
+          <h2 className="mt-1 text-lg font-bold">Semua aktivitas</h2>
+        </div>
+        <div className="flex rounded-xl bg-[var(--surface-soft)] p-1">
+          {(["ALL", "INCOME", "EXPENSE"] as const).map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => onFilterChange(type)}
+              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${filter === type ? "bg-[var(--surface)] shadow-xs text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}
+            >
+              {type === "ALL" ? "Semua" : type === "INCOME" ? "Masuk" : "Keluar"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {transactions.length === 0 ? (
+        <p className="mt-6 rounded-xl bg-[var(--surface-soft)] p-4 text-center text-sm text-[var(--text-secondary)]">Tidak ada transaksi dalam kategori ini.</p>
+      ) : (
+        <div className="mt-4 divide-y divide-[var(--border)]">
+          {transactions.map((tx) => (
+            <button key={tx.transactionId} type="button" onClick={() => onSelectTransaction(tx)} className="block w-full text-left transition hover:bg-[var(--surface-soft)] rounded-xl px-2">
+              <TransactionRow transaction={tx} />
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
 }
 
 function TransactionRow({ transaction }: { transaction: ReportResponse["report"]["transactions"][number] }) {
   const isIncome = transaction.transactionType === "INCOME";
-  return <article className="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"><div className="flex min-w-0 items-start gap-3"><span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-bold ${isIncome ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : "bg-[var(--brand-coral-100)] text-[#C85A4D]"}`} aria-hidden="true">{isIncome ? "↑" : "↓"}</span><div className="min-w-0"><p className="truncate text-sm font-semibold">{transaction.description}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{formatDisplayDate(transaction.transactionDate)} · {transaction.currency} · {getCategoryLabel(transaction.category)}</p><p className="mt-1 text-xs text-[var(--text-muted)]">dicatat oleh {transaction.creatorName}</p>
-</div></div><p className={`shrink-0 text-sm font-bold ${isIncome ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{isIncome ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p></article>;
+  const categoryLabel = CATEGORY_LABELS[transaction.category as keyof typeof CATEGORY_LABELS] || transaction.category;
+  return (
+    <div className="flex items-center justify-between gap-3 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{transaction.description || categoryLabel}</p>
+        <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{categoryLabel} · {transaction.creatorName} · {formatShortDate(transaction.transactionDate)}</p>
+      </div>
+      <div className="text-right">
+        <span className={`text-sm font-bold ${isIncome ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>
+          {isIncome ? "+" : "-"}{formatAmount(transaction.amountMinor, transaction.currency)}
+        </span>
+      </div>
+    </div>
+  );
 }
 
-function PlaceholderView({ title, description, actionLabel, onAction }: { title: string; description: string; actionLabel: string; onAction: () => void }) {
-  return <section className="rounded-2xl border border-dashed border-[var(--brand-green-500)] bg-[var(--surface)] p-7 text-center shadow-[var(--card-shadow)]"><Image className="mx-auto h-12 w-12 object-contain" src="/icon.png" alt="" aria-hidden="true" width={48} height={48} />
-<h2 className="mt-4 text-xl font-bold">{title}</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--text-secondary)]">{description}</p><button type="button" onClick={onAction} className="mt-5 min-h-11 rounded-xl bg-[var(--brand-green-700)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-600)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2">{actionLabel}</button></section>;
+function AccountView({
+  data,
+  onRetry,
+  onFamilyAction,
+  familyAction,
+  familyActionError,
+  invitation,
+  deactivateConfirmation,
+}: {
+  data: AccountResponse;
+  onRetry: () => void;
+  onFamilyAction: (action: FamilyAction, fields?: FamilyActionFields) => void;
+  familyAction: FamilyAction | null;
+  familyActionError: string;
+  invitation: { code: string; expiresAt: string; shareMessage: string } | null;
+  deactivateConfirmation: { memberId: string; expiresAt: string } | null;
+}) {
+  const [renameValue, setRenameValue] = useState(data.family.familyName);
+
+  return (
+    <>
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 overflow-hidden rounded-full bg-[var(--brand-green-100)] text-[var(--brand-green-700)] flex items-center justify-center font-bold text-lg">
+            {data.viewer.avatarUrl ? <Image src={data.viewer.avatarUrl} alt="" width={48} height={48} className="h-full w-full object-cover" /> : data.viewer.name.charAt(0)}
+          </div>
+          <div>
+            <h2 className="text-lg font-bold">{data.viewer.name}</h2>
+            <p className="text-xs text-[var(--text-secondary)]">{data.viewer.username ? `@${data.viewer.username}` : "Akun Telegram"}</p>
+            <span className="mt-1 inline-block rounded-full bg-[var(--brand-green-100)] px-2.5 py-0.5 text-[10px] font-bold text-[var(--brand-green-700)]">{data.viewer.role}</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">Keluarga</p>
+            <h2 className="mt-1 text-lg font-bold">{data.family.familyName}</h2>
+          </div>
+          <span className="rounded-full bg-[var(--surface-soft)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">{data.family.activeMemberCount} Anggota</span>
+        </div>
+
+        {data.viewer.role === "ADMIN" && (
+          <div className="mt-4 pt-4 border-t border-[var(--border)]">
+            <label htmlFor="rename-family-input" className="block text-xs font-semibold text-[var(--text-secondary)]">Ubah nama keluarga</label>
+            <div className="mt-1 flex gap-2">
+              <input id="rename-family-input" type="text" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-1.5 text-sm" />
+              <button type="button" onClick={() => onFamilyAction("RENAME_FAMILY", { familyName: renameValue })} disabled={familyAction === "RENAME_FAMILY" || !renameValue} className="rounded-xl bg-[var(--brand-green-700)] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[var(--brand-green-800)] disabled:opacity-50">Simpan</button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-bold">Anggota keluarga</h2>
+          {data.viewer.role === "ADMIN" && (
+            <button type="button" onClick={() => onFamilyAction("CREATE_INVITATION")} disabled={familyAction === "CREATE_INVITATION"} className="rounded-xl bg-[var(--brand-green-100)] px-3 py-1.5 text-xs font-bold text-[var(--brand-green-700)] hover:bg-[var(--brand-green-50)] transition">
+              + Undang
+            </button>
+          )}
+        </div>
+
+        {invitation && (
+          <div className="mt-3 rounded-xl bg-[var(--brand-purple-100)] p-3 text-xs text-[var(--brand-purple-800)]">
+            <p className="font-bold">Kode Undangan: {invitation.code}</p>
+            <p className="mt-1">{invitation.shareMessage}</p>
+          </div>
+        )}
+
+        {familyActionError && <p className="mt-2 text-xs text-rose-600">{familyActionError}</p>}
+
+        <div className="mt-4 divide-y divide-[var(--border)]">
+          {data.members.map((member) => (
+            <div key={member.memberId} className="flex items-center justify-between py-3">
+              <div>
+                <p className="text-sm font-semibold">{member.name}</p>
+                <p className="text-xs text-[var(--text-secondary)]">{member.role} · Bergabung {formatShortDate(member.joinedAt)}</p>
+              </div>
+              {data.viewer.role === "ADMIN" && member.memberId !== data.viewer.username && (
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => onFamilyAction("CHANGE_MEMBER_ROLE", { memberId: member.memberId, role: member.role === "ADMIN" ? "MEMBER" : "ADMIN" })} className="text-xs text-[var(--brand-purple-600)] font-semibold hover:underline">
+                    Ubah Role
+                  </button>
+                  <button type="button" onClick={() => onFamilyAction("REQUEST_DEACTIVATE_MEMBER", { memberId: member.memberId })} className="text-xs text-rose-600 font-semibold hover:underline">
+                    Keluarkan
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {deactivateConfirmation && (
+          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">
+            <p className="font-bold">Konfirmasi Penonaktifan Anggota</p>
+            <div className="mt-2 flex gap-2">
+              <button type="button" onClick={() => onFamilyAction("CONFIRM_DEACTIVATE_MEMBER")} className="rounded-lg bg-rose-600 px-3 py-1 text-white font-bold">Ya, Keluarkan</button>
+              <button type="button" onClick={() => onFamilyAction("CANCEL_DEACTIVATE_MEMBER")} className="rounded-lg bg-gray-200 px-3 py-1 font-semibold text-gray-800">Batal</button>
+            </div>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+function TransactionDetail({
+  transaction,
+  onClose,
+  onEdit,
+  onRequestVoid,
+  voidConfirmation,
+  transactionAction,
+  transactionActionError,
+  onConfirmVoid,
+  onCancelVoid,
+}: {
+  transaction: ReportResponse["report"]["transactions"][number];
+  onClose: () => void;
+  onEdit: () => void;
+  onRequestVoid: () => void;
+  voidConfirmation: { transactionId: string; expiresAt: string } | null;
+  transactionAction: "request-void" | "confirm-void" | "cancel-void" | null;
+  transactionActionError: string;
+  onConfirmVoid: () => void;
+  onCancelVoid: () => void;
+}) {
+  const isIncome = transaction.transactionType === "INCOME";
+  const categoryLabel = CATEGORY_LABELS[transaction.category as keyof typeof CATEGORY_LABELS] || transaction.category;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+      <div className="w-full max-w-md rounded-2xl bg-[var(--surface)] p-6 shadow-xl">
+        <div className="flex items-start justify-between">
+          <div>
+            <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold ${isIncome ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : "bg-rose-100 text-rose-700"}`}>
+              {isIncome ? "Pemasukan" : "Pengeluaran"}
+            </span>
+            <h3 className="mt-2 text-xl font-bold">{transaction.description || categoryLabel}</h3>
+          </div>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+        </div>
+
+        <div className="mt-4 space-y-2 text-sm">
+          <div className="flex justify-between py-1 border-b border-[var(--border)]">
+            <span className="text-[var(--text-secondary)]">Jumlah</span>
+            <span className="font-bold">{formatAmount(transaction.amountMinor, transaction.currency)}</span>
+          </div>
+          <div className="flex justify-between py-1 border-b border-[var(--border)]">
+            <span className="text-[var(--text-secondary)]">Kategori</span>
+            <span>{categoryLabel}</span>
+          </div>
+          <div className="flex justify-between py-1 border-b border-[var(--border)]">
+            <span className="text-[var(--text-secondary)]">Dicatat Oleh</span>
+            <span>{transaction.creatorName}</span>
+          </div>
+          <div className="flex justify-between py-1 border-b border-[var(--border)]">
+            <span className="text-[var(--text-secondary)]">Tanggal</span>
+            <span>{formatShortDate(transaction.transactionDate)}</span>
+          </div>
+        </div>
+
+        {transactionActionError && <p className="mt-3 text-xs text-rose-600">{transactionActionError}</p>}
+
+        {voidConfirmation ? (
+          <div className="mt-4 rounded-xl bg-rose-50 p-3 text-xs text-rose-900 border border-rose-200">
+            <p className="font-bold">Apakah Anda yakin ingin melakukan Void pada transaksi ini?</p>
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={onConfirmVoid} disabled={transactionAction === "confirm-void"} className="w-full rounded-xl bg-rose-600 py-2 font-bold text-white hover:bg-rose-700">Ya, Void</button>
+              <button type="button" onClick={onCancelVoid} disabled={transactionAction === "cancel-void"} className="w-full rounded-xl bg-gray-200 py-2 font-semibold text-gray-800 hover:bg-gray-300">Batal</button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-6 flex gap-3">
+            <button type="button" onClick={onEdit} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] py-2.5 text-sm font-semibold transition hover:bg-emerald-50">Edit</button>
+            <button type="button" onClick={onRequestVoid} disabled={transactionAction === "request-void"} className="w-full rounded-xl bg-rose-50 text-rose-600 py-2.5 text-sm font-semibold transition hover:bg-rose-100">Void</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AddTransactionForm({
+  initData,
+  transaction,
+  onClose,
+  onSaved,
+}: {
+  initData: string;
+  transaction?: ReportResponse["report"]["transactions"][number];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [type, setType] = useState<"INCOME" | "EXPENSE">(transaction?.transactionType || "EXPENSE");
+  const [amount, setAmount] = useState(transaction ? (Number(transaction.amountMinor) / 100).toString() : "");
+  const [currency, setCurrency] = useState(transaction?.currency || "IDR");
+  const [category, setCategory] = useState(transaction?.category || "OTHER");
+  const [description, setDescription] = useState(transaction?.description || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!amount || isNaN(Number(amount))) {
+      setError("Masukkan jumlah nominal yang valid.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+
+    try {
+      const amountMinor = Math.round(Number(amount) * 100).toString();
+      const endpoint = transaction ? "/api/mini-app/transaction/edit" : "/api/mini-app/transaction/create";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          initData,
+          transactionId: transaction?.transactionId,
+          transactionType: type,
+          amountMinor,
+          currency,
+          category,
+          description,
+        }),
+      });
+
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Gagal menyimpan transaksi.");
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan transaksi.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+      <div className="w-full max-w-md rounded-2xl bg-[var(--surface)] p-6 shadow-xl">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-bold">{transaction ? "Edit Transaksi" : "Tambah Transaksi"}</h3>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+        </div>
+
+        {error && <p className="mt-3 rounded-lg bg-rose-50 p-2 text-xs text-rose-600">{error}</p>}
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          <div className="grid grid-cols-2 gap-2 rounded-xl bg-[var(--surface-soft)] p-1">
+            <button type="button" onClick={() => setType("EXPENSE")} className={`rounded-lg py-2 text-xs font-bold transition ${type === "EXPENSE" ? "bg-white text-rose-600 shadow-xs" : "text-[var(--text-secondary)]"}`}>Pengeluaran</button>
+            <button type="button" onClick={() => setType("INCOME")} className={`rounded-lg py-2 text-xs font-bold transition ${type === "INCOME" ? "bg-white text-[var(--brand-green-700)] shadow-xs" : "text-[var(--text-secondary)]"}`}>Pemasukan</button>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-[var(--text-secondary)]">Nominal</label>
+            <div className="mt-1 flex rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] overflow-hidden">
+              <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="bg-transparent px-3 text-xs font-bold border-r border-[var(--border)] focus:outline-none">
+                <option value="IDR">IDR</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+              </select>
+              <input type="number" step="any" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full bg-transparent px-3 py-2 text-sm focus:outline-none" required />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-[var(--text-secondary)]">Kategori</label>
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className="mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm focus:outline-none">
+              {CATEGORY_CODES.map((code) => (
+                <option key={code} value={code}>{CATEGORY_LABELS[code as keyof typeof CATEGORY_LABELS] || code}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-[var(--text-secondary)]">Catatan / Deskripsi</label>
+            <input type="text" placeholder="Contoh: Belanja mingguan" value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm focus:outline-none" />
+          </div>
+
+          <button type="submit" disabled={saving} className="w-full rounded-xl bg-[var(--brand-green-700)] py-3 text-sm font-bold text-white transition hover:bg-[var(--brand-green-800)] disabled:opacity-50">
+            {saving ? "Menyimpan..." : "Simpan Transaksi"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 function LoadingState() {
-  return <section aria-label="Memuat dashboard" className="space-y-3"><div className="skeleton h-32 rounded-2xl" /><div className="grid grid-cols-2 gap-3"><div className="skeleton h-14 rounded-2xl" /><div className="skeleton h-14 rounded-2xl" /></div><div className="skeleton h-52 rounded-2xl" /></section>;
-}
-
-function BottomNavigation({ activeNav, onSelect, onAddTransaction }: { activeNav: NavKey; onSelect: (key: NavKey) => void; onAddTransaction: () => void }) {
   return (
-    <nav aria-label="Navigasi Mini App" className="bottom-nav">
-      <div className="bottom-nav-inner">
-        <NavButton item={navItems[0]} active={activeNav === "home"} onClick={() => onSelect("home")} />
-        <NavButton item={navItems[1]} active={activeNav === "transactions"} onClick={() => onSelect("transactions")} />
-
-        <button type="button" onClick={onAddTransaction} aria-label="Tambah transaksi" className="primary-fab">
-          <span className="primary-fab-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </span>
-          <span className="primary-fab-label">Tambah</span>
-        </button>
-
-        <NavButton item={navItems[2]} active={activeNav === "reports"} onClick={() => onSelect("reports")} />
-        <NavButton item={navItems[3]} active={activeNav === "account"} onClick={() => onSelect("account")} />
-      </div>
-    </nav>
+    <div className="space-y-4">
+      <div className="h-28 rounded-2xl skeleton" />
+      <div className="h-44 rounded-2xl skeleton" />
+      <div className="h-32 rounded-2xl skeleton" />
+    </div>
   );
 }
 
-function NavButton({ item, active, onClick }: { item: { key: NavKey; label: string; color: "green" | "purple" | "coral" }; active: boolean; onClick: () => void }) {
+function PlaceholderView({ title, description, actionLabel, onAction }: { title: string; description: string; actionLabel: string; onAction: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={active ? "page" : undefined}
-      className={`nav-item nav-item-${item.color} ${active ? "nav-item-active" : ""}`}
-    >
-      <span className="nav-icon-wrap">
-        <span className="nav-icon-circle">
-          <NavIcon id={item.key} active={active} />
-        </span>
-      </span>
-      <span className="nav-label">{item.label}</span>
-    </button>
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center shadow-[var(--card-shadow)]">
+      <h2 className="text-lg font-bold">{title}</h2>
+      <p className="mt-2 text-sm text-[var(--text-secondary)]">{description}</p>
+      <button type="button" onClick={onAction} className="mt-4 rounded-xl bg-[var(--brand-green-700)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--brand-green-800)] transition">{actionLabel}</button>
+    </section>
   );
 }
 
-function NavIcon({ id, active }: { id: NavKey; active: boolean }) {
-  const common = {
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    className: `nav-svg-icon ${active ? "is-active" : ""}`,
-    "aria-hidden": true,
-  };
-
-  if (id === "home") {
-    return (
-      <svg {...common}>
-        <path className="nav-svg-path" d="M3.5 10.5 12 3.5l8.5 7" />
-        <path className="nav-svg-path" d="M5.5 9.5V20.5h13V9.5" />
-        <path className="nav-svg-path" d="M9.5 20.5v-6h5v6" />
-      </svg>
-    );
-  }
-
-  if (id === "transactions") {
-    return (
-      <svg {...common}>
-        <rect className="nav-svg-path" x="5" y="3.5" width="14" height="17" rx="2.5" />
-        <path className="nav-svg-path" d="M8.5 8h7M8.5 12h7M8.5 16h4" />
-      </svg>
-    );
-  }
-
-  if (id === "reports") {
-    return (
-      <svg {...common}>
-        <path className="nav-svg-path" d="M5 20V11" />
-        <path className="nav-svg-path" d="M12 20V4" />
-        <path className="nav-svg-path" d="M19 20v-7" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg {...common}>
-      <circle className="nav-svg-path" cx="12" cy="8" r="3.5" />
-      <path className="nav-svg-path" d="M5 20.5c.8-3.8 3.1-5.7 7-5.7s6.2 1.9 7 5.7" />
-    </svg>
-  );
+function formatAmount(minorStr: string, currency: string): string {
+  const minor = BigInt(minorStr || "0");
+  const major = Number(minor) / 100;
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency, maximumFractionDigits: 0 }).format(major);
 }
 
-function getCategoryLabel(category: string): string {
-  return Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, category)
-    ? CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS]
-    : CATEGORY_LABELS.UNCATEGORIZED;
+function formatSignedAmount(minor: bigint, currency: string): string {
+  const major = Number(minor) / 100;
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency, maximumFractionDigits: 0 }).format(major);
 }
 
-function formatAmount(value: string, currency: string): string {
-  return `${currency} ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(BigInt(value))}`;
+function formatShortDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short" }).format(date);
 }
 
-function formatSignedAmount(value: bigint, currency: string): string {
-  const sign = value > BigInt(0) ? "+" : value < BigInt(0) ? "−" : "";
-  const absoluteValue = value < BigInt(0) ? -value : value;
-  return `${sign}${currency} ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(absoluteValue)}`;
+function percentageOf(value: bigint, total: bigint): number {
+  return total === BigInt(0) ? 0 : Number((value * BigInt(10000)) / total) / 100;
 }
 
-function getPreviousPeriodInput(period: ReportResponse["report"]["period"]): { month?: string; startDate?: string; endDate?: string } | null {
+function formatPercentage(value: number): string {
+  return `${value.toLocaleString("id-ID", { minimumFractionDigits: value % 1 === 0 ? 0 : 1, maximumFractionDigits: 1 })}%`;
+}
+
+function getPreviousPeriodInput(period: { month: string | null; startDate: string; endDate: string }): { month?: string; startDate?: string; endDate?: string } | null {
   if (period.month) {
     const [year, month] = period.month.split("-").map(Number);
     const previous = new Date(Date.UTC(year, month - 2, 1));
@@ -1082,22 +1345,21 @@ function toIsoDate(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
 
-function formatDisplayDate(value: string): string {
-  const [year, month, day] = value.split("-");
-  return `${day}/${month}/${year}`;
-}
-
-function formatLongDate(value: string): string {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, day)));
-}
-
-function requestTelegramPrint(url: string): void {
+function requestTelegramPrint(url: string) {
   const webApp = window.Telegram?.WebApp;
   if (webApp?.openLink) {
-    webApp.openLink(url, { try_instant_view: false });
-    return;
+    webApp.openLink(url);
+  } else {
+    window.open(url, "_blank");
   }
-  const opened = window.open(url, "_blank", "noopener,noreferrer");
-  if (!opened) throw new Error("Popup diblokir browser. Izinkan popup untuk membuka tampilan cetak.");
+}
+
+async function waitForTelegramWebApp(): Promise<TelegramWebApp | null> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < TELEGRAM_BOOTSTRAP_TIMEOUT_MS) {
+    const webApp = window.Telegram?.WebApp;
+    if (webApp) return webApp;
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+  }
+  return null;
 }
