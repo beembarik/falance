@@ -147,3 +147,14 @@ Slice ini hanya mengubah presentation layer. Nominal, transaction count, categor
 Falancé menambahkan defense-in-depth pada perimeter aplikasi tanpa memindahkan authorization dari handler atau `FamilyService`: baseline security headers berlaku pada seluruh response, API diberi `no-store`, secret webhook dibandingkan secara timing-safe, body webhook dibatasi, dan signed report token memiliki batas panjang sebelum dekripsi. Hardening ini tidak menggantikan HMAC Telegram `initData`, webhook secret, encrypted short-lived export token, durable update claim, family resolution, atau service authorization.
 
 Resource and privacy safeguards must fail closed with generic responses and safe diagnostics. Payload limits, token limits, dan headers tidak boleh menampilkan credential, Telegram ID, family ID, spreadsheet ID, report content, atau password. Pre-public-beta validation tetap mencakup production header checks, invalid/duplicate webhook replay, registry integrity, controlled restoration exercise, dan cross-instance race testing; Google Sheets read-then-update limitations remain an explicit constraint until conditional-write storage is adopted.
+
+
+## ADR-018: Floating animated branded bottom navigation
+
+**Status:** Accepted; M10 Slice 19 implemented locally, validation pending.
+
+Falancé mengadaptasi pola visual dan motion footer navigation dari repository `lilysnd-5n` tanpa menyalin warna, brand, atau domain behavior-nya. Pada konteks mobile, navigation menggunakan floating rounded container, active-item lift/scale, outer surface ring, icon circle ber-gradient brand green, dan transisi yang restrained. Label navigasi tetap terlihat untuk menjaga readability, terutama pada Mini App Telegram.
+
+Falancé mempertahankan lima-slot layout dengan FAB `+ Tambah transaksi` di tengah, safe-area inset, focus ring, semantic active state, dan desktop behavior yang berubah menjadi sticky navigation. Warna tetap menggunakan design tokens Falancé: brand green sebagai primary, lavender sebagai identity accent, coral bukan sebagai dekorasi utama. Notification badge dan attention animation tidak ditambahkan pada slice ini; badge dicadangkan untuk Milestone 15 recurring-liability reminders.
+
+Perubahan ini hanya berada pada presentation layer. Tidak ada perubahan pada navigation key, route state, Telegram authorization, API, persistence, family isolation, report contract, atau transaction service. `prefers-reduced-motion: reduce` tetap menonaktifkan atau meminimalkan transisi dan animation duration.

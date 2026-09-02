@@ -213,6 +213,7 @@ Every family selector or family context control must remain server-authorized. T
 | 16 | Semantic report card colors | Apply restrained semantic visual accents in Laporan: green for income, coral for expense/attention, and purple or neutral accents for surplus/deficit, currency context, comparison, and analytics; preserve text labels, signs, contrast, multi-currency separation, and server-derived calculations | Complete; production validated |
 | 17 | `/help` command catalog and discoverability | Add a grouped Indonesian command guide for all current bot commands, filtered by unregistered/active status and MEMBER/ADMIN/OWNER role; keep command authorization in handler/service boundaries and avoid exposing sensitive identifiers | Complete; production validated |
 | 18 | Security and operational hardening | Add baseline security headers, API no-store policy, timing-safe webhook secret comparison, bounded webhook request bodies, bounded signed export tokens, safe diagnostics, separate text/vision AI provider configuration, and documented pre-public-beta recovery checks; preserve existing authorization, idempotency, and central registry invariants | Implemented locally; validation pending |
+| 19 | Animated branded bottom navigation | Adapt the floating rounded navigation, active-item lift/scale, icon ring, and restrained motion pattern from `lilysnd-5n` while preserving Falancé colors, labels, FAB, safe-area handling, desktop layout, accessibility, and reduced-motion behavior; notification badges remain deferred to recurring-liability reminders | Implemented locally; validation pending |
 
 ### Explicitly deferred from the current Mini App scope
 
@@ -224,6 +225,7 @@ Every family selector or family context control must remain server-authorized. T
 - Planned transactions and recurring liabilities remain outside actual balance calculations and are scheduled for Milestone 15; an occurrence must not affect actual balances until the defined confirmation/persistence boundary is crossed.
 - PWA/offline support, larger-dataset pagination, durable cross-instance transaction idempotency, and cross-instance validation remain separate hardening concerns.
 - Avatar Telegram viewer sudah berfungsi pada production setelah direct URL/proxy fallback; mekanisme ini tidak mengambil avatar anggota keluarga lain dan tidak menjadi authorization input.
+- M10 Slice 19 memperbarui footer navigation menjadi floating dan animated pada mobile: active item menggunakan lift/scale, outer ring, dan gradient brand green; label, FAB, safe-area, desktop sticky behavior, focus states, dan `prefers-reduced-motion` tetap dipertahankan. Notification badge tidak ditambahkan pada slice ini dan dicadangkan untuk Milestone 15 recurring-liability notifications.
 
 ### Exit criteria
 
