@@ -116,8 +116,10 @@ Urutan berikut disusun berdasarkan keputusan terakhir: Falancé harus tetap fung
 | P2 | Milestone 11 | AI Usage, Quota, and Provider Reliability | Menyiapkan AI agar dapat digunakan secara terukur dan aman sebelum skala pengguna atau monetisasi. |
 | P2 | Milestone 12 | Supabase Migration | Mengatasi bottleneck Google Sheets melalui migrasi repository yang kompatibel tanpa mengubah kontrak Telegram atau aturan `family_id`. |
 | P3 | Milestone 13 | Monetization and Expansion | Menambahkan plan, quota komersial, onboarding, public beta, dan ekspansi setelah reliability serta storage scale-out siap. |
+| P3 | Milestone 14 | Budgeting and Budget Progress | Menambahkan anggaran keluarga dan progress pengeluaran tanpa mengubah saldo aktual atau mencampur mata uang. |
+| P4 | Milestone 15 | Recurring Liabilities and Planned Occurrences | Menambahkan kewajiban berulang dan occurrence terencana dengan konfirmasi/idempotensi sebelum menjadi transaksi aktual. |
 
-Milestone 8–13 di bawah ini adalah roadmap yang direncanakan, bukan pekerjaan yang sudah diimplementasikan. Setiap milestone harus mempertahankan satu deployment dengan isolasi server-side, role boundary yang sudah berlaku, soft-state untuk data penting, dan larangan membagikan Google Spreadsheet kepada pengguna.
+Milestone 8–15 di bawah ini adalah roadmap yang direncanakan, bukan pekerjaan yang sudah diimplementasikan. Setiap milestone harus mempertahankan satu deployment dengan isolasi server-side, role boundary yang sudah berlaku, soft-state untuk data penting, dan larangan membagikan Google Spreadsheet kepada pengguna.
 
 ## Milestone 8 — Production Reliability and Security Hardening
 
@@ -216,10 +218,10 @@ Every family selector or family context control must remain server-authorized. T
 
 - Category summaries were introduced and production validated in M10 Slice 11. Slice 12 refines their presentation by treating Laporan as the analytics surface while keeping summaries server-derived, ACTIVE-only, family-scoped, period-scoped, and separated by currency; Slice 13 extends Laporan with server-derived cash-flow trend data under the same boundary; Slice 14 adds read-only category filtering and drill-down. The accepted contract is in [`docs/category-analytics.md`](category-analytics.md). Slices 9–14 are production validated.
 - `payment_method` remains deferred because it is not part of the current transaction model or worksheet.
-- Budget totals, per-category budget progress, and the `/budget` surface remain deferred until category and budget schemas exist.
+- Budget totals, per-category budget progress, and the `/budget` surface are deferred to Milestone 14 until budget schemas, authorization, multi-currency rules, and progress semantics are implemented.
 - AI financial insight remains a later layer over server-derived structured metrics; AI must never be the source of financial totals.
 - Scan Struk AI from the Mini App remains deferred; the existing Telegram receipt flow is not implicitly exposed as a browser upload endpoint.
-- Planned transactions and recurring liabilities remain outside actual balance calculations.
+- Planned transactions and recurring liabilities remain outside actual balance calculations and are scheduled for Milestone 15; an occurrence must not affect actual balances until the defined confirmation/persistence boundary is crossed.
 - PWA/offline support, larger-dataset pagination, durable cross-instance transaction idempotency, and cross-instance validation remain separate hardening concerns.
 - Avatar Telegram viewer sudah berfungsi pada production setelah direct URL/proxy fallback; mekanisme ini tidak mengambil avatar anggota keluarga lain dan tidak menjadi authorization input.
 
@@ -297,11 +299,11 @@ The following work remains explicitly post-launch and must not be compressed int
 
 ## Milestone 13 — Monetization and Expansion
 
-Status: IN PROGRESS — Public Beta foundation on `beta-release`; paid monetization remains planned
+Status: IN PROGRESS — Public Beta v0.8.0-beta.1 active on Production; paid monetization remains planned
 
 Public Beta is a free, limited validation phase. Its current policy is documented in [`public-beta-policy.md`](public-beta-policy.md). Paid plans, subscription billing, and beta tester benefits remain intentionally undecided until usage and cost data are available.
 
-The beta export acceptance is complete for the current scope: CSV was downloaded successfully through the native Telegram Mini App dialog from the beta Preview using an authorized OWNER/ADMIN account, without an external browser window, and the resulting transaction report was verified as valid CSV. Print Preview, PDF, and Vision remain intentionally locked for beta; Production and its webhook remain unchanged.
+The beta export acceptance is complete for the current scope: CSV was downloaded successfully through the native Telegram Mini App dialog using an authorized OWNER/ADMIN account, without an external browser window, and the resulting transaction report was verified as valid CSV. Public Beta v0.8.0-beta.1 is now active on the Production deployment with Google Sheets as the source of truth. Print Preview, PDF, and Vision remain intentionally locked for beta; the Production webhook remains on the same host.
 
 Monetization and public expansion must not precede security hardening, usage controls, and a storage path suitable for growth.
 
@@ -311,6 +313,43 @@ Monetization and public expansion must not precede security hardening, usage con
 - [ ] Public beta onboarding, support, abuse prevention, and privacy operations
 - [ ] Usage analytics and product metrics that preserve family privacy
 - [ ] Expansion readiness across additional families and deployments
+
+## Milestone 14 — Budgeting and Budget Progress
+
+Status: PLANNED — post-beta feature milestone
+
+Milestone 14 introduces family budgeting as a deterministic planning layer over existing ACTIVE transactions. A budget is a target or limit for a defined period, category, and currency; it is not an account balance, bank balance, savings balance, or transaction. Budget calculations must remain server-derived, family-scoped, period-scoped, and separated by currency. Creating or editing a budget must never rewrite historical transactions or change the actual balance.
+
+### Milestone 14 slice roadmap
+
+| Slice | Scope | Boundary | Exit evidence |
+| --- | --- | --- | --- |
+| 1 | Budget domain contract and worksheet schema | New `Budgets` boundary with `budget_id`, `family_id`, period, category, currency, limit, status, audit timestamps, and server-owned creator; no transaction mutation | Contract tests, schema validation, and privacy review |
+| 2 | Budget repository and service authorization | OWNER/ADMIN create, edit, archive, and list budgets; MEMBER receives read-only budget views; `family_id` is always resolved server-side | Repository/service tests for role, family isolation, duplicate active budget, and archived family rules |
+| 3 | Mini App budget management surface | Add a controlled budget list and create/edit/archive flow with Indonesian validation and explicit currency selection; no client-side authority over totals | Authenticated Mini App tests and production smoke test |
+| 4 | Server-derived budget progress | Calculate actual ACTIVE expense versus limit by category, period, and currency; expose remaining/overspent state; never combine IDR with other currencies | Deterministic calculation tests, legacy transaction coverage, and multi-currency tests |
+| 5 | Dashboard/Laporan integration and operational validation | Add progressive budget progress presentation without making budgets part of actual balance; preserve role boundaries and bounded reads | UI/API regression suite, registry integrity check, and production validation |
+
+Budget period, category, and currency semantics must be explicit before implementation. Initial scope should avoid rollover, shared budgets across families, income allocation, bank synchronization, and AI-generated budget recommendations. Any future rollover or forecast behavior belongs to a later slice after deterministic progress is stable.
+
+## Milestone 15 — Recurring Liabilities and Planned Occurrences
+
+Status: PLANNED — post-beta feature milestone
+
+Milestone 15 introduces recurring liabilities as a planned obligation layer. Examples include rent, school fees, subscriptions, or installment payments. A recurring liability is not automatically an actual transaction. The system must distinguish the liability definition, each planned occurrence, and the confirmed actual transaction created after the occurrence is accepted. This prevents future obligations from changing current balances.
+
+### Milestone 15 slice roadmap
+
+| Slice | Scope | Boundary | Exit evidence |
+| --- | --- | --- | --- |
+| 1 | Liability domain contract and worksheet schema | New `Recurring Liabilities` and planned-occurrence boundary with family, amount, currency, category, recurrence, due date, status, and audit fields; no actual transaction write | Contract/schema tests and migration/rehearsal update |
+| 2 | Liability repository and service authorization | OWNER/ADMIN create, edit, pause, resume, archive, and list liabilities; MEMBER receives read-only upcoming obligations; server resolves family context | Role, family-isolation, lifecycle, and archived-family tests |
+| 3 | Deterministic occurrence generation | Generate bounded planned occurrences using an idempotent occurrence key; handle due dates, timezone, end date, and paused liabilities; no duplicate occurrence on retry | Schedule, timezone, idempotency, and bounded-generation tests |
+| 4 | Confirmation boundary to actual transaction | Allow an authorized user to confirm an occurrence into one ordinary transaction through `FamilyService`; require explicit confirmation and preserve provenance; reject duplicate persistence | Approval, replay, authorization, and transaction-link tests |
+| 5 | Mini App and Telegram views | Show upcoming liabilities, planned occurrences, status, and confirm/cancel actions; do not expose client-controlled family IDs or silently create actual transactions | Authenticated UI/API tests and production smoke test |
+| 6 | Reports and optional reminders | Add planned-versus-actual presentation only after the deterministic core is stable; reminders are opt-in and must not create transactions automatically | Report regression suite, notification policy review, and operational validation |
+
+The initial recurring-liability release should not include automatic bank payment, automatic transaction persistence, debt amortization complexity, late-fee computation, or AI-generated commitments. A future occurrence may affect actual reports only after the explicit confirmation/persistence boundary defined in Slice 4.
 
 ## Backlog Eksperimen Non-Commitment
 
