@@ -80,11 +80,11 @@ declare global {
 
 const TELEGRAM_BOOTSTRAP_TIMEOUT_MS = 5_000;
 
-const navItems: Array<{ key: NavKey; label: string; icon: string }> = [
-  { key: "home", label: "Beranda", icon: "⌂" },
-  { key: "transactions", label: "Transaksi", icon: "▤" },
-  { key: "reports", label: "Laporan", icon: "▥" },
-  { key: "account", label: "Akun", icon: "♙" },
+const navItems: Array<{ key: NavKey; label: string; color: "green" | "purple" | "coral" }> = [
+  { key: "home", label: "Beranda", color: "green" },
+  { key: "transactions", label: "Transaksi", color: "purple" },
+  { key: "reports", label: "Laporan", color: "purple" },
+  { key: "account", label: "Akun", color: "coral" },
 ];
 
 export default function Home() {
@@ -962,11 +962,90 @@ function LoadingState() {
 }
 
 function BottomNavigation({ activeNav, onSelect, onAddTransaction }: { activeNav: NavKey; onSelect: (key: NavKey) => void; onAddTransaction: () => void }) {
-  return <nav aria-label="Navigasi Mini App" className="bottom-nav fixed inset-x-0 bottom-0 z-20 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)] pt-2 sm:px-6"><div className="mx-auto grid max-w-[560px] grid-cols-5 items-end gap-1"><NavButton item={navItems[0]} active={activeNav === "home"} onClick={() => onSelect("home")} /><NavButton item={navItems[1]} active={activeNav === "transactions"} onClick={() => onSelect("transactions")} /><button type="button" onClick={onAddTransaction} aria-label="Tambah transaksi" className="primary-fab mx-auto -mt-7 grid h-14 w-14 place-items-center rounded-full border-4 border-[var(--app-background)] bg-[var(--brand-green-700)] text-3xl font-light leading-none text-white shadow-[0_6px_20px_rgba(38,122,90,0.28)] transition hover:-translate-y-0.5 hover:bg-[var(--brand-green-600)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">+</button><NavButton item={navItems[2]} active={activeNav === "reports"} onClick={() => onSelect("reports")} /><NavButton item={navItems[3]} active={activeNav === "account"} onClick={() => onSelect("account")} /></div></nav>;
+  return (
+    <nav aria-label="Navigasi Mini App" className="bottom-nav">
+      <div className="bottom-nav-inner">
+        <NavButton item={navItems[0]} active={activeNav === "home"} onClick={() => onSelect("home")} />
+        <NavButton item={navItems[1]} active={activeNav === "transactions"} onClick={() => onSelect("transactions")} />
+
+        <button type="button" onClick={onAddTransaction} aria-label="Tambah transaksi" className="primary-fab">
+          <span className="primary-fab-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </span>
+          <span className="primary-fab-label">Tambah</span>
+        </button>
+
+        <NavButton item={navItems[2]} active={activeNav === "reports"} onClick={() => onSelect("reports")} />
+        <NavButton item={navItems[3]} active={activeNav === "account"} onClick={() => onSelect("account")} />
+      </div>
+    </nav>
+  );
 }
 
-function NavButton({ item, active, onClick }: { item: { key: NavKey; label: string; icon: string }; active: boolean; onClick: () => void }) {
-  return <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={`nav-item flex min-h-12 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[11px] font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] ${active ? "nav-item-active text-[var(--brand-green-700)]" : "text-[var(--text-secondary)]"}`}><span className={`nav-icon-shell ${active ? "nav-icon-shell-active" : ""}`}><span className={`nav-icon-circle ${active ? "nav-icon-circle-active" : ""}`} aria-hidden="true">{item.icon}</span></span><span>{item.label}</span></button>;
+function NavButton({ item, active, onClick }: { item: { key: NavKey; label: string; color: "green" | "purple" | "coral" }; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      className={`nav-item nav-item-${item.color} ${active ? "nav-item-active" : ""}`}
+    >
+      <span className="nav-icon-wrap">
+        <span className="nav-icon-circle">
+          <NavIcon id={item.key} active={active} />
+        </span>
+      </span>
+      <span className="nav-label">{item.label}</span>
+    </button>
+  );
+}
+
+function NavIcon({ id, active }: { id: NavKey; active: boolean }) {
+  const common = {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    className: `nav-svg-icon ${active ? "is-active" : ""}`,
+    "aria-hidden": true,
+  };
+
+  if (id === "home") {
+    return (
+      <svg {...common}>
+        <path className="nav-svg-path" d="M3.5 10.5 12 3.5l8.5 7" />
+        <path className="nav-svg-path" d="M5.5 9.5V20.5h13V9.5" />
+        <path className="nav-svg-path" d="M9.5 20.5v-6h5v6" />
+      </svg>
+    );
+  }
+
+  if (id === "transactions") {
+    return (
+      <svg {...common}>
+        <rect className="nav-svg-path" x="5" y="3.5" width="14" height="17" rx="2.5" />
+        <path className="nav-svg-path" d="M8.5 8h7M8.5 12h7M8.5 16h4" />
+      </svg>
+    );
+  }
+
+  if (id === "reports") {
+    return (
+      <svg {...common}>
+        <path className="nav-svg-path" d="M5 20V11" />
+        <path className="nav-svg-path" d="M12 20V4" />
+        <path className="nav-svg-path" d="M19 20v-7" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...common}>
+      <circle className="nav-svg-path" cx="12" cy="8" r="3.5" />
+      <path className="nav-svg-path" d="M5 20.5c.8-3.8 3.1-5.7 7-5.7s6.2 1.9 7 5.7" />
+    </svg>
+  );
 }
 
 function getCategoryLabel(category: string): string {
