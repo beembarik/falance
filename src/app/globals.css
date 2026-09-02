@@ -20,7 +20,6 @@
   --brand-purple-600: #8e72d6;
   --brand-purple-100: #f1edfa;
   --brand-coral-500: #f28a7c;
-  --brand-coral-600: #e06b5c;
   --brand-coral-100: #fdebe8;
   --card-shadow: 0 2px 12px rgba(20, 40, 25, 0.05);
 }
@@ -125,8 +124,8 @@ button:disabled {
 
 /* ============================================================
    FALANCÉ — ANIMATED BOTTOM NAV
-   Container bottom nav hijau opacity tipis, tombol tambah purple,
-   dan active state coral dengan kontras tinggi & kejelasan maksimal.
+   CSS-only adaptation of the Animated Tab Bar motion language.
+   No additional dependency required.
    ============================================================ */
 
 .bottom-nav {
@@ -148,13 +147,12 @@ button:disabled {
   align-items: end;
   gap: 2px;
   padding: 7px 7px 5px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 0;
   border-radius: 26px;
-  /* Green container dengan opacity tipis & glassmorphism */
-  background: rgba(24, 74, 54, 0.88);
-  box-shadow: 0 12px 32px rgba(18, 56, 41, 0.28), 0 2px 8px rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: 0 12px 32px rgba(38, 122, 90, 0.14), 0 2px 8px rgba(28, 43, 36, 0.07);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   pointer-events: auto;
 }
 
@@ -171,171 +169,213 @@ button:disabled {
   border: 0;
   outline: 0;
   background: transparent;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--text-secondary);
   font: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: color 220ms ease, transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.nav-item:hover {
-  color: rgba(255, 255, 255, 0.95);
+.nav-item:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand-green-500) 70%, transparent);
+  outline-offset: -2px;
+  border-radius: 18px;
 }
+
+/* Deliberately no active outline/border. */
+.nav-item::before {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: 42px;
+  height: 42px;
+  content: "";
+  border: 0;
+  border-radius: 999px;
+  opacity: 0;
+  transform: translateX(-50%) scale(0.55);
+  transition: opacity 180ms ease, transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.nav-item-green::before { background: var(--brand-green-100); }
+.nav-item-purple::before { background: var(--brand-purple-100); }
+.nav-item-coral::before { background: var(--brand-coral-100); }
 
 .nav-item-active {
-  color: #ffffff;
+  transform: translateY(-4px);
 }
 
-.nav-icon-wrapper {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 32px;
-}
-
-.nav-indicator {
-  position: absolute;
-  top: 1px;
-  width: 38px;
-  height: 30px;
-  border-radius: 999px;
-  /* Coral active pill indicator */
-  background: var(--brand-coral-500);
-  box-shadow: 0 4px 14px rgba(242, 138, 124, 0.45);
-  transform: scale(0.72);
-  opacity: 0;
-  transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease;
-}
-
-.nav-item-active .nav-indicator {
-  transform: scale(1);
+.nav-item-active::before {
   opacity: 1;
+  transform: translateX(-50%) scale(1);
 }
 
-.nav-icon {
+.nav-item:hover:not(.nav-item-active) {
+  transform: translateY(-2px);
+}
+
+.nav-icon-wrap {
   position: relative;
   z-index: 1;
-  width: 22px;
-  height: 22px;
+  width: 42px;
+  height: 42px;
   display: grid;
   place-items: center;
-  transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1), color 220ms ease;
+  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.nav-icon svg {
-  width: 22px;
-  height: 22px;
+.nav-item-active .nav-icon-wrap {
+  transform: translateY(-1px) scale(1.03);
+}
+
+.nav-icon-circle {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: transparent;
+  transition: background-color 280ms ease, color 220ms ease, box-shadow 360ms cubic-bezier(0.22, 1, 0.36, 1), transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nav-item-green.nav-item-active .nav-icon-circle {
+  color: #ffffff;
+  background: var(--brand-green-700);
+  box-shadow: 0 7px 16px rgba(38, 122, 90, 0.24);
+}
+
+.nav-item-purple.nav-item-active .nav-icon-circle {
+  color: #ffffff;
+  background: var(--brand-purple-600);
+  box-shadow: 0 7px 16px rgba(142, 114, 214, 0.24);
+}
+
+.nav-item-coral.nav-item-active .nav-icon-circle {
+  color: #ffffff;
+  background: var(--brand-coral-500);
+  box-shadow: 0 7px 16px rgba(242, 138, 124, 0.24);
+}
+
+.nav-svg-icon {
+  width: 20px;
+  height: 20px;
+  overflow: visible;
+}
+
+.nav-svg-path {
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
-  fill: none;
 }
 
-.nav-item-active .nav-icon {
-  transform: translateY(-2px) scale(1.1);
-  color: #ffffff;
+.nav-item-active .nav-svg-path {
+  stroke-width: 2;
+  stroke-dasharray: 90;
+  stroke-dashoffset: 0;
+  animation: nav-icon-draw 480ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes nav-icon-draw {
+  from { stroke-dashoffset: 90; }
+  to { stroke-dashoffset: 0; }
 }
 
 .nav-label {
   position: relative;
   z-index: 1;
-  font-size: 11px;
+  display: block;
+  max-width: 76px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 10px;
   font-weight: 600;
   line-height: 14px;
   letter-spacing: -0.01em;
-  white-space: nowrap;
-  transition: transform 260ms ease, color 220ms ease, opacity 220ms ease;
-  color: rgba(255, 255, 255, 0.75);
+  color: currentColor;
+  transition: color 220ms ease, transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+.nav-item-green.nav-item-active { color: var(--brand-green-700); }
+.nav-item-purple.nav-item-active { color: var(--brand-purple-800); }
+.nav-item-coral.nav-item-active { color: var(--brand-coral-500); }
 
 .nav-item-active .nav-label {
-  color: var(--brand-coral-100);
-  font-weight: 700;
-  transform: translateY(-1px);
+  transform: translateY(1px);
 }
 
-.nav-item:focus-visible {
-  outline: 2px solid var(--brand-coral-500);
-  outline-offset: 2px;
-  border-radius: 16px;
-}
+/* ------------------------------------------------------------
+   PRIMARY ACTION
+   ------------------------------------------------------------ */
 
-/* ============================================================
-   PRIMARY FAB / '+' ADD TRANSACTION BUTTON (PURPLE)
-   ============================================================ */
-
-.primary-fab-item {
+.primary-fab {
   position: relative;
-  min-width: 0;
-  height: 58px;
+  z-index: 2;
+  width: 54px;
+  height: 62px;
+  justify-self: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  padding-bottom: 2px;
-}
-
-.primary-fab {
-  position: absolute;
-  top: -18px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  gap: 2px;
+  margin-top: -8px;
+  padding: 0;
   border: 0;
   outline: 0;
   background: transparent;
-  padding: 0;
+  color: var(--brand-green-700);
+  font: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
 .primary-fab-icon {
-  display: grid;
   width: 48px;
   height: 48px;
+  display: grid;
   place-items: center;
+  border: 0;
   border-radius: 999px;
-  /* Purple FAB background */
-  background: var(--brand-purple-600);
+  background: var(--brand-green-700);
   color: #ffffff;
-  border: 3px solid rgba(24, 74, 54, 0.95);
-  box-shadow: 0 8px 22px rgba(110, 80, 185, 0.48), 0 2px 6px rgba(0, 0, 0, 0.2);
-  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 220ms ease, box-shadow 220ms ease;
+  box-shadow: 0 8px 20px rgba(38, 122, 90, 0.28);
+  transform: translateY(-4px);
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1), background-color 180ms ease, box-shadow 220ms ease;
 }
 
 .primary-fab-icon svg {
-  width: 22px;
-  height: 22px;
+  width: 21px;
+  height: 21px;
   stroke: currentColor;
-  stroke-width: 2.5;
+  stroke-width: 2;
   stroke-linecap: round;
 }
 
 .primary-fab-label {
   position: absolute;
-  bottom: -16px;
+  bottom: 4px;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 14px;
-  color: rgba(255, 255, 255, 0.9);
-  white-space: nowrap;
+  color: var(--brand-green-700);
 }
 
 .primary-fab:hover .primary-fab-icon {
-  transform: translateY(-4px) scale(1.06);
-  background: #7a5ec7;
-  box-shadow: 0 12px 26px rgba(110, 80, 185, 0.6);
+  transform: translateY(-5px) scale(1.04);
+  background: var(--brand-green-600);
 }
 
 .primary-fab:active .primary-fab-icon {
-  transform: translateY(-1px) scale(0.94);
+  transform: translateY(-1px) scale(0.93);
 }
 
 .primary-fab:focus-visible {
-  outline: 2px solid var(--brand-purple-600);
-  outline-offset: 4px;
+  outline: 2px solid color-mix(in srgb, var(--brand-green-500) 70%, transparent);
+  outline-offset: 3px;
   border-radius: 999px;
 }
 
@@ -354,6 +394,45 @@ button:disabled {
   }
 
   .bottom-nav-inner {
+    width: 100%;
+    max-width: none;
     border-radius: 20px;
+  }
+
+  .primary-fab {
+    margin-top: -4px;
+  }
+}
+
+@media (max-width: 360px) {
+  .bottom-nav {
+    width: min(calc(100% - 16px), 560px);
+  }
+
+  .bottom-nav-inner {
+    min-height: 66px;
+    padding-left: 4px;
+    padding-right: 4px;
+    border-radius: 22px;
+  }
+
+  .nav-icon-wrap {
+    width: 38px;
+    height: 38px;
+  }
+
+  .nav-icon-circle {
+    width: 35px;
+    height: 35px;
+  }
+
+  .nav-label,
+  .primary-fab-label {
+    font-size: 9px;
+  }
+
+  .primary-fab-icon {
+    width: 44px;
+    height: 44px;
   }
 }
