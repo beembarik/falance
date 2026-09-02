@@ -69,12 +69,12 @@ button:disabled {
 }
 
 .primary-action {
-  background: var(--brand-green-700);
+  background: var(--brand-green-500);
   color: #ffffff;
 }
 
 .primary-action:hover {
-  background: var(--brand-green-800);
+  background: var(--brand-green-600);
 }
 
 .brand-mark {
@@ -84,7 +84,7 @@ button:disabled {
   place-items: center;
   border-radius: 10px 15px 10px 15px;
   background: rgba(255, 255, 255, 0.92);
-  color: var(--brand-green-700);
+  color: var(--brand-green-500);
   font-size: 17px;
   font-weight: 800;
   line-height: 1;
@@ -242,7 +242,7 @@ button:disabled {
 
 .nav-item-green.nav-item-active .nav-icon-circle {
   color: #ffffff;
-  background: var(--brand-green-700);
+  background: var(--brand-green-500);
   box-shadow: 0 7px 16px rgba(38, 122, 90, 0.24);
 }
 
