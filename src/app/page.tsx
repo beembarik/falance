@@ -832,7 +832,6 @@ function TransactionsView({ data, filter, onFilterChange, onSelectTransaction }:
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
       <div className="flex items-start justify-between gap-3">
         <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Workspace</p><h2 className="mt-1 text-xl font-bold">Transaksi</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">{data.report.period.label}</p></div>
-        <span className="rounded-full bg-[var(--brand-green-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-green-700)]">Read-only</span>
       </div>
       <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-[var(--surface-soft)] p-1" role="group" aria-label="Filter tipe transaksi">
         {(["ALL", "INCOME", "EXPENSE"] as const).map((value) => {
