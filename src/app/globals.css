@@ -64,8 +64,8 @@ button:disabled {
 
 .app-header {
   background:
-    radial-gradient(circle at 92% 10%, rgba(142, 114, 214, 0.42), transparent 27%),
-    linear-gradient(135deg, #267a5a 0%, #31946f 58%, #61b89c 100%);
+    linear-gradient(143deg, #f28a7c 15%, #61b89c 60%, #8e72d6 100%),
+    radial-gradient(circle at 92% 10%, rgba(142, 114, 214, 0.42), transparent 27%);
 }
 
 .primary-action {
