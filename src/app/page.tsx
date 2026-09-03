@@ -500,7 +500,7 @@ function AppHeader({ data, activeNav, onSelectNav }: { data: ReportResponse | nu
 function HomeView({ data, onAddTransaction, onSelectReports, onSelectTransactions }: { data: ReportResponse; onAddTransaction: () => void; onSelectReports: () => void; onSelectTransactions: () => void }) {
   return (
     <>
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--card-shadow)]">
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--brand-coral-100)] p-4 shadow-[var(--card-shadow)]">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">Keluarga aktif</p>
@@ -511,7 +511,7 @@ function HomeView({ data, onAddTransaction, onSelectReports, onSelectTransaction
         </div>
       </section>
 
-      <section className="rounded-2xl bg-[var(--brand-green-700)] p-5 text-white shadow-[0_8px_24px_rgba(38,122,90,0.16)]" aria-labelledby="home-summary-title">
+      <section className="rounded-2xl bg-[var(--brand-purple-600)] p-5 text-white shadow-[0_8px_24px_rgba(38,122,90,0.16)]" aria-labelledby="home-summary-title">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100">Ringkasan periode</p>
