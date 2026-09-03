@@ -831,22 +831,102 @@ function TransactionsView({ data, filter, onFilterChange, onSelectTransaction }:
   return (
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
       <div className="flex items-start justify-between gap-3">
-        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Workspace</p><h2 className="mt-1 text-xl font-bold">Transaksi</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">{data.report.period.label}</p></div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Workspace</p>
+          <h2 className="mt-1 text-xl font-bold">Transaksi</h2>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">{data.report.period.label}</p>
+        </div>
       </div>
+
       <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-[var(--surface-soft)] p-1" role="group" aria-label="Filter tipe transaksi">
         {(["ALL", "INCOME", "EXPENSE"] as const).map((value) => {
           const label = value === "ALL" ? "Semua" : value === "INCOME" ? "Pemasukan" : "Pengeluaran";
-          return <button key={value} type="button" onClick={() => onFilterChange(value)} aria-pressed={filter === value} className={`min-h-10 rounded-lg px-2 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] ${filter === value ? "bg-[var(--brand-green-700)] text-white shadow-sm" : "text-[var(--text-secondary)] hover:bg-[var(--surface)]"}`}>{label}</button>;
+
+          const activeColor =
+            value === "ALL"
+              ? "bg-[var(--brand-purple-600)]"
+              : value === "INCOME"
+                ? "bg-[var(--brand-green-600)]"
+                : "bg-[var(--brand-coral-500)]";
+
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onFilterChange(value)}
+              aria-pressed={filter === value}
+              className={`min-h-10 rounded-lg px-2 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] ${
+                filter === value
+                  ? `${activeColor} text-white shadow-sm`
+                  : "text-[var(--text-secondary)] hover:bg-[var(--surface)]"
+              }`}
+            >
+              {label}
+            </button>
+          );
         })}
       </div>
+
       <p className="mt-3 text-xs text-[var(--text-secondary)]">Menampilkan maksimal 50 transaksi aktif dari periode yang dipilih.</p>
+
       {transactions.length === 0 ? (
-        <div className="mt-5 rounded-xl bg-[var(--surface-soft)] p-5 text-center"><Image className="mx-auto h-10 w-10 object-contain" src="/icon.png" alt="" aria-hidden="true" width={40} height={40} />
-<p className="mt-3 text-sm font-semibold">Belum ada transaksi</p><p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Tidak ada transaksi yang cocok dengan filter ini.</p></div>
+        <div className="mt-5 rounded-xl bg-[var(--surface-soft)] p-5 text-center">
+          <Image className="mx-auto h-10 w-10 object-contain" src="/icon.png" alt="" aria-hidden="true" width={40} height={40} />
+          <p className="mt-3 text-sm font-semibold">Belum ada transaksi</p>
+          <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Tidak ada transaksi yang cocok dengan filter ini.</p>
+        </div>
       ) : (
-        <div className="mt-5 space-y-5">{Object.entries(grouped).map(([date, dateTransactions]) => <div key={date}><h3 className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{formatLongDate(date)}</h3><div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] px-3">{dateTransactions.map((transaction) => <button key={transaction.transactionId} type="button" onClick={() => onSelectTransaction(transaction)} className="flex w-full items-start justify-between gap-3 py-3 text-left transition first:pt-3 last:pb-3 hover:bg-[var(--brand-green-50)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--brand-green-500)]"><div className="flex min-w-0 items-start gap-3"><span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-bold ${transaction.transactionType === "INCOME" ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]" : "bg-[var(--brand-coral-100)] text-[#C85A4D]"}`} aria-hidden="true">{transaction.transactionType === "INCOME" ? "↑" : "↓"}</span><div className="min-w-0"><p className="truncate text-sm font-semibold">{transaction.description}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran"} · {transaction.currency} · {getCategoryLabel(transaction.category)}</p><p className="mt-1 text-xs text-[var(--text-muted)]">{formatDisplayDate(transaction.transactionDate)} · dicatat oleh {transaction.creatorName}</p></div></div><p className={`shrink-0 text-sm font-bold ${transaction.transactionType === "INCOME" ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>{transaction.transactionType === "INCOME" ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}</p></button>)}</div></div>)}</div>
+        <div className="mt-5 space-y-5">
+          {Object.entries(grouped).map(([date, dateTransactions]) => (
+            <div key={date}>
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{formatLongDate(date)}</h3>
+              <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] px-3">
+                {dateTransactions.map((transaction) => (
+                  <button
+                    key={transaction.transactionId}
+                    type="button"
+                    onClick={() => onSelectTransaction(transaction)}
+                    className="flex w-full items-start justify-between gap-3 py-3 text-left transition first:pt-3 last:pb-3 hover:bg-[var(--brand-green-50)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--brand-green-500)]"
+                  >
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span
+                        className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-bold ${
+                          transaction.transactionType === "INCOME"
+                            ? "bg-[var(--brand-green-100)] text-[var(--brand-green-700)]"
+                            : "bg-[var(--brand-coral-100)] text-[#C85A4D]"
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {transaction.transactionType === "INCOME" ? "↑" : "↓"}
+                      </span>
+
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{transaction.description}</p>
+                        <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                          {transaction.transactionType === "INCOME" ? "Pemasukan" : "Pengeluaran"} · {transaction.currency} · {getCategoryLabel(transaction.category)}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--text-muted)]">
+                          {formatDisplayDate(transaction.transactionDate)} · dicatat oleh {transaction.creatorName}
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className={`shrink-0 text-sm font-bold ${transaction.transactionType === "INCOME" ? "text-[var(--brand-green-700)]" : "text-[#C85A4D]"}`}>
+                      {transaction.transactionType === "INCOME" ? "+" : "−"}{formatAmount(transaction.amountMinor, transaction.currency)}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
-      {data.report.transactions.length === 50 && <p className="mt-4 rounded-xl bg-[var(--brand-purple-100)] p-3 text-xs leading-5 text-[var(--brand-purple-800)]">Daftar ini dibatasi 50 transaksi. Pagination untuk histori yang lebih besar akan ditambahkan pada slice lanjutan.</p>}
+
+      {data.report.transactions.length === 50 && (
+        <p className="mt-4 rounded-xl bg-[var(--brand-purple-100)] p-3 text-xs leading-5 text-[var(--brand-purple-800)]">
+          Daftar ini dibatasi 50 transaksi. Pagination untuk histori yang lebih besar akan ditambahkan pada slice lanjutan.
+        </p>
+      )}
     </section>
   );
 }
