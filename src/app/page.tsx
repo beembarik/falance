@@ -530,7 +530,7 @@ function HomeView({ data, onAddTransaction, onSelectReports, onSelectTransaction
                   <span className="text-xl font-bold tracking-tight">{formatAmount(summary.netMinor, summary.currency)}</span>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded-lg bg-white/10 p-2"><span className="block text-emerald-100">Pemasukan</span><strong className="mt-1 block text-sm">{formatAmount(summary.incomeMinor, summary.currency)}</strong></div>
+                  <div className="rounded-lg bg-[var(--brand-green-500)]/80 p-2"><span className="block text-emerald-100">Pemasukan</span><strong className="mt-1 block text-sm">{formatAmount(summary.incomeMinor, summary.currency)}</strong></div>
                   <div className="rounded-lg bg-[var(--brand-coral-500)]/80 p-2"><span className="block text-white/80">Pengeluaran</span><strong className="mt-1 block text-sm">{formatAmount(summary.expenseMinor, summary.currency)}</strong></div>
                 </div>
               </div>
