@@ -484,7 +484,7 @@ function AppHeader({ data, activeNav, onSelectNav }: { data: ReportResponse | nu
       <div className="flex items-start justify-between gap-4">
         <button type="button" onClick={() => onSelectNav("home")} className="group text-left" aria-label="Buka Beranda Falancé">
           <div className="flex items-center gap-2">
-            <Image className="brand-mark object-contain" src="/icon.png" alt="" aria-hidden="true" width={32} height={32} priority />
+            <Image className="brand-mark object-contain" src="/icon.png" alt="" aria-hidden="true" width={30} height={30} priority />
             <span className="text-base font-bold tracking-tight">Falancé</span>
           </div>
           <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Family finance, made simple</p>
