@@ -6,10 +6,10 @@ import { CATEGORY_CODES, CATEGORY_LABELS } from "../../lib/family/category-analy
 import type { AccountResponse, FamilyAction, FamilyActionFields, NavKey, ReportResponse, TransactionFilter } from "./types";
 import { formatAmount, formatDisplayDate, formatLongDate, formatSignedAmount, getCategoryLabel } from "./utils";
 
-const navItems: Array<{ key: NavKey; label: string; color: "green" | "purple" | "coral" }> = [
-  { key: "home", label: "Beranda", color: "green" },
+const navItems: Array<{ key: NavKey; label: string; color: "purple" | "coral" }> = [
+  { key: "home", label: "Beranda", color: "purple" },
   { key: "transactions", label: "Transaksi", color: "purple" },
-  { key: "reports", label: "Laporan", color: "purple" },
+  { key: "reports", label: "Laporan", color: "coral" },
   { key: "account", label: "Akun", color: "coral" },
 ];
 
