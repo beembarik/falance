@@ -46,7 +46,7 @@ export function HomeView({ data, onAddTransaction, onSelectReports, onSelectTran
         </div>
       </section>
 
-      <section className="rounded-2xl bg-[var(--surface)] p-5 text-white shadow-[0_8px_24px_rgba(38,122,90,0.16)]" aria-labelledby="home-summary-title">
+      <section className="rounded-2xl bg-[var(--brand-purple)/50] p-5 text-white shadow-[0_8px_24px_rgba(38,122,90,0.16)]" aria-labelledby="home-summary-title">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100">Ringkasan periode</p>
