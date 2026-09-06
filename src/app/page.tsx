@@ -332,7 +332,7 @@ export default function Home() {
         {loading && !data && !error && <LoadingState />}
 
         {data && activeNav === "home" && (
-          <HomeView data={data} onAddTransaction={openAddTransaction} onSelectReports={() => selectNav("reports")} onSelectTransactions={() => selectNav("transactions")} />
+          <HomeView data={data} onSelectReports={() => selectNav("reports")} onSelectTransactions={() => selectNav("transactions")} />
         )}
 
         {data && activeNav === "reports" && (

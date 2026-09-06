@@ -436,3 +436,54 @@ button:disabled {
     height: 44px;
   }
 }
+
+
+/* ============================================================
+   HOME VIEW — OPTION B VISUAL LANGUAGE
+   ============================================================ */
+
+.home-family-card {
+  background: var(--surface);
+  border-left: 4px solid var(--brand-purple-600);
+}
+
+.home-finance-card {
+  border: 1px solid color-mix(in srgb, var(--brand-purple-600) 30%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand-purple-600) 14%, transparent), color-mix(in srgb, var(--brand-green-500) 10%, var(--surface)));
+  color: var(--text-primary);
+}
+
+.home-income-chip {
+  background: var(--brand-green-600);
+}
+
+.home-expense-chip {
+  background: var(--brand-coral-500);
+}
+
+.home-link-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 4px;
+}
+
+@media (max-width: 420px) {
+  .home-finance-card {
+    padding: 1rem;
+  }
+}
+
+/* Option B uses a full-width five-column navigation with a center FAB. */
+@media (min-width: 700px) {
+  .bottom-nav {
+    width: min(calc(100% - 48px), 720px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-link-row button {
+    transition: none !important;
+  }
+}

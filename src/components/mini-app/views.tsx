@@ -32,41 +32,39 @@ export function AppHeader({ data, activeNav, onSelectNav }: { data: ReportRespon
   );
 }
 
-export function HomeView({ data, onAddTransaction, onSelectReports, onSelectTransactions }: { data: ReportResponse; onAddTransaction: () => void; onSelectReports: () => void; onSelectTransactions: () => void }) {
+export function HomeView({ data, onSelectReports, onSelectTransactions }: { data: ReportResponse; onSelectReports: () => void; onSelectTransactions: () => void }) {
   return (
     <>
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--card-shadow)]">
+      <section className="home-family-card rounded-2xl p-5 shadow-[var(--card-shadow)]">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">Keluarga aktif</p>
-            <h2 className="mt-1 text-xl font-bold">{data.familyName}</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Keluarga aktif</p>
+            <h2 className="mt-1 text-2xl font-bold tracking-tight">{data.familyName}</h2>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">{data.report.period.label}</p>
           </div>
           <span className="rounded-full bg-[var(--brand-green-100)] px-3 py-1 text-xs font-semibold text-[var(--brand-green-700)]">{data.viewer.role}</span>
         </div>
       </section>
 
-      <section className="rounded-2xl bg-[var(--surface)] p-5 text-[var(--brand-purple)] shadow-[0_8px_24px_rgba(38,122,90,0.16)]" aria-labelledby="home-summary-title">
-        <div className="flex items-center justify-between gap-3">
+      <section className="home-finance-card rounded-2xl p-5 shadow-[var(--card-shadow)]" aria-labelledby="home-summary-title">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Ringkasan periode</p>
             <h2 id="home-summary-title" className="mt-1 text-lg font-bold">Kondisi keuangan</h2>
           </div>
-          <button type="button" onClick={onSelectReports} className="rounded-full border border-white/25 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/70">Lihat laporan</button>
+          <button type="button" onClick={onSelectReports} className="rounded-full border border-[var(--border)] bg-white/55 px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-purple-600)]">Lihat laporan</button>
         </div>
         {data.report.currencies.length === 0 ? (
-          <p className="mt-6 rounded-xl bg-white/10 p-4 text-sm leading-6 text-emerald-50">Belum ada transaksi aktif pada periode ini.</p>
+          <p className="mt-6 rounded-xl bg-white/60 p-4 text-sm leading-6 text-[var(--text-secondary)]">Belum ada transaksi aktif pada periode ini.</p>
         ) : (
-          <div className="mt-5 grid gap-3">
+          <div className="mt-5 space-y-3">
             {data.report.currencies.map((summary) => (
-              <div key={summary.currency} className="rounded-xl bg-white/10 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-semibold text-emerald-50">{BigInt(summary.netMinor) >= BigInt(0) ? "Surplus" : "Defisit"} periode {summary.currency}</span>
-                  <span className="text-xl font-bold tracking-tight">{formatAmount(summary.netMinor, summary.currency)}</span>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded-lg bg-[var(--brand-green-500)]/80 p-2"><span className="block text-emerald-100">Pemasukan</span><strong className="mt-1 block text-sm">{formatAmount(summary.incomeMinor, summary.currency)}</strong></div>
-                  <div className="rounded-lg bg-[var(--brand-coral-500)]/80 p-2"><span className="block text-white/80">Pengeluaran</span><strong className="mt-1 block text-sm">{formatAmount(summary.expenseMinor, summary.currency)}</strong></div>
+              <div key={summary.currency}>
+                <p className="text-sm text-[var(--text-secondary)]">{BigInt(summary.netMinor) >= BigInt(0) ? "Surplus" : "Defisit"} periode {summary.currency}</p>
+                <p className="mt-1 text-3xl font-bold tracking-tight">{formatAmount(summary.netMinor, summary.currency)}</p>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="home-income-chip rounded-xl p-3"><span className="block text-xs text-white/85">Pemasukan</span><strong className="mt-1 block text-base text-white">{formatAmount(summary.incomeMinor, summary.currency)}</strong></div>
+                  <div className="home-expense-chip rounded-xl p-3"><span className="block text-xs text-white/85">Pengeluaran</span><strong className="mt-1 block text-base text-white">{formatAmount(summary.expenseMinor, summary.currency)}</strong></div>
                 </div>
               </div>
             ))}
@@ -74,10 +72,9 @@ export function HomeView({ data, onAddTransaction, onSelectReports, onSelectTran
         )}
       </section>
 
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--card-shadow)]">
-        <button type="button" onClick={onAddTransaction} className="primary-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold text-white shadow-[0_6px_18px_rgba(38,122,90,0.18)] transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)] focus:ring-offset-2"><span className="text-xl leading-none">+</span> Tambah transaksi</button>
-        <button type="button" onClick={onSelectTransactions} className="mt-3 min-h-10 w-full rounded-xl px-3 text-sm font-semibold text-[var(--brand-green-700)] transition hover:bg-[var(--brand-green-50)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">Lihat semua transaksi →</button>
-      </section>
+      <div className="home-link-row">
+        <button type="button" onClick={onSelectTransactions} className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--brand-green-700)] transition hover:gap-3 focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">Lihat semua transaksi <span aria-hidden="true">→</span></button>
+      </div>
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
         <div className="flex items-center justify-between gap-3">
