@@ -487,3 +487,90 @@ button:disabled {
     transition: none !important;
   }
 }
+
+
+/* ============================================================
+   OPTION B — TELEGRAM HEADER CONTENT AND CENTER FAB
+   ============================================================ */
+
+.app-intro-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.app-intro-logo {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--brand-purple-600) 0%, var(--brand-green-600) 55%, var(--brand-coral-500) 100%);
+  box-shadow: 0 6px 14px rgba(110, 95, 209, 0.2);
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+.app-intro-logo:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(110, 95, 209, 0.26);
+}
+
+.bottom-nav {
+  left: 0;
+  right: 0;
+  width: 100%;
+  transform: none;
+  padding: 0 0 env(safe-area-inset-bottom);
+}
+
+.bottom-nav-inner {
+  min-height: 76px;
+  gap: 0;
+  padding: 10px 6px 8px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  box-shadow: 0 -4px 18px rgba(20, 40, 25, 0.06);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.primary-fab {
+  width: 60px;
+  height: 78px;
+  gap: 3px;
+  margin-top: -38px;
+  justify-content: flex-end;
+  color: var(--text-secondary);
+}
+
+.primary-fab-icon {
+  width: 56px;
+  height: 56px;
+  border: 5px solid var(--surface);
+  background: linear-gradient(135deg, var(--brand-purple-800) 0%, var(--brand-green-700) 55%, var(--brand-coral-500) 100%);
+  box-shadow: 0 10px 22px rgba(110, 95, 209, 0.3);
+  transform: none;
+}
+
+.primary-fab-label {
+  position: static;
+  margin-top: 2px;
+  color: var(--text-secondary);
+}
+
+.primary-fab:hover .primary-fab-icon {
+  transform: translateY(-2px) scale(1.04);
+  background: linear-gradient(135deg, var(--brand-purple-600) 0%, var(--brand-green-600) 55%, var(--brand-coral-500) 100%);
+}
+
+.primary-fab:active .primary-fab-icon {
+  transform: scale(0.94);
+}
+
+@media (min-width: 700px) {
+  .bottom-nav {
+    width: 100%;
+  }
+}

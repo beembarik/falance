@@ -302,8 +302,8 @@ export default function Home() {
         setCsvDownloadSupported(typeof webApp.downloadFile === "function");
         webApp.ready();
         webApp.expand();
-        webApp.setHeaderColor?.("#267a5a");
-        webApp.setBackgroundColor?.("#fafbf8");
+        webApp.setHeaderColor?.("#6e5fd1");
+        webApp.setBackgroundColor?.("#f5f3ef");
       }
       await loadReport("", "", "");
     })();
@@ -315,7 +315,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[var(--app-background)] px-4 pb-28 pt-4 text-[var(--text-primary)] sm:px-6">
       <div className="mx-auto flex w-full max-w-[480px] flex-col gap-4 lg:max-w-5xl">
-        <AppHeader data={data} activeNav={activeNav} onSelectNav={selectNav} />
+        <AppHeader activeNav={activeNav} onSelectNav={selectNav} />
 
         {notice && (
           <section role="status" className="rounded-2xl border border-[var(--brand-purple-100)] bg-[var(--brand-purple-100)] px-4 py-3 text-sm leading-5 text-[var(--brand-purple-800)]">

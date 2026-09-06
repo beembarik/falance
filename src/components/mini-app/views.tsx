@@ -13,21 +13,21 @@ const navItems: Array<{ key: NavKey; label: string; color: "purple" | "coral" }>
   { key: "account", label: "Akun", color: "coral" },
 ];
 
-export function AppHeader({ data, activeNav, onSelectNav }: { data: ReportResponse | null; activeNav: NavKey; onSelectNav: (key: NavKey) => void }) {
+export function AppHeader({ activeNav, onSelectNav }: { activeNav: NavKey; onSelectNav: (key: NavKey) => void }) {
+  const pageTitle = activeNav === "home" ? "Beranda keluarga" : navItems.find((item) => item.key === activeNav)?.label;
+
   return (
-    <header className="app-header rounded-[24px] p-5 text-white shadow-[0_8px_28px_rgba(38,122,90,0.18)] sm:p-6">
-      <div className="flex items-start justify-between gap-4">
-        <button type="button" onClick={() => onSelectNav("home")} className="group text-left" aria-label="Buka Beranda Falancé">
-          <div className="flex items-center gap-2">
-            <Image className="brand-mark object-contain" src="/icon.png" alt="" aria-hidden="true" width={25} height={25} priority />
-            <span className="text-base font-bold tracking-tight">Falancé</span>
-          </div>
-          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Family finance, made simple</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">{activeNav === "home" ? "Beranda keluarga" : navItems.find((item) => item.key === activeNav)?.label}</h1>
+    <header className="app-intro-card rounded-2xl p-5 shadow-[var(--card-shadow)] sm:p-6">
+      <div className="flex items-start gap-3">
+        <button type="button" onClick={() => onSelectNav("home")} className="app-intro-logo shrink-0" aria-label="Buka Beranda Falancé">
+          <Image className="h-7 w-7 object-contain" src="/icon.png" alt="" aria-hidden="true" width={28} height={28} priority />
         </button>
-        <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-emerald-50">{data?.viewer.role || "Mini App"}</span>
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Family finance, made simple</p>
+          <h1 className="mt-1 text-[21px] font-bold tracking-tight text-[var(--text-primary)]">{pageTitle}</h1>
+          <p className="mt-1.5 text-sm leading-5 text-[var(--text-secondary)]">Ringkasan keuangan keluarga yang sedang aktif pada akun Telegram kamu.</p>
+        </div>
       </div>
-      <p className="mt-3 max-w-md text-sm leading-6 text-emerald-50">Ringkasan keuangan keluarga yang sedang aktif pada akun Telegram kamu.</p>
     </header>
   );
 }
