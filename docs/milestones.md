@@ -115,6 +115,7 @@ Urutan berikut disusun berdasarkan keputusan terakhir: Falancé harus tetap fung
 | P1 | Milestone 10 | Telegram Mini App Expansion | Memperluas report surface menjadi workspace transaksi dan laporan mobile-first setelah boundary report stabil. |
 | P2 | Milestone 11 | AI Usage, Quota, and Provider Reliability | Menyiapkan AI agar dapat digunakan secara terukur dan aman sebelum skala pengguna atau monetisasi. |
 | P2 | Milestone 12 | Supabase Migration | Mengatasi bottleneck Google Sheets melalui migrasi repository yang kompatibel tanpa mengubah kontrak Telegram atau aturan `family_id`. |
+| P2 | Milestone 15 | Planning Reminders and Due-Date Notifications | Mengirim reminder yang idempotent untuk occurrence rencana tanpa membuat transaksi aktual secara otomatis. |
 | P3 | Milestone 13 | Monetization and Expansion | Menambahkan plan, quota komersial, onboarding, public beta, dan ekspansi setelah reliability serta storage scale-out siap. |
 
 Milestone 8–13 di bawah ini adalah roadmap yang direncanakan, bukan pekerjaan yang sudah diimplementasikan. Setiap milestone harus mempertahankan satu deployment dengan isolasi server-side, role boundary yang sudah berlaku, soft-state untuk data penting, dan larangan membagikan Google Spreadsheet kepada pengguna.
@@ -179,11 +180,31 @@ Planned transactions and recurring liabilities remain a separate forecast bounda
 
 ## Milestone 14 — Budgeting and Financial Planning
 
-Status: IN PROGRESS — domain and Google Sheets foundation implemented
+Status: IN PROGRESS — planning input, forecast, Mini App, Telegram, and Supabase foundation implemented
 
 This milestone refactors Falancé from an actual-transaction tracker into a budgeting workspace without rewriting historical transaction semantics. The first slice introduces `Financial Plans` with server-resolved family ownership, planned income, planned expense, and recurring liability types, future-date validation, monthly recurrence expansion, lifecycle statuses, and registry integrity checks. Forecast rows remain separate from `Transactions`, so actual balances and reports are unchanged.
 
-Next slices should add authenticated Mini App and Telegram planning workflows, period forecast summaries per currency, planned-versus-actual comparison, and explicit budget envelopes/categories. Supabase parity, recurring occurrence completion, reminders, and automatic conversion of a planned item into an actual transaction require separate validation before production use.
+Planning input is available through the authenticated Mini App and Telegram commands. Period forecast summaries and planned-versus-actual comparison are grouped by currency, and Supabase schema/repository/import parity is implemented locally. Explicit budget envelopes/categories, recurring occurrence completion, reminders, and automatic conversion of a planned item into an actual transaction require separate validation before production use.
+
+## Milestone 15 — Planning Reminders and Due-Date Notifications
+
+Status: PLANNED — not implemented
+
+Milestone ini menambahkan notification layer untuk `PLAN_INCOME`, `PLAN_EXPENSE`, dan `RECURRING_LIABILITY`. Pada tanggal atau beberapa hari sebelum occurrence, sistem dapat mengirim reminder Telegram kepada penerima yang berwenang. Reminder hanya memberi tahu dan menyediakan action; reminder tidak mengubah saldo, tidak mengubah laporan aktual, dan tidak otomatis membuat `Transactions`.
+
+- [ ] Occurrence resolver yang konsisten untuk rencana sekali jalan dan bulanan
+- [ ] Konfigurasi reminder H-`n` dan hari-H dengan timezone bisnis yang terdokumentasi
+- [ ] Scheduler server-side dengan autentikasi secret terpisah
+- [ ] Durable reminder delivery row dengan key occurrence (`plan_id`, `occurrence_date`, offset, recipient)
+- [ ] Atomic claim, lease, retry terbatas, dan duplicate suppression lintas instance
+- [ ] Telegram delivery untuk reminder pendapatan, pengeluaran, dan recurring liability
+- [ ] Action terautentikasi `Lihat rencana`, `Sudah dibayar`, `Lewati occurrence`, dan `Catat sebagai transaksi`
+- [ ] `Catat sebagai transaksi` memakai validasi dan konfirmasi transaksi aktual yang sudah ada
+- [ ] Delivery status, acknowledgement status, dan safe failure diagnostics
+- [ ] Tests untuk timezone, month-end, leap day, missed window, replay, retry, privacy, dan family isolation
+- [ ] Guarded Preview rollout dan production replay validation sebelum aktivasi
+
+Spesifikasi operasional tersedia di [`docs/reminders.md`](reminders.md). Google Sheets read-then-update tidak boleh dianggap cukup untuk idempotency cross-instance; atomic claim sebaiknya menggunakan Supabase atau storage primitive conditional-write yang setara.
 
 When password protection is selected, the backend must encrypt the PDF before delivery. The password must not be returned in the same download URL, stored with the report, or automatically echoed back to the user. The export authorization check must occur before report generation and before any artifact is created.
 

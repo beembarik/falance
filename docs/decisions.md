@@ -100,6 +100,16 @@ Falancé akan memodelkan perencanaan keuangan sebagai forecast layer terpisah da
 
 Forecast tidak boleh mengubah saldo aktual, jumlah transaksi, laporan historis, atau data `VOID`. Nilai tetap dipisahkan menurut mata uang. Automatic posting, reminder, budget envelope, planned-versus-actual UI, dan Supabase parity memerlukan slice lanjutan dengan test dan operational validation tersendiri.
 
+## ADR-019: Reminders are notification-only until explicit transaction confirmation
+
+**Status:** Planned for Milestone 15; not implemented.
+
+Falancé akan menambahkan reminder sebagai notification layer di atas `Financial Plans`. Reminder dapat dikirim sebelum atau pada tanggal occurrence melalui scheduler server-side, tetapi tidak boleh dianggap sebagai pembayaran dan tidak boleh otomatis membuat row pada `Transactions`.
+
+Reminder production wajib memiliki occurrence key yang stabil, durable claim, lease, retry terbatas, dan duplicate suppression. Karena Google Sheets tidak menyediakan compare-and-swap, read-then-update tidak cukup untuk menjamin satu delivery lintas instance; Supabase atomic operation atau storage primitive conditional-write yang setara diperlukan sebelum rollout luas.
+
+Action `Catat sebagai transaksi` harus meminta konfirmasi eksplisit dan memakai `FamilyService.createTransaction` dengan aturan tanggal, nominal, currency, family isolation, dan audit yang sama seperti transaksi biasa. `Sudah dibayar` hanya boleh mencatat acknowledgement terhadap occurrence tertentu. Detail desain, privacy boundary, timezone, rollout, dan recovery tersedia di [`docs/reminders.md`](reminders.md).
+
 ## ADR-012: Dashboard snapshot, report analytics, and transaction provenance
 
 **Status:** Accepted; M10 Slices 12–14 production validated.
