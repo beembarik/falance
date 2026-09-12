@@ -8,6 +8,7 @@ import type {
   PendingConfirmation,
   PendingFamilyCreation,
   PendingTransactionDraft,
+  FinancialPlan,
   Transaction,
   MemberRole,
   MemberStatus,
@@ -77,6 +78,10 @@ export class SupabaseReadRepository implements FamilyRepository {
     return this.many("transactions", (query) => query.eq("family_id", familyId), toTransaction);
   }
 
+  async findFinancialPlansByFamilyId(familyId: string): Promise<FinancialPlan[]> {
+    return this.many("financial_plans", (query) => query.eq("family_id", familyId), toFinancialPlan);
+  }
+
   /* eslint-disable @typescript-eslint/no-unused-vars */
   createFamily(_family: Family): Promise<void> { return unsupported("createFamily"); }
   updateFamilyName(_familyId: string, _familyName: string): Promise<void> { return unsupported("updateFamilyName"); }
@@ -86,6 +91,8 @@ export class SupabaseReadRepository implements FamilyRepository {
   createAuditLog(_entry: AuditLogEntry): Promise<void> { return unsupported("createAuditLog"); }
   createTransaction(_transaction: Transaction): Promise<void> { return unsupported("createTransaction"); }
   updateTransaction(_transactionId: string, _transaction: Transaction): Promise<void> { return unsupported("updateTransaction"); }
+  createFinancialPlan(_plan: FinancialPlan): Promise<void> { return unsupported("createFinancialPlan"); }
+  updateFinancialPlan(_planId: string, _plan: FinancialPlan): Promise<void> { return unsupported("updateFinancialPlan"); }
   createMember(_member: FamilyMember): Promise<void> { return unsupported("createMember"); }
   updateMemberRole(_memberId: string, _newRole: MemberRole): Promise<void> { return unsupported("updateMemberRole"); }
   updateMemberStatus(_memberId: string, _newStatus: MemberStatus): Promise<void> { return unsupported("updateMemberStatus"); }
@@ -189,4 +196,15 @@ function toDraftApprovalClaim(row: Record<string, unknown>): DraftApprovalClaim 
 
 function toTransaction(row: Record<string, unknown>): Transaction {
   return { transactionId: requiredString(row, "transaction_id"), familyId: requiredString(row, "family_id"), transactionType: requiredString(row, "transaction_type") as Transaction["transactionType"], amountMinor: requiredNumber(row, "amount_minor"), currency: requiredString(row, "currency"), transactionDate: requiredString(row, "transaction_date"), description: requiredString(row, "description"), createdByMemberId: requiredString(row, "created_by_member_id"), createdAt: requiredTimestamp(row, "created_at"), status: requiredString(row, "status") as Transaction["status"], category: optionalString(row, "category") ?? "UNCATEGORIZED" };
+}
+
+function toFinancialPlan(row: Record<string, unknown>): FinancialPlan {
+  return {
+    planId: requiredString(row, "plan_id"), familyId: requiredString(row, "family_id"),
+    planningType: requiredString(row, "planning_type") as FinancialPlan["planningType"], amountMinor: requiredNumber(row, "amount_minor"),
+    currency: requiredString(row, "currency"), startDate: requiredString(row, "start_date"), endDate: optionalString(row, "end_date"),
+    recurrence: requiredString(row, "recurrence") as FinancialPlan["recurrence"], description: requiredString(row, "description"),
+    category: optionalString(row, "category") ?? undefined, createdByMemberId: requiredString(row, "created_by_member_id"),
+    createdAt: requiredTimestamp(row, "created_at"), status: requiredString(row, "status") as FinancialPlan["status"],
+  };
 }

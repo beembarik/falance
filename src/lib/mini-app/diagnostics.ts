@@ -8,7 +8,7 @@ export type MiniAppDiagnosticState =
   | "success"
   | "failure";
 
-export type MiniAppDiagnosticOperation = "account" | "report" | "family" | "transaction";
+export type MiniAppDiagnosticOperation = "account" | "report" | "family" | "transaction" | "plans";
 
 type SafeDiagnosticDetails = {
   status?: number;

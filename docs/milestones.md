@@ -177,6 +177,14 @@ Report access follows this role boundary: all active roles may view reports thro
 
 Planned transactions and recurring liabilities remain a separate forecast boundary. They must not affect actual balances before occurrence. AI insights are optional after the deterministic report core and are not a completion blocker for the first usable report release.
 
+## Milestone 14 — Budgeting and Financial Planning
+
+Status: IN PROGRESS — domain and Google Sheets foundation implemented
+
+This milestone refactors Falancé from an actual-transaction tracker into a budgeting workspace without rewriting historical transaction semantics. The first slice introduces `Financial Plans` with server-resolved family ownership, planned income, planned expense, and recurring liability types, future-date validation, monthly recurrence expansion, lifecycle statuses, and registry integrity checks. Forecast rows remain separate from `Transactions`, so actual balances and reports are unchanged.
+
+Next slices should add authenticated Mini App and Telegram planning workflows, period forecast summaries per currency, planned-versus-actual comparison, and explicit budget envelopes/categories. Supabase parity, recurring occurrence completion, reminders, and automatic conversion of a planned item into an actual transaction require separate validation before production use.
+
 When password protection is selected, the backend must encrypt the PDF before delivery. The password must not be returned in the same download URL, stored with the report, or automatically echoed back to the user. The export authorization check must occur before report generation and before any artifact is created.
 
 ## Milestone 10 — Telegram Mini App Expansion

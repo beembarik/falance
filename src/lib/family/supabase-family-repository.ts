@@ -1,5 +1,6 @@
 import type { FamilyRepository } from "./repository";
-import type { AuditLogEntry, Family, FamilyMember, Invitation, MemberRole, MemberStatus, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, Transaction } from "./types";
+import type { AuditLogEntry, Family, FamilyMember, FinancialPlan, Invitation, MemberRole, MemberStatus, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, Transaction } from "./types";
+import type { PlanningRepository } from "./planning-repository";
 import { SupabaseAtomicRepository, type SupabaseServerClient } from "./supabase-atomic-repository";
 
 export interface SupabaseWriteClient extends SupabaseServerClient {
@@ -9,7 +10,7 @@ export interface SupabaseWriteClient extends SupabaseServerClient {
 }
 
 /** Full repository implementation behind an explicit server-side client seam. */
-export class SupabaseFamilyRepository extends SupabaseAtomicRepository implements FamilyRepository {
+export class SupabaseFamilyRepository extends SupabaseAtomicRepository implements FamilyRepository, PlanningRepository {
   private readonly writeClient: SupabaseWriteClient;
 
   constructor(writeClient: SupabaseWriteClient) {
@@ -25,6 +26,8 @@ export class SupabaseFamilyRepository extends SupabaseAtomicRepository implement
   async createAuditLog(value: AuditLogEntry): Promise<void> { await this.insert("audit_log", { audit_id: value.auditId, family_id: value.familyId, actor_member_id: value.actorMemberId, actor_role: value.actorRole, action: value.action, target_type: value.targetType, target_id: value.targetId, previous_value: value.previousValue, new_value: value.newValue, created_at: value.createdAt }); }
   async createTransaction(value: Transaction): Promise<void> { await this.insert("transactions", transactionRow(value)); }
   async updateTransaction(transactionId: string, value: Transaction): Promise<void> { await this.update("transactions", { transaction_id: transactionId }, transactionRow(value)); }
+  async createFinancialPlan(value: FinancialPlan): Promise<void> { await this.insert("financial_plans", financialPlanRow(value)); }
+  async updateFinancialPlan(planId: string, value: FinancialPlan): Promise<void> { await this.update("financial_plans", { plan_id: planId }, financialPlanRow(value)); }
   async createMember(value: FamilyMember): Promise<void> { await this.insert("members", { member_id: value.memberId, family_id: value.familyId, telegram_user_id: value.telegramUserId, name: value.name, username: value.username, role: value.role, status: value.status, joined_at: value.joinedAt }); }
   async updateMemberRole(memberId: string, newRole: MemberRole): Promise<void> { await this.update("members", { member_id: memberId }, { role: newRole }); }
   async updateMemberStatus(memberId: string, newStatus: MemberStatus): Promise<void> { await this.update("members", { member_id: memberId }, { status: newStatus }); }
@@ -53,5 +56,6 @@ export class SupabaseFamilyRepository extends SupabaseAtomicRepository implement
 }
 
 function transactionRow(value: Transaction): Record<string, unknown> { return { transaction_id: value.transactionId, family_id: value.familyId, transaction_type: value.transactionType, amount_minor: value.amountMinor, currency: value.currency, transaction_date: value.transactionDate, description: value.description, category: value.category ?? null, created_by_member_id: value.createdByMemberId, created_at: value.createdAt, status: value.status }; }
+function financialPlanRow(value: FinancialPlan): Record<string, unknown> { return { plan_id: value.planId, family_id: value.familyId, planning_type: value.planningType, amount_minor: value.amountMinor, currency: value.currency, start_date: value.startDate, end_date: value.endDate, recurrence: value.recurrence, description: value.description, category: value.category ?? null, created_by_member_id: value.createdByMemberId, created_at: value.createdAt, status: value.status }; }
 function draftRow(value: PendingTransactionDraft): Record<string, unknown> { return { draft_id: value.draftId, telegram_user_id: value.telegramUserId, family_id: value.familyId, transaction_type: value.transactionType, amount_minor: value.amountMinor, currency: value.currency, transaction_date: value.transactionDate, description: value.description, confidence: value.confidence, transaction_date_inferred: value.transactionDateInferred ?? false, category_suggestion: value.categorySuggestion ?? null, description_suggestion: value.descriptionSuggestion ?? null, created_at: value.createdAt, expires_at: value.expiresAt, status: value.status }; }
 function writeError(): Error { return new Error("Supabase write failed."); }

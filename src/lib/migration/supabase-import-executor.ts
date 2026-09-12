@@ -35,6 +35,7 @@ const ALLOWED_TABLES = new Set([
   "ai_vision_usage",
   "ai_text_usage",
   "transactions",
+  "financial_plans",
 ]);
 
 export async function applySupabaseImport(plan: SupabaseImportPlan, transport: SupabaseImportTransport): Promise<SupabaseImportReport> {

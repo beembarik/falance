@@ -4,7 +4,8 @@ import {
   type GoogleOperation,
 } from "../google/sheets-client";
 import type { FamilyRepository } from "./repository";
-import type { AuditLogEntry, DraftApprovalClaim, Family, FamilyMember, Invitation, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, Transaction } from "./types";
+import type { PlanningRepository } from "./planning-repository";
+import type { AuditLogEntry, DraftApprovalClaim, Family, FamilyMember, FinancialPlan, Invitation, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, Transaction } from "./types";
 
 /**
  * Repository backed by the single Falancé database spreadsheet configured for
@@ -18,7 +19,7 @@ const textUsageClaimLocks = new Map<string, Promise<boolean>>();
 const draftApprovalClaimLocks = new Map<string, Promise<boolean>>();
 const TELEGRAM_UPDATE_CLAIM_LEASE_MS = 5 * 60 * 1000;
 
-export class GoogleSheetsFamilyRepository implements FamilyRepository {
+export class GoogleSheetsFamilyRepository implements FamilyRepository, PlanningRepository {
   private readonly client: GoogleSheetsClient;
 
   constructor(client = sharedGoogleSheetsClient) {
@@ -152,6 +153,33 @@ export class GoogleSheetsFamilyRepository implements FamilyRepository {
     return (await this.rows("Transactions", "readTransactions"))
       .filter((row) => row[1] === familyId)
       .map(transactionFromRow);
+  }
+
+  async createFinancialPlan(plan: FinancialPlan): Promise<void> {
+    const existing = (await this.findFinancialPlansByFamilyId(plan.familyId)).find((candidate) => candidate.planId === plan.planId);
+    if (existing) return;
+    await this.append("Financial Plans", [
+      plan.planId, plan.familyId, plan.planningType, String(plan.amountMinor), plan.currency,
+      plan.startDate, plan.endDate ?? "", plan.recurrence, plan.description, plan.category ?? "",
+      plan.createdByMemberId, plan.createdAt, plan.status,
+    ], "createFinancialPlan");
+  }
+
+  async updateFinancialPlan(planId: string, plan: FinancialPlan): Promise<void> {
+    const rows = await this.rows("Financial Plans", "readFinancialPlans");
+    const index = rows.findIndex((row) => row[0] === planId);
+    if (index < 0) throw new GoogleConfigurationError("Financial plan registry record is missing.");
+    await this.client.updateValues(this.registryId(), `Financial Plans!A${index + 2}`, [[
+      plan.planId, plan.familyId, plan.planningType, String(plan.amountMinor), plan.currency,
+      plan.startDate, plan.endDate ?? "", plan.recurrence, plan.description, plan.category ?? "",
+      plan.createdByMemberId, plan.createdAt, plan.status,
+    ]], "updateFinancialPlan");
+  }
+
+  async findFinancialPlansByFamilyId(familyId: string): Promise<FinancialPlan[]> {
+    return (await this.rows("Financial Plans", "readFinancialPlans"))
+      .filter((row) => row[1] === familyId)
+      .map(financialPlanFromRow);
   }
 
   async findFamilyById(familyId: string): Promise<Family | null> {
@@ -717,6 +745,15 @@ function transactionFromRow(row: string[]): Transaction {
     createdAt: row[8],
     status: row[9] as Transaction["status"],
     category: row[10] || "UNCATEGORIZED",
+  };
+}
+
+function financialPlanFromRow(row: string[]): FinancialPlan {
+  return {
+    planId: row[0], familyId: row[1], planningType: row[2] as FinancialPlan["planningType"],
+    amountMinor: Number(row[3]), currency: row[4], startDate: row[5], endDate: row[6] || null,
+    recurrence: row[7] as FinancialPlan["recurrence"], description: row[8], category: row[9] || undefined,
+    createdByMemberId: row[10], createdAt: row[11], status: row[12] as FinancialPlan["status"],
   };
 }
 

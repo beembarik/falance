@@ -9,6 +9,8 @@ import type {
   InvitationStatus,
   MemberRole,
   MemberStatus,
+  PlanningStatus,
+  PlanningType,
   TransactionDraftStatus,
   TransactionStatus,
   TransactionType,
@@ -39,6 +41,8 @@ const TRANSACTION_TYPES = new Set<TransactionType>(["INCOME", "EXPENSE"]);
 const TRANSACTION_STATUSES = new Set<TransactionStatus>(["ACTIVE", "VOID"]);
 const TRANSACTION_CATEGORIES = new Set<string>(CATEGORY_CODES);
 const TRANSACTION_DRAFT_STATUSES = new Set<TransactionDraftStatus>(["PENDING", "EDITING", "COMPLETED", "CANCELLED", "EXPIRED"]);
+const PLANNING_TYPES = new Set<PlanningType>(["PLAN_INCOME", "PLAN_EXPENSE", "RECURRING_LIABILITY"]);
+const PLANNING_STATUSES = new Set<PlanningStatus>(["ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"]);
 const DRAFT_APPROVAL_CLAIM_STATUSES = new Set<DraftApprovalClaimStatus>(["CLAIMED", "COMPLETED"]);
 const AUDIT_TARGET_TYPES = new Set<AuditTargetType>(["INVITATION", "MEMBER", "FAMILY", "TRANSACTION"]);
 const AUDIT_ACTIONS = new Set<AuditAction>([
@@ -77,6 +81,7 @@ export async function inspectRegistryIntegrity(
   validatePendingFamilyCreations(rowsBySheet.get("Pending Family Creations") ?? [], issues);
   validateDrafts(rowsBySheet.get("Pending Transaction Drafts") ?? [], rowsBySheet.get("Families") ?? [], rowsBySheet.get("Members") ?? [], issues);
   validateTransactions(rowsBySheet.get("Transactions") ?? [], rowsBySheet.get("Families") ?? [], rowsBySheet.get("Members") ?? [], issues);
+  validateFinancialPlans(rowsBySheet.get("Financial Plans") ?? [], rowsBySheet.get("Families") ?? [], rowsBySheet.get("Members") ?? [], issues);
   validateProcessedUpdates(rowsBySheet.get("Processed Telegram Updates") ?? [], issues);
   validateVisionUsage(rowsBySheet.get("AI Vision Usage") ?? [], rowsBySheet.get("Families") ?? [], rowsBySheet.get("Members") ?? [], issues);
   validateAiUsage("AI Text Usage", rowsBySheet.get("AI Text Usage") ?? [], rowsBySheet.get("Families") ?? [], rowsBySheet.get("Members") ?? [], issues);
@@ -199,6 +204,22 @@ function validateTransactions(rows: string[][], familyRows: string[][], memberRo
     if (!TRANSACTION_CATEGORIES.has(row[10])) issue(issues, "Transactions", rowNumber, "category", "INVALID_ENUM");
     if (!members.has(`${row[1]}:${row[7]}`)) issue(issues, "Transactions", rowNumber, "created_by_member_id", "ORPHAN_MEMBER");
     if (!Number.isSafeInteger(Number(row[3])) || Number(row[3]) <= 0) issue(issues, "Transactions", rowNumber, "amount_minor", "INVALID_AMOUNT");
+  });
+}
+
+function validateFinancialPlans(rows: string[][], familyRows: string[][], memberRows: string[][], issues: RegistryIntegrityIssue[]): void {
+  const familyIds = new Set(familyRows.map((row) => row[0]).filter(Boolean));
+  const members = new Set(memberRows.filter((row) => row[1]).map((row) => `${row[1]}:${row[0]}`));
+  const ids = new Set<string>();
+  forEachRow("Financial Plans", rows, (row, rowNumber) => {
+    required("Financial Plans", row, rowNumber, [0, 1, 2, 3, 4, 5, 7, 8, 10, 11, 12], issues);
+    unique("Financial Plans", row[0], ids, rowNumber, issues);
+    foreign("Financial Plans", rowNumber, "family_id", row[1], familyIds, issues);
+    if (!PLANNING_TYPES.has(row[2] as PlanningType)) issue(issues, "Financial Plans", rowNumber, "planning_type", "INVALID_ENUM");
+    if (!PLANNING_STATUSES.has(row[12] as PlanningStatus)) issue(issues, "Financial Plans", rowNumber, "status", "INVALID_ENUM");
+    if (!new Set(["ONCE", "MONTHLY"]).has(row[7])) issue(issues, "Financial Plans", rowNumber, "recurrence", "INVALID_ENUM");
+    if (!members.has(`${row[1]}:${row[10]}`)) issue(issues, "Financial Plans", rowNumber, "created_by_member_id", "ORPHAN_MEMBER");
+    if (!Number.isSafeInteger(Number(row[3])) || Number(row[3]) <= 0) issue(issues, "Financial Plans", rowNumber, "amount_minor", "INVALID_AMOUNT");
   });
 }
 

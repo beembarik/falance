@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CATEGORY_CODES, CATEGORY_LABELS } from "../lib/family/category-analytics";
 
 type ReportAction = { url: string; fileName: string };
-type NavKey = "home" | "transactions" | "reports" | "account";
+type NavKey = "home" | "transactions" | "reports" | "planning" | "account";
 type TransactionFilter = "ALL" | "INCOME" | "EXPENSE";
 type FamilyAction = "CREATE_INVITATION" | "RENAME_FAMILY" | "CHANGE_MEMBER_ROLE" | "REQUEST_DEACTIVATE_MEMBER" | "CONFIRM_DEACTIVATE_MEMBER" | "CANCEL_DEACTIVATE_MEMBER";
 type FamilyActionFields = { familyName?: string; memberId?: string; role?: "ADMIN" | "MEMBER" };
@@ -42,6 +42,17 @@ type ReportResponse = {
       netMinor: string;
       transactionCount: number;
     }>;
+    plannedActual: Array<{
+      currency: string;
+      plannedIncomeMinor: string;
+      actualIncomeMinor: string;
+      plannedExpenseMinor: string;
+      actualExpenseMinor: string;
+      plannedNetMinor: string;
+      actualNetMinor: string;
+      plannedOccurrenceCount: number;
+      actualTransactionCount: number;
+    }>;
     transactions: Array<{
       transactionId: string;
       transactionType: "INCOME" | "EXPENSE";
@@ -53,6 +64,20 @@ type ReportResponse = {
       creatorName: string;
     }>;
   };
+};
+
+type PlanningResponse = {
+  plans: Array<{
+    planId: string;
+    planningType: "PLAN_INCOME" | "PLAN_EXPENSE" | "RECURRING_LIABILITY";
+    amountMinor: string;
+    currency: string;
+    startDate: string;
+    endDate: string | null;
+    recurrence: "ONCE" | "MONTHLY";
+    description: string;
+    status: string;
+  }>;
 };
 
 type AccountResponse = {
@@ -84,6 +109,7 @@ const navItems: Array<{ key: NavKey; label: string; icon: string }> = [
   { key: "home", label: "Beranda", icon: "⌂" },
   { key: "transactions", label: "Transaksi", icon: "▤" },
   { key: "reports", label: "Laporan", icon: "▥" },
+  { key: "planning", label: "Rencana", icon: "◈" },
   { key: "account", label: "Akun", icon: "♙" },
 ];
 
@@ -106,6 +132,9 @@ export default function Home() {
   const [accountData, setAccountData] = useState<AccountResponse | null>(null);
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountError, setAccountError] = useState("");
+  const [planningData, setPlanningData] = useState<PlanningResponse | null>(null);
+  const [planningLoading, setPlanningLoading] = useState(false);
+  const [planningError, setPlanningError] = useState("");
   const [addTransactionOpen, setAddTransactionOpen] = useState(false);
   const [comparison, setComparison] = useState<ReportResponse | null>(null);
   const [comparisonLoading, setComparisonLoading] = useState(false);
@@ -192,11 +221,36 @@ export default function Home() {
     }
   }, []);
 
+  const loadPlanning = useCallback(async () => {
+    if (!initDataRef.current) {
+      setPlanningError("Buka halaman ini dari Telegram Mini App agar rencana dapat dimuat.");
+      return;
+    }
+    setPlanningLoading(true);
+    setPlanningError("");
+    try {
+      const response = await fetch("/api/mini-app/plans", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ initData: initDataRef.current }),
+      });
+      const payload = await response.json() as PlanningResponse & { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Rencana tidak dapat dimuat.");
+      setPlanningData(payload);
+    } catch (planningLoadError) {
+      setPlanningData(null);
+      setPlanningError(planningLoadError instanceof Error ? planningLoadError.message : "Rencana tidak dapat dimuat.");
+    } finally {
+      setPlanningLoading(false);
+    }
+  }, []);
+
   const selectNav = useCallback((key: NavKey) => {
     setActiveNav(key);
     setNotice("");
     if (key === "account") void loadAccount();
-  }, [loadAccount]);
+    if (key === "planning") void loadPlanning();
+  }, [loadAccount, loadPlanning]);
 
   const handleFamilyAction = useCallback(async (action: FamilyAction, fields: FamilyActionFields = {}) => {
     const currentInitData = initDataRef.current || window.Telegram?.WebApp?.initData || "";
@@ -448,6 +502,16 @@ export default function Home() {
             csvDownloadSupported={csvDownloadSupported}
             categoryFilter={categoryFilter}
             onCategoryFilterChange={setCategoryFilter}
+          />
+        )}
+
+        {activeNav === "planning" && (
+          <PlanningView
+            data={data}
+            planningData={planningData}
+            loading={planningLoading}
+            error={planningError}
+            onRetry={() => void loadPlanning()}
           />
         )}
 
@@ -929,6 +993,8 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
 
       <CashFlowSection points={data.report.cashFlow} />
 
+      <PlannedActualSection summaries={data.report.plannedActual} />
+
       <CategoryExpenseSection summaries={data.report.categorySummaries} selected={categoryFilter} onSelect={onCategoryFilterChange} />
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
@@ -939,6 +1005,29 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
       {(categoryFilter || filteredTransactions.length > 0) && <section id="category-drilldown" className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Detail transaksi</h2>{categoryFilter && <p className="mt-1 text-xs text-[var(--text-secondary)]">{getCategoryLabel(categoryFilter.category)} · {categoryFilter.currency}</p>}</div><div className="flex items-center gap-2"><span className="text-xs text-[var(--text-secondary)]">{filteredTransactions.length} dimuat</span>{categoryFilter && <button type="button" onClick={() => onCategoryFilterChange(null)} className="min-h-9 rounded-lg px-2 text-xs font-semibold text-[var(--brand-green-700)] hover:bg-[var(--brand-green-50)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">Hapus filter</button>}</div></div>{filteredTransactions.length > 0 ? <div className="mt-3 divide-y divide-[var(--border)]">{filteredTransactions.map((transaction) => <TransactionRow key={transaction.transactionId} transaction={transaction} />)}</div> : <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--text-secondary)]">Belum ada transaksi yang cocok pada daftar report yang dimuat.</p>}{categoryFilter && data.report.transactions.length === 50 && <p className="mt-4 rounded-xl bg-[var(--brand-purple-100)] p-3 text-xs leading-5 text-[var(--brand-purple-800)]">Drill-down menampilkan transaksi yang tersedia pada daftar report (maksimal 50 transaksi terbaru).</p>}</section>}
     </>
   );
+}
+
+function PlanningView({ data, planningData, loading, error, onRetry }: { data: ReportResponse | null; planningData: PlanningResponse | null; loading: boolean; error: string; onRetry: () => void }) {
+  return <div className="space-y-4">
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Forecast keluarga</p>
+      <h2 className="mt-1 text-xl font-bold">Rencana keuangan</h2>
+      <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">Rencana pendapatan, pengeluaran, dan recurring liability dipisahkan dari transaksi aktual.</p>
+    </section>
+    {loading && <LoadingState />}
+    {error && <section role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">{error}<button type="button" onClick={onRetry} className="mt-3 block min-h-10 rounded-xl bg-[var(--brand-green-700)] px-4 text-sm font-semibold text-white">Coba lagi</button></section>}
+    {!loading && !error && planningData?.plans.length === 0 && <PlaceholderView title="Belum ada rencana" description="Buat rencana pendapatan, pengeluaran, atau recurring liability melalui Telegram." actionLabel="Muat ulang" onAction={onRetry} />}
+    {!loading && !error && planningData && planningData.plans.length > 0 && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="divide-y divide-[var(--border)]">{planningData.plans.map((plan) => <article key={plan.planId} className="py-3 first:pt-0 last:pb-0"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold">{planningLabel(plan.planningType)}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">Mulai {formatDisplayDate(plan.startDate)} · {plan.recurrence === "MONTHLY" ? "Bulanan" : "Sekali"}</p><p className="mt-1 text-sm">{plan.description}</p></div><p className="shrink-0 text-sm font-bold">{formatAmount(plan.amountMinor, plan.currency)}</p></div></article>)}</div></section>}
+    {data && <PlannedActualSection summaries={data.report.plannedActual} />}
+  </div>;
+}
+
+function PlannedActualSection({ summaries }: { summaries: ReportResponse["report"]["plannedActual"] }) {
+  return <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green-700)]">Rencana vs aktual</p><h2 className="mt-1 text-lg font-bold">Progress periode terpilih</h2><p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Forecast dan transaksi aktual ditampilkan terpisah per mata uang.</p></div>{summaries.length === 0 ? <p className="mt-4 rounded-xl bg-[var(--surface-soft)] p-4 text-sm text-[var(--text-secondary)]">Belum ada rencana atau transaksi pada periode ini.</p> : <div className="mt-4 grid gap-3 sm:grid-cols-2">{summaries.map((summary) => <article key={summary.currency} className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-4"><div className="flex items-center justify-between"><span className="rounded-full bg-[var(--brand-purple-100)] px-2.5 py-1 text-xs font-bold text-[var(--brand-purple-800)]">{summary.currency}</span><span className="text-xs text-[var(--text-secondary)]">{summary.plannedOccurrenceCount} rencana · {summary.actualTransactionCount} aktual</span></div><dl className="mt-3 space-y-2 text-sm"><div className="flex justify-between gap-2"><dt>Rencana pemasukan</dt><dd className="font-semibold text-[var(--brand-green-700)]">{formatAmount(summary.plannedIncomeMinor, summary.currency)}</dd></div><div className="flex justify-between gap-2"><dt>Aktual pemasukan</dt><dd className="font-semibold">{formatAmount(summary.actualIncomeMinor, summary.currency)}</dd></div><div className="flex justify-between gap-2"><dt>Rencana pengeluaran</dt><dd className="font-semibold text-[#9F3D34]">{formatAmount(summary.plannedExpenseMinor, summary.currency)}</dd></div><div className="flex justify-between gap-2"><dt>Aktual pengeluaran</dt><dd className="font-semibold">{formatAmount(summary.actualExpenseMinor, summary.currency)}</dd></div></dl></article>)}</div>}</section>;
+}
+
+function planningLabel(type: PlanningResponse["plans"][number]["planningType"]): string {
+  return type === "PLAN_INCOME" ? "Rencana pendapatan" : type === "PLAN_EXPENSE" ? "Rencana pengeluaran" : "Recurring liability";
 }
 
 function MetricCard({ summary }: { summary: ReportResponse["report"]["currencies"][number] }) {
@@ -962,7 +1051,7 @@ function LoadingState() {
 }
 
 function BottomNavigation({ activeNav, onSelect, onAddTransaction }: { activeNav: NavKey; onSelect: (key: NavKey) => void; onAddTransaction: () => void }) {
-  return <nav aria-label="Navigasi Mini App" className="bottom-nav fixed inset-x-0 bottom-0 z-20 border-t border-[var(--border)] bg-[color:var(--surface)]/95 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)] pt-2 backdrop-blur sm:px-6"><div className="mx-auto grid max-w-[480px] grid-cols-5 items-end gap-1 lg:max-w-5xl"><NavButton item={navItems[0]} active={activeNav === "home"} onClick={() => onSelect("home")} /><NavButton item={navItems[1]} active={activeNav === "transactions"} onClick={() => onSelect("transactions")} /><button type="button" onClick={onAddTransaction} aria-label="Tambah transaksi" className="primary-fab mx-auto -mt-7 grid h-14 w-14 place-items-center rounded-full border-4 border-[var(--app-background)] bg-[var(--brand-green-700)] text-3xl font-light leading-none text-white shadow-[0_6px_20px_rgba(38,122,90,0.28)] transition hover:-translate-y-0.5 hover:bg-[var(--brand-green-600)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">+</button><NavButton item={navItems[2]} active={activeNav === "reports"} onClick={() => onSelect("reports")} /><NavButton item={navItems[3]} active={activeNav === "account"} onClick={() => onSelect("account")} /></div></nav>;
+  return <nav aria-label="Navigasi Mini App" className="bottom-nav fixed inset-x-0 bottom-0 z-20 border-t border-[var(--border)] bg-[color:var(--surface)]/95 px-1 pb-[calc(env(safe-area-inset-bottom)+8px)] pt-2 backdrop-blur sm:px-6"><div className="mx-auto grid max-w-[560px] grid-cols-6 items-end gap-1 lg:max-w-5xl"><NavButton item={navItems[0]} active={activeNav === "home"} onClick={() => onSelect("home")} /><NavButton item={navItems[1]} active={activeNav === "transactions"} onClick={() => onSelect("transactions")} /><button type="button" onClick={onAddTransaction} aria-label="Tambah transaksi" className="primary-fab mx-auto -mt-7 grid h-14 w-14 place-items-center rounded-full border-4 border-[var(--app-background)] bg-[var(--brand-green-700)] text-3xl font-light leading-none text-white shadow-[0_6px_20px_rgba(38,122,90,0.28)] transition hover:-translate-y-0.5 hover:bg-[var(--brand-green-600)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-green-500)]">+</button><NavButton item={navItems[2]} active={activeNav === "reports"} onClick={() => onSelect("reports")} /><NavButton item={navItems[3]} active={activeNav === "planning"} onClick={() => onSelect("planning")} /><NavButton item={navItems[4]} active={activeNav === "account"} onClick={() => onSelect("account")} /></div></nav>;
 }
 
 function NavButton({ item, active, onClick }: { item: { key: NavKey; label: string; icon: string }; active: boolean; onClick: () => void }) {

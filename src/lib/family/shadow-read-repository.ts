@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { FamilyRepository } from "./repository";
-import type { AuditLogEntry, DraftApprovalClaim, Family, FamilyMember, Invitation, MemberRole, MemberStatus, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, Transaction } from "./types";
+import type { AuditLogEntry, DraftApprovalClaim, Family, FamilyMember, FinancialPlan, Invitation, MemberRole, MemberStatus, PendingConfirmation, PendingFamilyCreation, PendingTransactionDraft, Transaction } from "./types";
 
 /**
  * Keeps the primary repository authoritative while asynchronously comparing read
@@ -31,6 +31,7 @@ export class ShadowReadRepository implements FamilyRepository {
   async findPendingTransactionDraft(telegramUserId: string): Promise<PendingTransactionDraft | null> { return this.read("findPendingTransactionDraft", () => this.primary.findPendingTransactionDraft(telegramUserId), () => this.secondary.findPendingTransactionDraft(telegramUserId)); }
   async findDraftApprovalClaim(draftId: string): Promise<DraftApprovalClaim | null> { return this.read("findDraftApprovalClaim", () => this.primary.findDraftApprovalClaim(draftId), () => this.secondary.findDraftApprovalClaim(draftId)); }
   async findTransactionsByFamilyId(familyId: string): Promise<Transaction[]> { return this.read("findTransactionsByFamilyId", () => this.primary.findTransactionsByFamilyId(familyId), () => this.secondary.findTransactionsByFamilyId(familyId)); }
+  async findFinancialPlansByFamilyId(familyId: string): Promise<FinancialPlan[]> { return this.read("findFinancialPlansByFamilyId", () => this.planning(this.primary).findFinancialPlansByFamilyId(familyId), () => this.planning(this.secondary).findFinancialPlansByFamilyId(familyId)); }
 
   createFamily(value: Family): Promise<void> { return this.primary.createFamily(value); }
   updateFamilyName(familyId: string, familyName: string): Promise<void> { return this.primary.updateFamilyName(familyId, familyName); }
@@ -40,6 +41,8 @@ export class ShadowReadRepository implements FamilyRepository {
   createAuditLog(value: AuditLogEntry): Promise<void> { return this.primary.createAuditLog(value); }
   createTransaction(value: Transaction): Promise<void> { return this.primary.createTransaction(value); }
   updateTransaction(transactionId: string, value: Transaction): Promise<void> { return this.primary.updateTransaction(transactionId, value); }
+  createFinancialPlan(value: FinancialPlan): Promise<void> { return this.planning(this.primary).createFinancialPlan(value); }
+  updateFinancialPlan(planId: string, value: FinancialPlan): Promise<void> { return this.planning(this.primary).updateFinancialPlan(planId, value); }
   createMember(value: FamilyMember): Promise<void> { return this.primary.createMember(value); }
   updateMemberRole(memberId: string, newRole: MemberRole): Promise<void> { return this.primary.updateMemberRole(memberId, newRole); }
   updateMemberStatus(memberId: string, newStatus: MemberStatus): Promise<void> { return this.primary.updateMemberStatus(memberId, newStatus); }
@@ -68,6 +71,10 @@ export class ShadowReadRepository implements FamilyRepository {
       });
     }
     return result;
+  }
+
+  private planning(repository: FamilyRepository): FamilyRepository & { findFinancialPlansByFamilyId: (familyId: string) => Promise<FinancialPlan[]>; createFinancialPlan: (plan: FinancialPlan) => Promise<void>; updateFinancialPlan: (planId: string, plan: FinancialPlan) => Promise<void> } {
+    return repository as FamilyRepository & { findFinancialPlansByFamilyId: (familyId: string) => Promise<FinancialPlan[]>; createFinancialPlan: (plan: FinancialPlan) => Promise<void>; updateFinancialPlan: (planId: string, plan: FinancialPlan) => Promise<void> };
   }
 
   private shouldCompare(): boolean {

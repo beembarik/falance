@@ -38,6 +38,7 @@ const SHEET_RULES: Record<string, SheetRule> = {
   "AI Vision Usage": { primaryKey: "usage_key", required: ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"], enums: { status: ["IN_FLIGHT", "COMPLETED"] } },
   "AI Text Usage": { primaryKey: "usage_key", required: ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"], enums: { status: ["IN_FLIGHT", "COMPLETED"] } },
   Transactions: { primaryKey: "transaction_id", required: ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status"], enums: { transaction_type: ["INCOME", "EXPENSE"], status: ["ACTIVE", "VOID"] } },
+  "Financial Plans": { primaryKey: "plan_id", required: ["plan_id", "family_id", "planning_type", "amount_minor", "currency", "start_date", "recurrence", "description", "created_by_member_id", "created_at", "status"], enums: { planning_type: ["PLAN_INCOME", "PLAN_EXPENSE", "RECURRING_LIABILITY"], recurrence: ["ONCE", "MONTHLY"], status: ["ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"] } },
 };
 
 export function rehearseSupabaseMigration(snapshot: MigrationSnapshot): MigrationRehearsalReport {
@@ -60,12 +61,12 @@ export function rehearseSupabaseMigration(snapshot: MigrationSnapshot): Migratio
 
   const familyIds = values(sheets.Families, "family_id");
   const memberIds = values(sheets.Members, "member_id");
-  for (const sheetName of ["Members", "Invitations", "Pending Confirmations", "Pending Transaction Drafts", "Draft Approval Claims", "AI Vision Usage", "AI Text Usage", "Transactions", "Audit Log"]) {
+  for (const sheetName of ["Members", "Invitations", "Pending Confirmations", "Pending Transaction Drafts", "Draft Approval Claims", "AI Vision Usage", "AI Text Usage", "Transactions", "Financial Plans", "Audit Log"]) {
     for (const row of sheets[sheetName] ?? []) {
       if (typeof row.family_id === "string" && !familyIds.has(row.family_id)) issues.push({ sheet: sheetName, code: "ORPHAN_FAMILY_REFERENCE" });
     }
   }
-  for (const sheetName of ["Transactions", "Audit Log"]) {
+  for (const sheetName of ["Transactions", "Financial Plans", "Audit Log"]) {
     for (const row of sheets[sheetName] ?? []) {
       if (typeof row.created_by_member_id === "string" && !memberIds.has(row.created_by_member_id)) issues.push({ sheet: sheetName, code: "ORPHAN_MEMBER_REFERENCE" });
       if (typeof row.actor_member_id === "string" && !memberIds.has(row.actor_member_id)) issues.push({ sheet: sheetName, code: "ORPHAN_MEMBER_REFERENCE" });

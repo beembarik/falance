@@ -8,7 +8,7 @@ Google Sheets is an implementation detail behind the repository abstraction. Dom
 
 ## Storage layout
 
-The central registry currently creates or verifies the following twelve sheets:
+The central registry currently creates or verifies the following fourteen sheets:
 
 | Sheet | Purpose |
 | --- | --- |
@@ -21,6 +21,7 @@ The central registry currently creates or verifies the following twelve sheets:
 | `Pending Transaction Drafts` | Server-persisted five-minute AI transaction drafts awaiting `Ya`, `Edit`, or cancellation. |
 | `Audit Log` | Append-only successful administrative actions with opaque actor and target identifiers. |
 | `Transactions` | Family-scoped `INCOME` and `EXPENSE` records with soft `ACTIVE`/`VOID` status. |
+| `Financial Plans` | Family-scoped planned income, planned expense, and recurring-liability forecast records. |
 | `Processed Telegram Updates` | Deployment-scoped durable update claims and completion state for Telegram replay suppression. |
 | `AI Vision Usage` | Durable cooldown, rolling-window quota, and in-flight lease state for receipt vision. |
 | `Draft Approval Claims` | Durable approval claims with lease and completion state for idempotent draft persistence. |
@@ -67,6 +68,10 @@ Central repository → FamilyService → authenticated Mini App API → domain-s
 ```
 
 Components must not call Google Sheets, receive spreadsheet identifiers, or resolve family membership themselves. A future Mini App write endpoint must validate raw Telegram `initData`, resolve active membership and `family_id` server-side, enforce the role and lifecycle rules in `FamilyService`, and then persist through the repository abstraction. Client-provided `family_id`, spreadsheet IDs, Telegram user IDs, or other storage identifiers are never authorization inputs.
+
+## Planning boundary
+
+Budgeting is modeled as a forecast layer beside actual transactions. `Financial Plans` stores `PLAN_INCOME`, `PLAN_EXPENSE`, and `RECURRING_LIABILITY` rows with their own lifecycle and recurrence fields. Planning rows may use future dates and are never included in actual transaction balances or historical reports. Forecast views expand active monthly plans for a requested period and keep amounts grouped by currency.
 
 ## Family creation
 

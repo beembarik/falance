@@ -128,6 +128,17 @@ export async function POST(request: Request): Promise<Response> {
           netMinor: String(point.netMinor),
           transactionCount: point.transactionCount,
         })),
+        plannedActual: report.plannedActual.map((summary) => ({
+          currency: summary.currency,
+          plannedIncomeMinor: String(summary.plannedIncomeMinor),
+          actualIncomeMinor: String(summary.actualIncomeMinor),
+          plannedExpenseMinor: String(summary.plannedExpenseMinor),
+          actualExpenseMinor: String(summary.actualExpenseMinor),
+          plannedNetMinor: String(summary.plannedNetMinor),
+          actualNetMinor: String(summary.actualNetMinor),
+          plannedOccurrenceCount: summary.plannedOccurrenceCount,
+          actualTransactionCount: summary.actualTransactionCount,
+        })),
         transactions: report.transactions.map((transaction) => ({
           transactionId: transaction.transactionId,
           transactionType: transaction.transactionType,

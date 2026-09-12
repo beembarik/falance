@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { getBusinessDate } from "../time/business-date";
 import { DEFAULT_CURRENCY_CODE, isSupportedCurrencyCode } from "./currency";
 import { buildFinancialReport, getFinancialReportPeriod, type FinancialReport } from "./report";
+import { normalizeFinancialPlanInput, type CreateFinancialPlanInput } from "./planning";
+import type { PlanningRepository } from "./planning-repository";
 import { isTransactionCategory } from "./category-analytics";
 import { withKeyLocks } from "../concurrency/keyed-mutex";
 import { BetaCapacityError, getBetaMaxActiveMembersPerFamily, getBetaMaxFamilies, isPublicBetaEnabled } from "../beta/policy";
@@ -13,6 +15,7 @@ import type {
   ConfirmationAction,
   Family,
   FamilyMember,
+  FinancialPlan,
   Invitation,
   MemberRole,
   PendingConfirmation,
@@ -699,6 +702,7 @@ export class FamilyService {
     await this.requireActiveFamily(member.familyId);
     const period = getFinancialReportPeriod(month, startDate, endDate);
     const transactions = await this.repository.findTransactionsByFamilyId(member.familyId);
+    const plans = await this.findFinancialPlans(member.familyId);
     const creatorNames = new Map((await this.repository.findMembersByFamilyId(member.familyId)).map((familyMember) => [familyMember.memberId, familyMember.name] as const));
     return buildFinancialReport(
       transactions,
@@ -706,7 +710,52 @@ export class FamilyService {
       undefined,
       member.familyId,
       creatorNames,
+      plans,
     );
+  }
+
+  async createFinancialPlan(user: TelegramUser, input: CreateFinancialPlanInput): Promise<FinancialPlan> {
+    const member = await this.requireActiveMember(user.telegramUserId);
+    await this.requireActiveFamily(member.familyId);
+    const repository = this.getPlanningRepository();
+    const normalized = normalizeFinancialPlanInput(input);
+    const plan: FinancialPlan = {
+      planId: createId("plan"),
+      familyId: member.familyId,
+      planningType: normalized.planningType,
+      amountMinor: normalized.amountMinor,
+      currency: normalized.currency!,
+      startDate: normalized.startDate,
+      endDate: normalized.endDate!,
+      recurrence: normalized.recurrence!,
+      description: normalized.description,
+      category: normalized.category ?? undefined,
+      createdByMemberId: member.memberId,
+      createdAt: new Date().toISOString(),
+      status: "ACTIVE",
+    };
+    await repository.createFinancialPlan(plan);
+    return plan;
+  }
+
+  async listFinancialPlans(telegramUserId: string): Promise<FinancialPlan[]> {
+    const member = await this.requireActiveMember(telegramUserId);
+    await this.requireActiveFamily(member.familyId);
+    return this.findFinancialPlans(member.familyId);
+  }
+
+  private async findFinancialPlans(familyId: string): Promise<FinancialPlan[]> {
+    const repository = this.repository as FamilyRepository & Partial<PlanningRepository>;
+    if (!repository.findFinancialPlansByFamilyId) return [];
+    return repository.findFinancialPlansByFamilyId(familyId);
+  }
+
+  private getPlanningRepository(): PlanningRepository {
+    const repository = this.repository as FamilyRepository & Partial<PlanningRepository>;
+    if (!repository.createFinancialPlan || !repository.findFinancialPlansByFamilyId || !repository.updateFinancialPlan) {
+      throw new FamilyServiceError("Financial planning is not available for this persistence backend.");
+    }
+    return repository as FamilyRepository & PlanningRepository;
   }
 
   async getFinancialExportReport(

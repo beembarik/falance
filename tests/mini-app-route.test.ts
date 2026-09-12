@@ -41,11 +41,13 @@ test("Mini App report returns signed export actions for an authorized OWNER", as
     findActiveMemberByTelegramUserId: typeof prototype.findActiveMemberByTelegramUserId;
     findFamilyById: typeof prototype.findFamilyById;
     findTransactionsByFamilyId: typeof prototype.findTransactionsByFamilyId;
+    findFinancialPlansByFamilyId: typeof prototype.findFinancialPlansByFamilyId;
     findMembersByFamilyId: typeof prototype.findMembersByFamilyId;
   };
   const originalFindMember = repository.findActiveMemberByTelegramUserId;
   const originalFindFamily = repository.findFamilyById;
   const originalFindTransactions = repository.findTransactionsByFamilyId;
+  const originalFindFinancialPlans = repository.findFinancialPlansByFamilyId;
   const originalFindMembers = repository.findMembersByFamilyId;
   repository.findActiveMemberByTelegramUserId = async () => ({
     memberId: "mem_100",
@@ -88,6 +90,7 @@ test("Mini App report returns signed export actions for an authorized OWNER", as
     createdAt: "2026-08-20T00:00:00.000Z",
     status: "ACTIVE",
   }];
+  repository.findFinancialPlansByFamilyId = async () => [];
   try {
     const params = new URLSearchParams({
       auth_date: String(Math.floor(Date.now() / 1000)),
@@ -123,6 +126,7 @@ test("Mini App report returns signed export actions for an authorized OWNER", as
     repository.findActiveMemberByTelegramUserId = originalFindMember;
     repository.findFamilyById = originalFindFamily;
     repository.findTransactionsByFamilyId = originalFindTransactions;
+    repository.findFinancialPlansByFamilyId = originalFindFinancialPlans;
     repository.findMembersByFamilyId = originalFindMembers;
     restoreEnv("TELEGRAM_BOT_TOKEN", originalToken);
     restoreEnv("FALANCE_REPORT_TOKEN_SECRET", originalSecret);

@@ -92,6 +92,14 @@ The implementation appends `category` as the final column of the existing centra
 
 This ADR authorizes the read-only category summary and per-currency expense visualization in M10 Slice 11, with the Laporan placement validated in M10 Slice 12. It does not authorize budgets, payment methods, recurring liabilities, AI financial insight, or Mini App receipt scanning. Those remain separate decisions and implementation slices.
 
+## ADR-018: Forecast planning is separate from actual transactions
+
+**Status:** Accepted; Milestone 14 foundation implemented.
+
+Falancé akan memodelkan perencanaan keuangan sebagai forecast layer terpisah dari `Transactions`. Tipe awalnya adalah `PLAN_INCOME`, `PLAN_EXPENSE`, dan `RECURRING_LIABILITY`; semuanya memakai `family_id` dan `created_by_member_id` yang diselesaikan server-side. Rencana boleh memiliki tanggal masa depan, recurrence `ONCE` atau `MONTHLY`, serta status `ACTIVE`, `PAUSED`, `COMPLETED`, atau `CANCELLED`.
+
+Forecast tidak boleh mengubah saldo aktual, jumlah transaksi, laporan historis, atau data `VOID`. Nilai tetap dipisahkan menurut mata uang. Automatic posting, reminder, budget envelope, planned-versus-actual UI, dan Supabase parity memerlukan slice lanjutan dengan test dan operational validation tersendiri.
+
 ## ADR-012: Dashboard snapshot, report analytics, and transaction provenance
 
 **Status:** Accepted; M10 Slices 12–14 production validated.

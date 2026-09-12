@@ -31,6 +31,8 @@ import { createReceiptParser, ReceiptParserUnavailableError, type ReceiptParser 
 import { formatMembersMessage } from "./member-message";
 import { formatFinancialReportMessage } from "./report-message";
 import { formatTransactionCreatedMessage, formatTransactionsMessage } from "./transaction-message";
+import { formatFinancialPlanMessage, formatFinancialPlansMessage } from "./planning-message";
+import { parsePlanningCommand, PlanningCommandError } from "./planning-command";
 import { parseEditDraftCommand, parseEditTransactionCommand, parseManualTransactionCommand, TransactionCommandError } from "./transaction-command";
 import { telegramCode } from "./html";
 import { buildInvitationShareMessage } from "./invitation-share";
@@ -160,6 +162,16 @@ export async function handleTelegramTextMessageResponse(
       const family = await service.getActiveFamily(user.telegramUserId);
       return formatTransactionsMessage(family, await service.listTransactions(user.telegramUserId));
     }
+    if (command.startsWith("/planincome")) {
+      return formatFinancialPlanMessage(await service.createFinancialPlan(user, parsePlanningCommand(command, "/planincome", "PLAN_INCOME")));
+    }
+    if (command.startsWith("/planexpense")) {
+      return formatFinancialPlanMessage(await service.createFinancialPlan(user, parsePlanningCommand(command, "/planexpense", "PLAN_EXPENSE")));
+    }
+    if (command.startsWith("/liability")) {
+      return formatFinancialPlanMessage(await service.createFinancialPlan(user, parsePlanningCommand(command, "/liability", "RECURRING_LIABILITY")));
+    }
+    if (command === "/plans") return formatFinancialPlansMessage(await service.listFinancialPlans(user.telegramUserId));
     if (command === "/report" || command.startsWith("/report ")) {
       const periodArgument = command.slice("/report".length).trim();
       if (periodArgument.split(/\s+/).filter(Boolean).length > 1) {
@@ -301,6 +313,7 @@ export async function handleTelegramTextMessageResponse(
     }
     return "Falancé sedang dalam pengembangan. Fitur pencatatan keuangan akan segera hadir.";
   } catch (error) {
+    if (error instanceof PlanningCommandError) return error.message;
     return messageForError(error);
   }
 }

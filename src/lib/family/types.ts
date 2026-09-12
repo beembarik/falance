@@ -44,6 +44,27 @@ export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 export const TRANSACTION_STATUSES = ["ACTIVE", "VOID"] as const;
 export type TransactionStatus = (typeof TRANSACTION_STATUSES)[number];
 
+export const PLANNING_TYPES = ["PLAN_INCOME", "PLAN_EXPENSE", "RECURRING_LIABILITY"] as const;
+export type PlanningType = (typeof PLANNING_TYPES)[number];
+export const PLANNING_STATUSES = ["ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"] as const;
+export type PlanningStatus = (typeof PLANNING_STATUSES)[number];
+
+export interface FinancialPlan {
+  planId: string;
+  familyId: string;
+  planningType: PlanningType;
+  amountMinor: number;
+  currency: string;
+  startDate: string;
+  endDate: string | null;
+  recurrence: "ONCE" | "MONTHLY";
+  description: string;
+  category?: string;
+  createdByMemberId: string;
+  createdAt: string;
+  status: PlanningStatus;
+}
+
 export interface Transaction {
   transactionId: string;
   familyId: string;

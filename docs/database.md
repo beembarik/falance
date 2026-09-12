@@ -44,7 +44,7 @@ The repository includes a local-only migration rehearsal command:
 npm run rehearse:migration -- --input /path/to/sanitized-registry-snapshot.json --output /path/to/rehearsal-report.json
 ```
 
-The snapshot must contain a top-level `sheets` object whose keys are the thirteen authoritative worksheet names and whose values are arrays of row objects. The rehearsal validates primary keys, required fields, enums, positive transaction amounts, non-negative AI request counts, family/member references, unknown worksheets, row counts, and deterministic SHA-256 digests of canonical rows. The report contains only worksheet names, counts, digests, and issue codes; it does not print row values. The command does not connect to Google, Supabase, or production and does not perform a cutover.
+The snapshot must contain a top-level `sheets` object whose keys are the fourteen authoritative worksheet names and whose values are arrays of row objects. The rehearsal validates primary keys, required fields, enums, positive transaction and planning amounts, non-negative AI request counts, family/member references, unknown worksheets, row counts, and deterministic SHA-256 digests of canonical rows. The report contains only worksheet names, counts, digests, and issue codes; it does not print row values. The command does not connect to Google, Supabase, or production and does not perform a cutover.
 
 After a healthy rehearsal, an operator may create a local import plan from the same sanitized snapshot:
 
@@ -54,7 +54,7 @@ npm run prepare:supabase-import -- --input /path/to/sanitized-registry-snapshot.
 
 The `--local-only` confirmation is mandatory. This command only projects validated rows into foreign-key-safe, idempotent upsert batches; it does not execute SQL, contact Supabase, or change any deployment configuration. The resulting plan may contain snapshot values and must remain in the operator's protected local workspace.
 
-The intended future cutover remains non-destructive: export a controlled snapshot, rehearse and reconcile it locally, import with idempotent upserts into a locked Supabase schema, compare counts and canonical digests, freeze writes for a final delta, then switch the repository backend flag. Google Sheets must remain available as a read-only rollback source until the Supabase path is production-validated.
+The intended future cutover remains non-destructive: export a controlled snapshot, rehearse and reconcile it locally, import with idempotent upserts into a locked Supabase schema, compare counts and canonical digests, freeze writes for a final delta, then switch the repository backend flag. The planning `Financial Plans` worksheet maps to Supabase `financial_plans` through the same rehearsal/import boundary. Google Sheets must remain available as a read-only rollback source until the Supabase path is production-validated.
 
 The primary Supabase REST write client and factory activation seam are now implemented for non-production acceptance. Setting `FALANCE_PERSISTENCE_BACKEND=supabase` is accepted only on Vercel Preview or local development when `FALANCE_SUPABASE_URL` and `FALANCE_SUPABASE_SERVICE_ROLE_KEY` are present; Vercel Production and production runtimes fail closed instead of switching storage. The client sends writes and atomic RPC calls only from the server-side repository boundary, redacts provider error bodies, and preserves the existing domain authorization responsibility in `FamilyService`. This activation seam does not itself authorize a production cutover; it exists to support non-production adapter acceptance.
 
@@ -226,6 +226,26 @@ The current Mini App may safely consume the family-scoped transaction and report
 The current repository contract includes `category` as the final Transactions field, with legacy rows migrated or read as `UNCATEGORIZED`. `categorySuggestion` and `descriptionSuggestion` still belong only to temporary AI drafts and must not be treated as persisted transaction data. M10 Slice 10 exposes explicit category selection in authenticated Mini App create/edit forms and displays the persisted category in transaction list/detail views. M10 Slice 11 exposes deterministic category summaries in the authenticated report response and a read-only Dashboard expense visualization. Summaries remain grouped by category and currency, exclude `VOID`, and never imply budget progress or AI insight. M10 Slice 9 defines the stable category-code, migration, and deterministic summary contract in [`docs/category-analytics.md`](category-analytics.md), and its registry migration is production validated.
 
 The Mini App transaction POST/PATCH endpoints use the same transaction contract and validation rules as the Telegram path, resolve `family_id` from the authenticated member on the server, and persist through `FamilyService` and the repository. The client must never submit `family_id` as a tenant selector.
+
+### Financial Plans
+
+| Column | Meaning |
+| --- | --- |
+| `plan_id` | Server-generated planning identifier. |
+| `family_id` | Mandatory server-resolved family tenant identifier. |
+| `planning_type` | `PLAN_INCOME`, `PLAN_EXPENSE`, or `RECURRING_LIABILITY`. |
+| `amount_minor` | Positive integer amount in the smallest currency unit. |
+| `currency` | Three-letter uppercase currency code. |
+| `start_date` | First planned occurrence; future dates are valid. |
+| `end_date` | Optional inclusive end date for recurring plans. |
+| `recurrence` | `ONCE` or `MONTHLY`. |
+| `description` | Normalized 1–200 character planning description. |
+| `category` | Optional validated category code. |
+| `created_by_member_id` | Opaque active membership identifier. |
+| `created_at` | ISO-8601 creation timestamp. |
+| `status` | `ACTIVE`, `PAUSED`, `COMPLETED`, or `CANCELLED`. |
+
+Planning rows are forecast data, not actual transactions. They must never change `/transactions`, actual balances, historical reports, or transaction counts. A recurring liability is expanded only in a forecast period and remains grouped by currency.
 
 ## Registry integrity and recovery
 

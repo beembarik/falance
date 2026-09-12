@@ -26,6 +26,7 @@ const TABLE_ORDER: readonly [string, string, string][] = [
   ["AI Vision Usage", "ai_vision_usage", "usage_key"],
   ["AI Text Usage", "ai_text_usage", "usage_key"],
   ["Transactions", "transactions", "transaction_id"],
+  ["Financial Plans", "financial_plans", "plan_id"],
 ];
 
 const COLUMNS: Record<string, readonly string[]> = {
@@ -42,6 +43,7 @@ const COLUMNS: Record<string, readonly string[]> = {
   ai_vision_usage: ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"],
   ai_text_usage: ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"],
   transactions: ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status", "category"],
+  financial_plans: ["plan_id", "family_id", "planning_type", "amount_minor", "currency", "start_date", "end_date", "recurrence", "description", "category", "created_by_member_id", "created_at", "status"],
 };
 
 export function createSupabaseImportPlan(snapshot: MigrationSnapshot): SupabaseImportPlan {

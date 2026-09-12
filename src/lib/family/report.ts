@@ -1,4 +1,5 @@
-import type { Transaction } from "./types";
+import type { FinancialPlan, Transaction } from "./types";
+import { buildPlanningForecast } from "./planning";
 import { getBusinessDate, getBusinessTimeZone } from "../time/business-date";
 import { buildCategorySummaries, CATEGORY_LABELS, normalizeTransactionCategory, type CategorySummary } from "./category-analytics";
 
@@ -42,12 +43,25 @@ export interface FinancialReportTransaction {
   creatorName: string;
 }
 
+export interface PlannedActualCurrencySummary {
+  currency: string;
+  plannedIncomeMinor: bigint;
+  actualIncomeMinor: bigint;
+  plannedExpenseMinor: bigint;
+  actualExpenseMinor: bigint;
+  plannedNetMinor: bigint;
+  actualNetMinor: bigint;
+  plannedOccurrenceCount: number;
+  actualTransactionCount: number;
+}
+
 export interface FinancialReport {
   period: FinancialReportPeriod;
   transactionCount: number;
   currencies: FinancialReportCurrencySummary[];
   categorySummaries: CategorySummary[];
   cashFlow: FinancialReportCashFlowPoint[];
+  plannedActual: PlannedActualCurrencySummary[];
   transactions: FinancialReportTransaction[];
 }
 
@@ -139,6 +153,61 @@ export function buildCashFlow(
   return [...summaries.values()].sort((left, right) => left.currency.localeCompare(right.currency) || left.period.localeCompare(right.period));
 }
 
+export function buildPlannedActualComparison(
+  transactions: readonly Transaction[],
+  plans: readonly FinancialPlan[],
+  period: FinancialReportPeriod,
+  familyId: string,
+): PlannedActualCurrencySummary[] {
+  const summaries = new Map<string, PlannedActualCurrencySummary>();
+  const getSummary = (currency: string): PlannedActualCurrencySummary => {
+    const existing = summaries.get(currency);
+    if (existing) return existing;
+    const created: PlannedActualCurrencySummary = {
+      currency,
+      plannedIncomeMinor: BigInt(0),
+      actualIncomeMinor: BigInt(0),
+      plannedExpenseMinor: BigInt(0),
+      actualExpenseMinor: BigInt(0),
+      plannedNetMinor: BigInt(0),
+      actualNetMinor: BigInt(0),
+      plannedOccurrenceCount: 0,
+      actualTransactionCount: 0,
+    };
+    summaries.set(currency, created);
+    return created;
+  };
+
+  for (const line of buildPlanningForecast(plans, period.startDate, period.endDate, familyId)) {
+    const summary = getSummary(line.currency);
+    summary.plannedOccurrenceCount += 1;
+    if (line.planningType === "PLAN_INCOME") {
+      summary.plannedIncomeMinor += line.amountMinor;
+      summary.plannedNetMinor += line.amountMinor;
+    } else {
+      summary.plannedExpenseMinor += line.amountMinor;
+      summary.plannedNetMinor -= line.amountMinor;
+    }
+  }
+
+  for (const transaction of transactions) {
+    if (transaction.familyId !== familyId || transaction.status !== "ACTIVE") continue;
+    if (transaction.transactionDate < period.startDate || transaction.transactionDate > period.endDate) continue;
+    const summary = getSummary(transaction.currency);
+    const amount = BigInt(transaction.amountMinor);
+    summary.actualTransactionCount += 1;
+    if (transaction.transactionType === "INCOME") {
+      summary.actualIncomeMinor += amount;
+      summary.actualNetMinor += amount;
+    } else {
+      summary.actualExpenseMinor += amount;
+      summary.actualNetMinor -= amount;
+    }
+  }
+
+  return [...summaries.values()].sort((left, right) => left.currency.localeCompare(right.currency));
+}
+
 function formatCashFlowPeriodLabel(date: string): string {
   const [year, month] = date.slice(0, 7).split("-").map(Number);
   return new Intl.DateTimeFormat("id-ID", { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, 1)));
@@ -150,6 +219,7 @@ export function buildFinancialReport(
   transactionLimit: number | null = DEFAULT_TRANSACTION_LIMIT,
   familyId?: string,
   creatorNames?: ReadonlyMap<string, string>,
+  plans: readonly FinancialPlan[] = [],
 ): FinancialReport {
   const boundedLimit = transactionLimit === null
     ? null
@@ -205,6 +275,7 @@ export function buildFinancialReport(
       endDate: period.endDate,
     }),
     cashFlow: buildCashFlow(transactions, period, familyId),
+    plannedActual: buildPlannedActualComparison(transactions, plans, period, familyId ?? transactions[0]?.familyId ?? ""),
     transactions: reportTransactions,
   };
 }

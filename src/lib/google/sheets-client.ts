@@ -300,10 +300,13 @@ export type GoogleOperation =
   | "updateFamilyStatus"
   | "readPendingConfirmations"
   | "readTransactions"
+  | "readFinancialPlans"
   | "createPendingConfirmation"
   | "updatePendingConfirmation"
   | "createAuditLog"
   | "createTransaction"
+  | "createFinancialPlan"
+  | "updateFinancialPlan"
   | "updateTransaction"
   | "createMember"
   | "updateMemberRole"
@@ -501,6 +504,7 @@ export const REGISTRY_SHEETS = [
   { name: "Pending Transaction Drafts", headers: ["draft_id", "telegram_user_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "confidence", "created_at", "expires_at", "status"] },
   { name: "Audit Log", headers: ["audit_id", "family_id", "actor_member_id", "actor_role", "action", "target_type", "target_id", "previous_value", "new_value", "created_at"] },
   { name: "Transactions", headers: ["transaction_id", "family_id", "transaction_type", "amount_minor", "currency", "transaction_date", "description", "created_by_member_id", "created_at", "status", "category"] },
+  { name: "Financial Plans", headers: ["plan_id", "family_id", "planning_type", "amount_minor", "currency", "start_date", "end_date", "recurrence", "description", "category", "created_by_member_id", "created_at", "status"] },
   { name: "Processed Telegram Updates", headers: ["update_id", "claimed_at", "completed_at", "status"] },
   { name: "AI Vision Usage", headers: ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"] },
   { name: "AI Text Usage", headers: ["usage_key", "family_id", "telegram_user_id", "window_started_at", "request_count", "last_claimed_at", "lease_until", "status"] },
