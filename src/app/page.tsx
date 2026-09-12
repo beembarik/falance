@@ -135,6 +135,8 @@ export default function Home() {
   const [planningData, setPlanningData] = useState<PlanningResponse | null>(null);
   const [planningLoading, setPlanningLoading] = useState(false);
   const [planningError, setPlanningError] = useState("");
+  const [planningFormOpen, setPlanningFormOpen] = useState(false);
+  const [planningFormInitData, setPlanningFormInitData] = useState("");
   const [addTransactionOpen, setAddTransactionOpen] = useState(false);
   const [comparison, setComparison] = useState<ReportResponse | null>(null);
   const [comparisonLoading, setComparisonLoading] = useState(false);
@@ -244,6 +246,23 @@ export default function Home() {
       setPlanningLoading(false);
     }
   }, []);
+
+  const openPlanningForm = useCallback(() => {
+    const currentInitData = initDataRef.current || window.Telegram?.WebApp?.initData || "";
+    if (!currentInitData) {
+      setNotice("Buka halaman ini dari Telegram Mini App agar rencana dapat disimpan.");
+      return;
+    }
+    setPlanningFormInitData(currentInitData);
+    setPlanningFormOpen(true);
+  }, []);
+
+  const handlePlanningSaved = useCallback((message: string) => {
+    setPlanningFormOpen(false);
+    setNotice(message);
+    void loadPlanning();
+    void loadReport(month, startDate, endDate);
+  }, [endDate, loadPlanning, loadReport, month, startDate]);
 
   const selectNav = useCallback((key: NavKey) => {
     setActiveNav(key);
@@ -512,6 +531,7 @@ export default function Home() {
             loading={planningLoading}
             error={planningError}
             onRetry={() => void loadPlanning()}
+            onAddPlan={openPlanningForm}
           />
         )}
 
@@ -535,6 +555,7 @@ export default function Home() {
         {selectedTransaction && <TransactionDetail transaction={selectedTransaction} onClose={() => setSelectedTransaction(null)} onEdit={() => openEditTransaction(selectedTransaction)} onRequestVoid={() => void requestTransactionVoid(selectedTransaction.transactionId)} voidConfirmation={voidConfirmation} transactionAction={transactionAction} transactionActionError={transactionActionError} onConfirmVoid={() => void confirmTransactionVoid()} onCancelVoid={() => void cancelTransactionVoid()} />}
         {addTransactionOpen && <AddTransactionForm initData={formInitData} onClose={() => setAddTransactionOpen(false)} onSaved={() => handleTransactionSaved("Transaksi berhasil dicatat dan daftar transaksi sedang diperbarui.")} />}
         {editingTransaction && <AddTransactionForm key={editingTransaction.transactionId} initData={formInitData} transaction={editingTransaction} onClose={() => setEditingTransaction(null)} onSaved={() => handleTransactionSaved("Transaksi berhasil diperbarui dan daftar transaksi sedang diperbarui.")} />}
+        {planningFormOpen && <PlanningForm initData={planningFormInitData} onClose={() => setPlanningFormOpen(false)} onSaved={handlePlanningSaved} />}
       </div>
 
       <BottomNavigation activeNav={activeNav} onSelect={selectNav} onAddTransaction={openAddTransaction} />
@@ -1007,11 +1028,10 @@ function ReportsView({ data, comparison, comparisonLoading, month, startDate, en
   );
 }
 
-function PlanningView({ data, planningData, loading, error, onRetry }: { data: ReportResponse | null; planningData: PlanningResponse | null; loading: boolean; error: string; onRetry: () => void }) {
+function PlanningView({ data, planningData, loading, error, onRetry, onAddPlan }: { data: ReportResponse | null; planningData: PlanningResponse | null; loading: boolean; error: string; onRetry: () => void; onAddPlan: () => void }) {
   return <div className="space-y-4">
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Forecast keluarga</p>
-      <h2 className="mt-1 text-xl font-bold">Rencana keuangan</h2>
+      <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Forecast keluarga</p><h2 className="mt-1 text-xl font-bold">Rencana keuangan</h2></div><button type="button" onClick={onAddPlan} className="min-h-10 rounded-xl bg-[var(--brand-green-700)] px-3 text-xs font-bold text-white hover:bg-[var(--brand-green-800)]">+ Tambah</button></div>
       <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">Rencana pendapatan, pengeluaran, dan recurring liability dipisahkan dari transaksi aktual.</p>
     </section>
     {loading && <LoadingState />}
@@ -1020,6 +1040,35 @@ function PlanningView({ data, planningData, loading, error, onRetry }: { data: R
     {!loading && !error && planningData && planningData.plans.length > 0 && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)]"><div className="divide-y divide-[var(--border)]">{planningData.plans.map((plan) => <article key={plan.planId} className="py-3 first:pt-0 last:pb-0"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold">{planningLabel(plan.planningType)}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">Mulai {formatDisplayDate(plan.startDate)} · {plan.recurrence === "MONTHLY" ? "Bulanan" : "Sekali"}</p><p className="mt-1 text-sm">{plan.description}</p></div><p className="shrink-0 text-sm font-bold">{formatAmount(plan.amountMinor, plan.currency)}</p></div></article>)}</div></section>}
     {data && <PlannedActualSection summaries={data.report.plannedActual} />}
   </div>;
+}
+
+function PlanningForm({ initData, onClose, onSaved }: { initData: string; onClose: () => void; onSaved: (message: string) => void }) {
+  const [planningType, setPlanningType] = useState<PlanningResponse["plans"][number]["planningType"]>("PLAN_EXPENSE");
+  const [amountMinor, setAmountMinor] = useState("");
+  const [currency, setCurrency] = useState("IDR");
+  const [startDate, setStartDate] = useState("");
+  const [recurrence, setRecurrence] = useState<"ONCE" | "MONTHLY">("ONCE");
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setError("");
+    try {
+      const response = await fetch("/api/mini-app/plans", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ initData, action: "CREATE", planningType, amountMinor, currency, startDate, recurrence, description }) });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Rencana tidak dapat disimpan.");
+      onSaved("Rencana berhasil disimpan.");
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Rencana tidak dapat disimpan.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return <div className="fixed inset-0 z-30 flex items-end justify-center bg-[rgba(34,48,41,0.38)] p-0 sm:items-center sm:p-4"><form onSubmit={submit} className="w-full max-w-lg rounded-t-3xl bg-[var(--surface)] p-5 shadow-2xl sm:rounded-3xl"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-purple-600)]">Planning</p><h2 className="mt-1 text-xl font-bold">Tambah rencana</h2></div><button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full text-xl text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]" aria-label="Tutup">×</button></div><div className="mt-5 space-y-4"><label className="block text-sm font-semibold">Jenis rencana<select value={planningType} onChange={(event) => { const nextType = event.target.value as PlanningResponse["plans"][number]["planningType"]; setPlanningType(nextType); if (nextType === "PLAN_INCOME") setRecurrence("ONCE"); }} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 text-sm font-normal"><option value="PLAN_EXPENSE">Rencana pengeluaran</option><option value="PLAN_INCOME">Rencana pendapatan</option><option value="RECURRING_LIABILITY">Recurring liability</option></select></label><div className="grid grid-cols-[1fr_100px] gap-3"><label className="block text-sm font-semibold">Nominal<input required inputMode="numeric" value={amountMinor} onChange={(event) => setAmountMinor(event.target.value)} placeholder="1500000" className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 text-sm font-normal" /></label><label className="block text-sm font-semibold">Currency<input required maxLength={3} value={currency} onChange={(event) => setCurrency(event.target.value.toUpperCase())} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 text-sm font-normal" /></label></div><div className="grid grid-cols-2 gap-3"><label className="block text-sm font-semibold">Mulai<input required type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 text-sm font-normal" /></label><label className="block text-sm font-semibold">Perulangan<select value={recurrence} onChange={(event) => setRecurrence(event.target.value as "ONCE" | "MONTHLY")} disabled={planningType === "PLAN_INCOME"} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 text-sm font-normal"><option value="ONCE">Sekali</option><option value="MONTHLY">Bulanan</option></select></label></div><label className="block text-sm font-semibold">Deskripsi<textarea required maxLength={200} value={description} onChange={(event) => setDescription(event.target.value)} rows={3} placeholder="Sewa rumah, gaji, cicilan..." className="mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-3 text-sm font-normal" /></label></div>{error && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-950">{error}</p>}<div className="mt-5 flex justify-end gap-2"><button type="button" onClick={onClose} className="min-h-11 rounded-xl px-4 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]">Batal</button><button type="submit" disabled={submitting} className="min-h-11 rounded-xl bg-[var(--brand-green-700)] px-4 text-sm font-bold text-white disabled:opacity-60">{submitting ? "Menyimpan…" : "Simpan rencana"}</button></div></form></div>;
 }
 
 function PlannedActualSection({ summaries }: { summaries: ReportResponse["report"]["plannedActual"] }) {
